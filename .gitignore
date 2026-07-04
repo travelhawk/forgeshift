@@ -1,0 +1,12 @@
+# Products are their own git repos — not tracked by the harness
+projects/*
+!projects/README.md
+
+# Local-only Claude Code state
+.claude/settings.local.json
+.claude/agent-memory-local/
+
+node_modules/
+.env
+.env.*
+!.env.example
