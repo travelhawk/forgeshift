@@ -25,7 +25,7 @@ Don't include your current favorite theory as fact — label hypotheses as hypot
 
 ## 2. Delegate
 
-Hand the dossier to `forge-debugger`. It works hypothesis-driven: reproduce →
+Hand the dossier to `forge-temper`. It works hypothesis-driven: reproduce →
 fault model → discriminating experiments → root-cause fix → regression test proven in
 both directions. Expect it to take its time — that's the point.
 

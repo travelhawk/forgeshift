@@ -43,7 +43,7 @@
 <rect x="160" y="326" width="400" height="118" rx="8" fill="#f0eee6" stroke="#d1cfc5"/>
 <text x="176" y="350" font-size="14" font-weight="600" fill="#1f1e1d">forge agents — specialists</text>
 <text x="176" y="369" font-size="12" fill="#6e6d66">fresh context, pinned model, own tools</text>
-<text x="176" y="394" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Fable 5</tspan>  planner · reviewer · debugger</text>
-<text x="176" y="412" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Opus 4.8</tspan>  implementer · tester · security</text>
-<text x="176" y="430" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Sonnet 5</tspan>  scout · scribe</text>
+<text x="176" y="394" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Fable 5</tspan>  blueprint (plan) · quench (review) · temper (debug)</text>
+<text x="176" y="412" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Opus 4.8</tspan>  hammer (build) · proof (test) · warden (security)</text>
+<text x="176" y="430" font-size="12" fill="#1f1e1d"><tspan font-weight="600">Sonnet 5</tspan>  prospector (research) · etcher (docs)</text>
 </svg>

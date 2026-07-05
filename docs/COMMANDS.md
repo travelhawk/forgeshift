@@ -18,10 +18,10 @@ not a program.
 **Agents** (`.claude/agents/forge-*.md`) are not commands — they are the
 specialists skills delegate to. Each has its own system prompt, tool allowlist, and
 pinned model, and starts with a **fresh, empty context**: it sees only the brief it
-is handed. That is deliberate — `forge-reviewer` judges a diff without seeing the
+is handed. That is deliberate — `forge-quench` judges a diff without seeing the
 builder's reasoning, so it can't be pulled into the builder's blind spots.
-Planner, reviewer, debugger, and security carry persistent memory
-(`.claude/agent-memory/`) and get sharper across projects.
+Blueprint, quench, temper, and warden (planner, reviewer, debugger, security) carry
+persistent memory (`.claude/agent-memory/`) and get sharper across projects.
 
 **Workflows** (`.claude/workflows/<name>.js`) are JavaScript scripts the runtime
 executes *outside* the chat. The code decides deterministically which agents start
@@ -33,8 +33,8 @@ verdicts). Orchestration is code, therefore reproducible.
 
 **`/feature F2` — a skill conducting agents.** The playbook anchors the goal (read
 the spec, run the suite), sizes the work, then: small → the session builds it
-itself; medium+ → plan and done-criteria go to `forge-implementer` (Opus,
-tests-first on a branch), the resulting diff goes to `forge-reviewer` (Fable, fresh
+itself; medium+ → plan and done-criteria go to `forge-hammer` (Opus,
+tests-first on a branch), the resulting diff goes to `forge-quench` (Fable, fresh
 context). Only after confirmed findings are fixed does it merge and tick
 PROGRESS.md — with pasted evidence.
 

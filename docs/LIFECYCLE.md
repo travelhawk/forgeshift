@@ -56,7 +56,7 @@ checklist from `templates/RELEASE-CHECKLIST.md` → tag, deploy, live smoke test
 
 ### 6. Bugfix loop (`/fix`)
 Production bugs and broken behavior skip feature ceremony: reproduce → regression test
-that fails → smallest fix → `forge-reviewer` on the diff → patch `/ship` with the
+that fails → smallest fix → `forge-quench` on the diff → patch `/ship` with the
 abbreviated manual checklist (only the broken journey re-walked; the automated gate
 always runs in full). Bugs that survive two attempts escalate to `/debug-hard`.
 

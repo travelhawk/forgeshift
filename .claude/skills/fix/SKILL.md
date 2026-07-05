@@ -31,7 +31,7 @@ note it for an ADR/feature instead of fixing the world now. Commit:
 
 ## 4. Review
 
-`forge-reviewer` on the diff — security-relevant or data-touching fixes always; trivial
+`forge-quench` on the diff — security-relevant or data-touching fixes always; trivial
 one-liners with an obvious regression test may skip (say so when you do).
 
 ## 5. Release the fix (when it needs to go out now)
@@ -45,4 +45,4 @@ it rides the next regular release; note it in CHANGELOG under Unreleased.
 
 PROGRESS.md session log: symptom → root cause → the test that now guards it. If the
 same class of bug happened before, say so — twice is a pattern worth an ADR or a
-`forge-reviewer` memory note.
+`forge-quench` memory note.

@@ -25,20 +25,20 @@ instead (offer it when the user lists 3+ independent items).
 - **Medium**: show the inline plan — approach, files to touch, test plan — and proceed
   without waiting for approval; the user can interrupt.
 - **Large or judgment-heavy** (new subsystem, data-model change, security-relevant):
-  delegate planning to `forge-planner`, record the plan as `docs/features/F<#>.md` from
+  delegate planning to `forge-blueprint`, record the plan as `docs/features/F<#>.md` from
   `templates/FEATURE.md` (harness root), and **block on user approval** before building.
 
 ## 3. Build
 
 - Medium+ features build on a branch `feature/<F#-or-slug>`; merge to main only after
   step 4 verification passes. Small fixes may commit straight to main.
-- Implement per the plan — yourself for small work, via `forge-implementer` for medium+
+- Implement per the plan — yourself for small work, via `forge-hammer` for medium+
   (give it the plan, done-criteria, and paths; it works tests-first and commits per
   green cycle). Never delete or weaken existing tests to get to green.
 
 ## 4. Verify (fresh context, non-negotiable for medium+)
 
-Send `forge-reviewer` the diff scope and the done-criteria. It sees only the result, not
+Send `forge-quench` the diff scope and the done-criteria. It sees only the result, not
 the build reasoning. Fix CONFIRMED critical/high findings immediately; judge medium/low
 with the user if the fix isn't obvious. Small cosmetic changes may skip this — say so
 explicitly when you do.
@@ -54,5 +54,5 @@ explicitly when you do.
 ## Escalation
 
 Two failed attempts at the same problem → stop grinding: `/debug-hard` for bugs,
-`forge-planner` (or the `design-panel` workflow) for design dead-ends. A third identical
+`forge-blueprint` (or the `design-panel` workflow) for design dead-ends. A third identical
 attempt is banned.

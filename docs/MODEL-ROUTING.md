@@ -87,8 +87,9 @@ Route by **decision density**, not by task size. A one-line change that requires
 - **Session model:** run interactive sessions on Opus 4.8 (or Fable 5 for architecture
   days). Set via the model selector / `claude --model`.
 - **Subagents:** each agent file in `.claude/agents/` pins its tier via the `model:`
-  frontmatter field. Planner/Reviewer/Debugger ride Fable; builders ride Opus; scouts and
-  scribes ride Sonnet.
+  frontmatter field. Blueprint/Quench/Temper (planner/reviewer/debugger) ride Fable;
+  Hammer/Proof/Warden (implementer/tester/security) build on Opus; Prospector/Etcher
+  (scout/docs) ride Sonnet.
 - **Workflows:** scripts in `.claude/workflows/` pass `model:`/`effort:` per `agent()`
   call — judgment stages high/xhigh, mechanical command-running stages medium, pure
   inventory sweeps low. Set effort explicitly; unset stages inherit the session's

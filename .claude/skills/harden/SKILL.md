@@ -10,7 +10,7 @@ Scope: $ARGUMENTS (default: the whole project, prioritized by exposure).
 
 ## 1. Audit
 
-Delegate to `forge-security` with the scope, what the app does, and where the sensitive
+Delegate to `forge-warden` with the scope, what the app does, and where the sensitive
 surfaces are (auth, payments, uploads, admin). It returns confirmed findings with attack
 paths and a "needs a second look" list.
 
@@ -37,7 +37,7 @@ PROGRESS.md.
 ## 3. Fix
 
 Fix approved findings through the normal quality loop — regression test that encodes
-the attack (the test attacks, the fix defends), then the fix, then `forge-reviewer` on
+the attack (the test attacks, the fix defends), then the fix, then `forge-quench` on
 the security-relevant diffs. Security fixes get review without exception.
 
 ## 4. Close

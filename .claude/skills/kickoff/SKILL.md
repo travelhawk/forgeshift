@@ -8,7 +8,7 @@ disable-model-invocation: true
 # /kickoff — Idea → Spec → Stack → Scaffold
 
 Take "$ARGUMENTS" from idea to a project that is ready for its first `/feature`.
-You are the interviewer and orchestrator; delegate heavy thinking to `forge-planner`.
+You are the interviewer and orchestrator; delegate heavy thinking to `forge-blueprint`.
 
 ## 0. Locate
 
@@ -34,7 +34,7 @@ If the user says "du entscheidest" / "you decide", decide and record the decisio
 
 ## 2. Spec draft
 
-Have `forge-planner` draft the spec CONTENT from the interview, following
+Have `forge-blueprint` draft the spec CONTENT from the interview, following
 `templates/SPEC.md` (harness root). The planner returns markdown — it does not write
 files; hold the draft, it lands on disk in step 4. Present the summary — scope table,
 out-of-scope list, open questions — and iterate until the user approves.

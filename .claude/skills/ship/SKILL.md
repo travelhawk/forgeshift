@@ -18,7 +18,7 @@ there. Ambiguous which product? Ask.
 ## 1. Prepare the release commit (before any gate — the gate checks these)
 
 1. CHANGELOG entry for this version: user-visible effects, not implementation notes
-   (`forge-scribe` if it's more than a few lines). No CHANGELOG file yet (first
+   (`forge-etcher` if it's more than a few lines). No CHANGELOG file yet (first
    release)? Create it now.
 2. Bump the version consistently across all manifests.
 3. Commit: `release: <version>`.

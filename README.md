@@ -1,8 +1,18 @@
-# Forge — Agent Harness
+# F.O.R.G.E.
 
-A control center for building products with Claude Code: any web app, SaaS, API, CLI,
-mobile, desktop, extension, or library — from idea to shipped, with quality gates that
-actually gate.
+```
+ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+ ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+ █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+ ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+ ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+   Fable-Orchestrated, Review-Gated Engineering
+```
+
+**Where products get hammered into shape.** A control center for building products
+with Claude Code: any web app, SaaS, API, CLI, mobile, desktop, extension, or
+library — from idea to shipped, with quality gates that actually gate.
 
 Built for and around the Claude 5 era: **Fable 5** for judgment (architecture, specs,
 hard bugs, review verdicts), **Opus 4.8** for building, Sonnet/Haiku for execution and
@@ -45,7 +55,7 @@ the harness root):
 | Layer | Where | What |
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
-| Specialists | `.claude/agents/forge-*.md` | planner/reviewer/debugger (Fable 5), implementer/tester/security (Opus), scout/scribe (Sonnet) |
+| Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (Fable 5); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
 | Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
 | Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |

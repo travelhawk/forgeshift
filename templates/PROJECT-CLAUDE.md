@@ -40,7 +40,7 @@ done-criteria). State: `PROGRESS.md` (feature list + session log). Decisions:
 ## Quality gates (inherited from Forge — enforced, not advisory)
 
 - Tests first; never weaken a test to pass it. Evidence before "done" claims.
-- Medium+ changes get fresh-context review (`forge-reviewer`) before merge.
+- Medium+ changes get fresh-context review (`forge-quench`) before merge.
 - Deviations from SPEC.md update SPEC.md in the same change.
 - Two failed attempts → escalate, don't grind.
 

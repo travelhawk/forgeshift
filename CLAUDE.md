@@ -1,4 +1,4 @@
-# Forge — Agent Harness
+# F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering
 
 This repo is a **control center for building products**, not a product itself. Products
 live in `projects/<name>/` (each its own git repo, gitignored here). Everything in this
@@ -40,8 +40,10 @@ Opus attempts; never downgrade a review gate.
 
 ## Delegation
 
-Specialists live in `.claude/agents/` (all `forge-*` prefixed): planner, implementer,
-reviewer, debugger, tester, security, scout, scribe. Rules — full guide on demand:
+Specialists live in `.claude/agents/`, forge-themed names with the role in parentheses:
+`forge-blueprint` (planner), `forge-hammer` (implementer), `forge-quench` (reviewer),
+`forge-temper` (debugger), `forge-proof` (tester), `forge-warden` (security),
+`forge-prospector` (scout), `forge-etcher` (docs). Rules — full guide on demand:
 `docs/ORCHESTRATION.md`
 
 - Default to the lowest orchestration level that works; escalate on demonstrated failure.
