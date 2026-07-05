@@ -12,6 +12,8 @@ demand: `docs/LIFECYCLE.md`
 
 ## Command map
 
+Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
+
 | Command | What it does |
 |---|---|
 | `/kickoff <idea>` | Interview → SPEC.md → stack from playbook → verified scaffold |
