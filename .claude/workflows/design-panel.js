@@ -1,7 +1,7 @@
 export const meta = {
   name: 'design-panel',
   description: 'Generate N independent design approaches, score them with a judge panel, synthesize the winner',
-  whenToUse: 'Architecture or design decisions where the solution space is wide and a wrong pick is expensive: system design, data model, API shape, major refactor strategy. Pass the design brief (problem, constraints, context) as args.',
+  whenToUse: 'Architecture or design decisions where the solution space is wide and a wrong pick is expensive: system design, data model, API shape, major refactor strategy. Pass the design brief (problem, constraints, context) as args — or an object {dir: "<product path>", brief: "..."}; dir pins the target repo (required when the session did not start in the product directory). If args does not arrive intact, write the brief to design-panel.input.md in the target repo root before invoking; it is read as a fallback.',
   phases: [
     { title: 'Design', detail: '4 independent designers, different priors' },
     { title: 'Judge', detail: '3 judges score all designs' },
@@ -9,10 +9,63 @@ export const meta = {
   ],
 }
 
-const brief = typeof args === 'string' && args.trim() ? args.trim() : null
-if (!brief) {
-  return { error: 'design-panel requires the design brief as args (problem, constraints, context).' }
+// --- Target-directory + input contract (2026-07-06) ----------------------------
+// Workflow agents run in the SESSION's working directory — not necessarily the
+// product this workflow should explore (observed live in the 2026-07-05 harness
+// eval), and args can arrive mangled (also observed). Accept {dir, brief},
+// coerce stringified args, verify the target, fall back to
+// design-panel.input.md in the target root for the brief.
+let a = args
+if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
+const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+let brief = typeof a === 'string' && a.trim() ? a.trim()
+  : a && typeof a === 'object' && typeof a.brief === 'string' && a.brief.trim() ? a.brief.trim() : null
+
+const PREFLIGHT = {
+  type: 'object', additionalProperties: false,
+  required: ['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'],
+  properties: {
+    path: { type: 'string', description: 'absolute path of the inspected target directory' },
+    exists: { type: 'boolean' },
+    isGitRepo: { type: 'boolean', description: 'target has a .git directory' },
+    hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
+    isControlCenter: { type: 'boolean', description: 'target looks like an agent harness / control-center repo rather than a product: .claude/workflows/ or .claude/agents/ present, a projects/ container dir, or a CLAUDE.md describing a harness' },
+    cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
+    briefFile: { type: 'string', description: 'ONLY if design-panel.input.md exists in the target root: its full content, verbatim' },
+  },
 }
+const pre = await globalThis.agent(
+  `Preflight, read-only, modify nothing. Run pwd. ${dirArg
+    ? `The intended target directory is ${dirArg} — inspect it.`
+    : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
+  `Report per the schema: absolute target path, whether it exists, is a git repo, holds a real project, and ` +
+  `whether it looks like an agent-harness/control-center repo instead of a product. Additionally: if a file ` +
+  `design-panel.input.md exists in the target root, return its full content verbatim in briefFile.`,
+  { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
+)
+if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>", brief: "..."} and retry.' }
+if (!pre.exists || !pre.hasCode || pre.isControlCenter) {
+  return {
+    error: `Refusing to run against ${pre.path || dirArg || 'the session working directory'}: ` +
+      (!pre.exists ? 'it does not exist.'
+        : pre.isControlCenter ? 'it looks like a harness/control-center repo, not a product.'
+          : 'it does not hold a project (no source or manifest).') +
+      ' Pass the product directory explicitly: args {dir: "<absolute path>", brief: "..."}.',
+    preflight: pre,
+  }
+}
+if (!brief && pre.briefFile && pre.briefFile.trim()) {
+  brief = pre.briefFile.trim()
+  log('Brief read from design-panel.input.md — args did not arrive intact')
+}
+if (!brief) {
+  return { error: 'design-panel requires the design brief: pass it as args (string or {dir, brief}), or write design-panel.input.md into the target repo root.', preflight: pre }
+}
+const TARGET = pre.path
+const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. cd there at the start of ` +
+  `every shell command (or use absolute paths under it) and stay within it.\n\n`
+const agent0 = globalThis.agent
+const agent = (p, o) => agent0(AT + p, o)
 
 const ANGLES = [
   { key: 'simplest', prior: 'Radical simplicity. The least machinery that fully solves the problem. Boring technology. You lose points for every moving part.' },
@@ -37,17 +90,17 @@ const DESIGN = {
 
 phase('Design')
 log('4 designers working the brief independently')
-const designs = (await parallel(ANGLES.map(a => () =>
+const designs = (await parallel(ANGLES.map(a2 => () =>
   agent(
-    `You are designing a solution. Explore the current repository in the working directory for real context (existing code, stack, conventions) before designing.\n\n` +
-    `BRIEF:\n${brief}\n\nYOUR DESIGN PRIOR — commit to it fully; other designers cover other priors:\n${a.prior}\n\n` +
+    `You are designing a solution. Explore the target repository for real context (existing code, stack, conventions) before designing.\n\n` +
+    `BRIEF:\n${brief}\n\nYOUR DESIGN PRIOR — commit to it fully; other designers cover other priors:\n${a2.prior}\n\n` +
     `Produce a complete, concrete design. Name real technologies and real modules, not placeholders.`,
-    { label: `design:${a.key}`, phase: 'Design', effort: 'high', schema: DESIGN },
-  ).then(d => d && { key: a.key, ...d }),
+    { label: `design:${a2.key}`, phase: 'Design', effort: 'high', schema: DESIGN },
+  ).then(d => d && { key: a2.key, ...d }),
 ))).filter(Boolean)
 
 if (designs.length < 2) {
-  return { error: 'Fewer than 2 designs produced — cannot run a meaningful panel.', designs }
+  return { target: TARGET, error: 'Fewer than 2 designs produced — cannot run a meaningful panel.', designs }
 }
 
 // Built after the Design phase so `best` is constrained to designs that actually exist.
@@ -81,14 +134,14 @@ phase('Judge')
 const verdicts = (await parallel([0, 1, 2].map(i => () =>
   agent(
     `You are judge ${i + 1} of 3 on a design panel. Score every design against the brief. ` +
-    `Be adversarial: probe each design for the failure that would kill it. Explore the repository ` +
+    `Be adversarial: probe each design for the failure that would kill it. Explore the target repository ` +
     `if you need ground truth about the existing system.\n\nBRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
     { label: `judge:${i + 1}`, phase: 'Judge', model: 'fable', effort: 'high', schema: SCORE },
   ),
 ))).filter(Boolean)
 
 if (!verdicts.length) {
-  return { error: 'All judges failed — no panel verdict possible. Designs returned for manual judging.', designs }
+  return { target: TARGET, error: 'All judges failed — no panel verdict possible. Designs returned for manual judging.', designs }
 }
 
 const tally = {}
@@ -104,7 +157,7 @@ if (top.length > 1) {
   for (const k of top) {
     sums[k] = verdicts.reduce((s, v) => s + ((v.scores.find(x => x.design === k) || {}).total || 0), 0)
   }
-  const ranked = Object.entries(sums).sort((a, b) => b[1] - a[1])
+  const ranked = Object.entries(sums).sort((a2, b) => b[1] - a2[1])
   winnerKey = ranked[0][0]
   tied = ranked.length > 1 && ranked[0][1] === ranked[1][1]
 }
@@ -126,7 +179,7 @@ const final = await agent(
 )
 
 if (!final) {
-  return { error: 'Synthesis agent failed — winner and raw materials returned for manual synthesis.', winner: winnerKey, tied, tally, designs, verdicts }
+  return { target: TARGET, error: 'Synthesis agent failed — winner and raw materials returned for manual synthesis.', winner: winnerKey, tied, tally, designs, verdicts }
 }
 
-return { design: final, winner: winnerKey, tied, tally, designs, verdicts }
+return { target: TARGET, design: final, winner: winnerKey, tied, tally, designs, verdicts }

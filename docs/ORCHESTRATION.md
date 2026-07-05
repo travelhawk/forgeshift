@@ -36,6 +36,29 @@ the lower level demonstrably fails (missed findings, serial slog through indepen
 - Anything touching shared mutable state without worktree isolation.
 - Small stuff. A 20-line fix does not need a judge panel.
 
+## Workflow target contract (added 2026-07-06, after the harness eval)
+
+Workflow agents inherit the **session's start directory**, not your shell `cd` — a
+session started from the harness root (or any parent) would otherwise run its agents
+against the wrong repository (observed live). Three rules, enforced in all five
+workflows:
+
+1. **Pass the target explicitly:** `args: {dir: "<absolute product path>", ...}`
+   combined with the workflow's own inputs (`scope`, `brief`, `features`/`context`,
+   `focus`, release `context`).
+2. **Preflight guard:** a cheap Haiku agent verifies the target exists, holds a real
+   project, and is not a harness/control-center repo (feature-pipeline additionally
+   requires a git repo) — otherwise the workflow refuses before any real work. The
+   verified absolute path is pinned into every agent prompt and echoed in the result.
+3. **Args can arrive mangled** (observed: an object reached a script as a non-object).
+   All workflows coerce JSON-stringified args; `feature-pipeline` and `design-panel`
+   additionally read `feature-pipeline.input.json` / `design-panel.input.md` from the
+   target root as a fallback — write the file before invoking, delete it after.
+
+Also: `feature-pipeline` branches are verified **in isolation** — after merging, run
+the full suite on the merged result in the main session before calling the batch done
+(the merged whole has not been tested by any agent; integration breaks surface here).
+
 ## Subagent contract (applies to every delegation)
 
 1. **Self-contained prompt.** The subagent sees none of your conversation. Paths, context,

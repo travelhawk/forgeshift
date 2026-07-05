@@ -1,7 +1,7 @@
 export const meta = {
   name: 'release-gate',
   description: 'Pre-release checks: static, security, docs in parallel, then tests, build, runtime smoke in sequence - one blocking verdict',
-  whenToUse: 'Before tagging/deploying a release. Run from the project root AFTER the release commit exists (CHANGELOG entry + version bump) — /ship handles that ordering. Pass optional args string with release context. Fails closed: a gate that does not report blocks the verdict.',
+  whenToUse: 'Before tagging/deploying a release. Run from the project root AFTER the release commit exists (CHANGELOG entry + version bump) — /ship handles that ordering. Pass optional args string with release context — or an object {dir: "<product path>", context: "..."}; dir pins the target repo (required when the session did not start in the product directory). Fails closed: a gate that does not report blocks the verdict.',
   phases: [
     { title: 'Inspect', detail: 'static, security, docs — read-mostly, parallel' },
     { title: 'Execute', detail: 'tests → build → runtime, sequential (they share ports and build dirs)' },
@@ -9,7 +9,53 @@ export const meta = {
   ],
 }
 
-const context = typeof args === 'string' && args.trim() ? `Release context: ${args.trim()}` : 'No release context provided — infer version/changes from git.'
+// --- Target-directory contract (2026-07-06) -----------------------------------
+// Workflow agents run in the SESSION's working directory — not necessarily the
+// product to gate (observed live in the 2026-07-05 harness eval). Accept
+// {dir, context}, coerce stringified args, verify the target, pin every prompt.
+let a = args
+if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
+const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const ctxArg = typeof a === 'string' && a.trim() ? a.trim()
+  : a && typeof a === 'object' && typeof a.context === 'string' && a.context.trim() ? a.context.trim() : null
+const context = ctxArg ? `Release context: ${ctxArg}` : 'No release context provided — infer version/changes from git.'
+
+const PREFLIGHT = {
+  type: 'object', additionalProperties: false,
+  required: ['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'],
+  properties: {
+    path: { type: 'string', description: 'absolute path of the inspected target directory' },
+    exists: { type: 'boolean' },
+    isGitRepo: { type: 'boolean', description: 'target has a .git directory' },
+    hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
+    isControlCenter: { type: 'boolean', description: 'target looks like an agent harness / control-center repo rather than a product: .claude/workflows/ or .claude/agents/ present, a projects/ container dir, or a CLAUDE.md describing a harness' },
+    cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
+  },
+}
+const pre = await globalThis.agent(
+  `Preflight, read-only, modify nothing. Run pwd. ${dirArg
+    ? `The intended target directory is ${dirArg} — inspect it.`
+    : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
+  `Report per the schema: absolute target path, whether it exists, is a git repo, holds a real project, and ` +
+  `whether it looks like an agent-harness/control-center repo instead of a product.`,
+  { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
+)
+if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>"} and retry.' }
+if (!pre.exists || !pre.hasCode || pre.isControlCenter) {
+  return {
+    error: `Refusing to gate ${pre.path || dirArg || 'the session working directory'}: ` +
+      (!pre.exists ? 'it does not exist.'
+        : pre.isControlCenter ? 'it looks like a harness/control-center repo, not a product.'
+          : 'it does not hold a project (no source or manifest).') +
+      ' Pass the product directory explicitly: args {dir: "<absolute path>", context: "..."}.',
+    preflight: pre,
+  }
+}
+const TARGET = pre.path
+const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. cd there at the start of ` +
+  `every shell command (or use absolute paths under it) and stay within it.\n\n`
+const agent0 = globalThis.agent
+const agent = (p, o) => agent0(AT + p, o)
 
 const CHECK = {
   type: 'object',
@@ -39,7 +85,7 @@ const EXECUTE_GATES = [
 const ALL_KEYS = [...INSPECT_GATES, ...EXECUTE_GATES].map(g => g.key)
 
 const gatePrompt = g =>
-  `You are the "${g.key}" release gate for the project at the current working directory. ${context}\n\nTASK: ${g.task}\n\n` +
+  `You are the "${g.key}" release gate for the target project. ${context}\n\nTASK: ${g.task}\n\n` +
   `Be strict and honest: report exactly what the commands output. Never mark pass without having run the check. ` +
   `If a needed command does not exist, status=skipped and say what is missing.`
 
@@ -74,13 +120,14 @@ for (const k of missing) blockers.push(`[${k}] gate agent failed to report — n
 const testsGate = results.find(r => r.gate === 'tests')
 const testsPassed = !!testsGate && testsGate.status === 'pass'
 if (!testsPassed && !blockers.some(b => b.startsWith('[tests]'))) {
-  blockers.push('[tests] no passing test-suite evidence (failed, skipped, or missing) — verify cwd is the project root and a test command exists')
+  blockers.push('[tests] no passing test-suite evidence (failed, skipped, or missing) — verify the target is the project root and a test command exists')
 }
 
 const ship = failed.length === 0 && blockers.length === 0
 log(ship ? 'VERDICT: SHIP' : `VERDICT: NO-SHIP — ${failed.length} failed gates, ${blockers.length} blockers`)
 
 return {
+  target: TARGET,
   verdict: ship ? 'SHIP' : 'NO-SHIP',
   gates: results.map(r => ({ gate: r.gate, status: r.status, evidence: r.evidence })),
   blockers,

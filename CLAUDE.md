@@ -72,6 +72,14 @@ permission rules load from here and are NOT visible when Claude Code starts insi
 `projects/<name>/`. In the session, make the product the working target (`cd` in the
 shell); its own `CLAUDE.md` loads automatically once you read its files.
 
+**Workflows do NOT follow your shell `cd`** — their agents run in the directory the
+session was started from. Always pass the product explicitly:
+`args: {dir: "<absolute product path>", ...}`. Every workflow preflight-verifies the
+target and refuses a directory that doesn't look like the product (e.g. this harness
+root). If args arrive mangled (known runtime bug), `feature-pipeline` and
+`design-panel` fall back to `feature-pipeline.input.json` / `design-panel.input.md`
+in the product root — write the file before invoking, delete it after.
+
 Each product has: `CLAUDE.md` (commands/conventions — trust it over guesses),
 `docs/SPEC.md` (intent), `PROGRESS.md` (state + session log), `docs/adr/` (decisions).
 Read `PROGRESS.md` "Next session should" before doing anything else; run the smoke test
