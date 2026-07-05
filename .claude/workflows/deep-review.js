@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it.',
   phases: [
     { title: 'Review', detail: 'six dimensions in parallel' },
-    { title: 'Verify', detail: 'every finding attacked by 2 refuters' },
+    { title: 'Verify', detail: 'ship-blocker findings attacked by 2 refuters, others by 1' },
   ],
 }
 
@@ -61,7 +61,7 @@ const all = await parallel(DIMENSIONS.map(d => () =>
     `Read the surrounding code, not just the diff — a change can be wrong only in context. ` +
     `Report every issue you find, including ones you are uncertain about — a separate verification step filters. ` +
     `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario.`,
-    { label: `review:${d.key}`, phase: 'Review', schema: FINDINGS },
+    { label: `review:${d.key}`, phase: 'Review', effort: 'high', schema: FINDINGS },
   ),
 ))
 
@@ -78,8 +78,11 @@ log(`${findings.length} unique findings across ${DIMENSIONS.length} dimensions`)
 if (!findings.length) return { confirmed: [], message: 'No findings survived the review pass.' }
 
 phase('Verify')
+// Refuter count scales with stakes: ship-blockers get two independent attackers,
+// medium/low findings get one — same standard of proof, ~40% less verify cost.
+const refuterCount = f => (f.severity === 'critical' || f.severity === 'high' ? [1, 2] : [1])
 const verified = await parallel(findings.map(f => () =>
-  parallel([1, 2].map(n => () =>
+  parallel(refuterCount(f).map(n => () =>
     agent(
       `Adversarially verify this code-review finding. Your job is to REFUTE the FAILURE SCENARIO, not the ` +
       `line number: read ${f.file} (line ${f.line ?? 'unspecified — file-level finding'} is a hint, not the claim) ` +
@@ -91,7 +94,7 @@ const verified = await parallel(findings.map(f => () =>
   )).then(votes => {
     const v = votes.filter(Boolean)
     const upheld = v.filter(x => !x.refuted).length
-    // Both refuters must fail to kill it. Zero valid votes = infrastructure failure, NOT a refutation.
+    // ALL assigned refuters must fail to kill it. Zero valid votes = infrastructure failure, NOT a refutation.
     const verdict = v.length === 0 ? 'UNVERIFIED' : (upheld === v.length ? 'CONFIRMED' : 'REFUTED')
     return { ...f, verdict, refutations: v.map(x => x.reasoning) }
   }),

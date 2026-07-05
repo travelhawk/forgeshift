@@ -46,10 +46,10 @@ the harness root):
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
 | Specialists | `.claude/agents/forge-*.md` | planner/reviewer/debugger (Fable 5), implementer/tester/security (Opus), scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/fix` `/harden` `/ship` `/debug-hard` `/status` |
+| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
 | Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
-| Templates | `templates/` | SPEC, FEATURE, ADR, release checklist, project CLAUDE.md |
+| Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |
 | Method docs | `docs/` | LIFECYCLE, ORCHESTRATION, MODEL-ROUTING |
 
 ## Design principles
@@ -61,8 +61,8 @@ the harness root):
    Haiku sweeps. Escalate after two failures; never downgrade a review gate.
 3. **The spec is the contract.** `docs/SPEC.md` per product, checkable done-criteria,
    drift fixed in the same change that causes it.
-4. **Adversarial by default.** Review findings survive only if two refuters fail to kill
-   them; builders never grade their own work.
+4. **Adversarial by default.** Review findings survive only if independent refuters fail
+   to kill them (two for critical/high, one below); builders never grade their own work.
 5. **Playbooks age.** Stack defaults carry an as-of date and get re-verified at kickoff.
 
 ## Maintenance
@@ -74,3 +74,5 @@ the harness root):
 - At each kickoff: verify the playbook's major versions against the live ecosystem.
 - When a session teaches you something durable about how you want to build: it goes in
   `CLAUDE.md` (tersely), and something stale comes out — commit both.
+- After each milestone: `/retro` — mines the build for friction and turns it into
+  committed harness improvements. This loop is what keeps "best" true over time.

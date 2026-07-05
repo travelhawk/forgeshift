@@ -7,8 +7,8 @@ file governs how work happens anywhere under this root.
 ## The loop
 
 Idea → `/kickoff` → spec + scaffold → `/feature` loop (or `feature-pipeline` workflow
-for batches) → `/deep-review` gate → `/harden` before exposure → `/ship`. Details:
-@docs/LIFECYCLE.md
+for batches) → `/deep-review` gate → `/harden` before exposure → `/ship`. Details on
+demand: `docs/LIFECYCLE.md`
 
 ## Command map
 
@@ -22,13 +22,14 @@ for batches) → `/deep-review` gate → `/harden` before exposure → `/ship`. 
 | `/ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
 | `/debug-hard <symptom>` | Structured escalation to the Fable debugger |
 | `/status` | Ground-truth state report + session handoff into PROGRESS.md |
+| `/retro` | Harness retrospective: observed friction → approved fixes → commits |
 | `/understand [question]` | Workflow: parallel codebase mapping → architecture brief |
 | `/design-panel <brief>` | Workflow: 4 designs, 3 judges, synthesized winner |
 | `/feature-pipeline <features>` | Workflow: parallel build of independent features in worktrees |
 | `/deep-review [scope]` | Workflow: 6-dimension review, findings adversarially verified |
 | `/release-gate [context]` | Workflow: 6 parallel ship gates with evidence |
 
-## Model routing (short form — full policy: @docs/MODEL-ROUTING.md)
+## Model routing (short form — full policy on demand: `docs/MODEL-ROUTING.md`)
 
 Fable 5 = architecture, specs, hard bugs, review verdicts. Opus 4.8 = all real building
 (default). Sonnet 5 = docs, research, executing written plans. Haiku 4.5 = mechanical
@@ -38,8 +39,8 @@ Opus attempts; never downgrade a review gate.
 ## Delegation
 
 Specialists live in `.claude/agents/` (all `forge-*` prefixed): planner, implementer,
-reviewer, debugger, tester, security, scout, scribe. Rules — full guide:
-@docs/ORCHESTRATION.md
+reviewer, debugger, tester, security, scout, scribe. Rules — full guide on demand:
+`docs/ORCHESTRATION.md`
 
 - Default to the lowest orchestration level that works; escalate on demonstrated failure.
 - Subagent prompts are self-contained: paths, context, done-definition included.

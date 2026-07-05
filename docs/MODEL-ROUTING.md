@@ -90,4 +90,6 @@ Route by **decision density**, not by task size. A one-line change that requires
   frontmatter field. Planner/Reviewer/Debugger ride Fable; builders ride Opus; scouts and
   scribes ride Sonnet.
 - **Workflows:** scripts in `.claude/workflows/` pass `model:`/`effort:` per `agent()`
-  call — judgment stages high, mechanical stages low.
+  call — judgment stages high/xhigh, mechanical command-running stages medium, pure
+  inventory sweeps low. Set effort explicitly; unset stages inherit the session's
+  global effort, which is usually too high for mechanical work.

@@ -45,15 +45,17 @@ const gatePrompt = g =>
 
 phase('Inspect')
 log('Running static, security, docs in parallel')
+// Gates run commands and report — mechanical work; only the security read needs depth.
+const gateEffort = k => (k === 'security' ? 'high' : 'medium')
 const inspect = await parallel(INSPECT_GATES.map(g => () =>
-  agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Inspect', schema: CHECK }).then(r => r && { ...r, gate: g.key }),
+  agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Inspect', effort: gateEffort(g.key), schema: CHECK }).then(r => r && { ...r, gate: g.key }),
 ))
 
 phase('Execute')
 const execute = []
 for (const g of EXECUTE_GATES) {
   log(`Running ${g.key} gate`)
-  const r = await agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Execute', schema: CHECK })
+  const r = await agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Execute', effort: 'medium', schema: CHECK })
   execute.push(r && { ...r, gate: g.key })
 }
 

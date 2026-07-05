@@ -60,7 +60,7 @@ const results = await pipeline(
     `existing code first; the plan must fit existing conventions.\n\nFEATURE: ${f}\n` +
     (context ? `SHARED CONTEXT:\n${context}\n` : '') +
     `\nTests-first: the test plan is not optional. Keep the plan minimal — no speculative abstractions.`,
-    { label: `plan:${i + 1}`, phase: 'Plan', schema: PLAN },
+    { label: `plan:${i + 1}`, phase: 'Plan', effort: 'high', schema: PLAN },
   ),
   (plan, f, i) => plan && agent(
     `Implement this feature following the plan. You are in an ISOLATED git worktree — create and commit your work to a ` +
@@ -81,7 +81,7 @@ const results = await pipeline(
     `Verify the feature against its done-criteria there. Run the tests yourself — do not trust the builder's report. ` +
     `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
     `FEATURE: ${f}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
-    { label: `verify:${i + 1}`, phase: 'Verify', schema: CHECK },
+    { label: `verify:${i + 1}`, phase: 'Verify', effort: 'medium', schema: CHECK },
   ).then(c => ({ feature: f, ...r, check: c })),
 )
 

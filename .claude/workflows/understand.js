@@ -72,7 +72,7 @@ const maps = await parallel(layout.subsystems.map(s => () =>
     `Report conventions precisely enough that a new contributor could write code that fits. ` +
     `If the paths turn out not to exist or hold no code, set found=false and say what you actually saw — NEVER invent a map.` +
     (focus ? ` Prioritize anything relevant to: "${focus}".` : ''),
-    { label: `map:${s.name}`, phase: 'Map', schema: MAP },
+    { label: `map:${s.name}`, phase: 'Map', effort: 'medium', schema: MAP },
   ).then(m => m && { name: s.name, ...m }),
 ))
 

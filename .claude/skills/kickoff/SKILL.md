@@ -62,8 +62,8 @@ approves both** (this is the LIFECYCLE stage-1 gate).
 3. NOW write the held artifacts into the project: `docs/SPEC.md` (approved draft),
    `CLAUDE.md` from `templates/PROJECT-CLAUDE.md` (filled with the real stack, commands,
    conventions), `docs/adr/001-stack.md` from `templates/ADR.md`.
-4. Create `PROGRESS.md`: the V1 feature list from the spec as `- [ ] F# — <name> —
-   <done-criteria>` lines, a "Session log" section, and a seeded **"Next session
+4. Create `PROGRESS.md` from `templates/PROGRESS.md` (harness root): the V1 feature
+   list from the spec as F#-rows, health baseline, and a seeded **"Next session
    should"** line pointing at the suggested first `/feature`.
 5. Wire the test runner per playbook and add one smoke test that actually runs
    (`app boots` / `CLI prints version`). Verify: install, test, dev-server boot — all

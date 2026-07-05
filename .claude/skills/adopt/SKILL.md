@@ -27,10 +27,10 @@ From the brief + manifests + README + git history, write into the project:
 2. `CLAUDE.md` from `templates/PROJECT-CLAUDE.md` (harness root) — with the repo's REAL
    commands, verified by running them: install, test, dev, build. A command that fails
    gets documented as broken in Gotchas, not documented as working.
-3. `PROGRESS.md` — feature list seeded from open TODOs/FIXMEs, open issues (if `gh`
-   available and the user wants), and the spec's Open Questions; plus a Session log and
-   a "Next session should" line (usually: "get the test suite green" or "verify the
-   as-built spec with the user").
+3. `PROGRESS.md` from `templates/PROGRESS.md` (harness root) — feature list seeded from
+   open TODOs/FIXMEs, open issues (if `gh` available and the user wants), and the
+   spec's Open Questions; "Next session should" usually: "get the test suite green" or
+   "verify the as-built spec with the user".
 4. `docs/adr/` — one ADR-001 recording the CURRENT stack as-found (no rationale
    invented; "historical, adopted as-is").
 
