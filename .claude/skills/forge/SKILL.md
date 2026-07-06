@@ -117,8 +117,12 @@ steps below apply to auto-integrate and local modes.
 
 1. Fire the `deep-review` workflow on the integrated result:
    `{dir: <product path>, scope: "git diff <baseline commit>..HEAD — the merged output
-   of this /forge run"}`. Pipeline verification saw each feature in isolation — this is
-   the adversarial pass over the merged whole.
+   of this /forge run"}` (substitute the section-0 baseline SHA). Pipeline verification
+   saw each feature in isolation — this is the adversarial pass over the merged whole.
+   A deep-review error return (a result with no `confirmed`/`unverified` — preflight
+   flaked, target refused) is ship-blocking: report the error, never emit
+   ready-for-`/ship` without a completed review (same rule as a section-4 workflow
+   error).
 2. CONFIRMED critical/high findings are fixed in `/fix` discipline: regression test
    first, smallest fix, fresh `forge-quench` pass on the fix diff — the fixer never
    verifies itself. Suite stays green versus the baseline. Two failed fix attempts
@@ -142,9 +146,10 @@ steps below apply to auto-integrate and local modes.
 - What needs the user: open PRs (review-PRs mode) with the run-`/deep-review`-after-
   merge recommendation, skipped dependents, twice-failed features, medium/low triage.
 - Closing verdict: **ready for `/ship`** — or NOT ship-ready, with the reasons
-  (ship-blocking confirmed OR unverified crit/high, failed features, new suite
-  failures). Never soften this. review-PRs mode is never "ready for `/ship`" on its
-  own — it is "PRs ready for your review".
+  (ship-blocking confirmed OR unverified crit/high, a deep-review error return, failed
+  features, new suite failures). Never soften this. Two cases are never a bare "ready
+  for `/ship`": review-PRs mode is "PRs ready for your review"; a finish opt-out is
+  "ship-ready pending the deep-review you skipped — run `/deep-review` before `/ship`".
 
 ## Stop conditions (report, never push through)
 

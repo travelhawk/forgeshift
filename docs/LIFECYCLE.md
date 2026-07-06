@@ -43,8 +43,9 @@ order. Always tests-first:
 ### 3. Review (`/deep-review`)
 Before anything user-facing ships — and before manual merges outside `/forge`'s gated
 flow: six-dimension review with adversarial verification. `/forge` fires it
-automatically on the integrated result as its finish step: confirmed critical/high
-findings are fixed on the spot (`/fix` discipline), medium/low go to the report.
+automatically on the integrated result as its finish step (auto-integrate and local
+modes; skipped in review-PRs mode and on opt-out): confirmed critical/high findings
+are fixed on the spot (`/fix` discipline), medium/low go to the report.
 Only CONFIRMED findings come back — fix criticals/highs, judge the rest.
 **Gate: zero confirmed critical findings before `/ship`.**
 

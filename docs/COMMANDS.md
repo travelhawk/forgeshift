@@ -52,7 +52,8 @@ integration mode + cost once — and after your single approval runs wave after 
 of the `feature-pipeline` workflow. Every verified feature is pushed, gets its own
 evidence-bearing PR, and (in auto-integrate mode) is squash-merged so the next wave
 builds on it. Failures are collected and reported at the end, never discussed
-mid-run. The run finishes with an automatic `deep-review` of the integrated result:
+mid-run. The run finishes with an automatic `deep-review` of the integrated result
+(auto-integrate and local modes; skipped in review-PRs mode and on opt-out):
 confirmed critical/high findings are fixed on the spot in `/fix` discipline,
 medium/low land in the final report — which closes with ready-for-`/ship` or the
 reasons it is not.
