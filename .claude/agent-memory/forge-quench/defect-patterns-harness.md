@@ -38,9 +38,26 @@ Recurring defect patterns when the diff target is the harness repo itself (not a
    Note: `node *`/`python *`/`npx *` already grant arbitrary exec, so judge new entries
    by *accident probability for a well-meaning agent*, not raw capability.
 
+4. **Skill-consumes-workflow-return, error path unhandled (fail-open gate; found 2026-07-07, /forge finish step).**
+   When a skill fires a workflow and then reads named fields off the return
+   (`confirmed`, `unverified`, ...), enumerate ALL of that workflow's top-level
+   `return` statements — not just the happy path. Workflows here fail closed by
+   returning `{error: ...}` (preflight agent flaked, target refused as a
+   control-center, args mangled) and ALSO have early returns that omit fields
+   (deep-review.js line 126: zero-findings returns `{confirmed:[]}` with NO
+   `unverified`). If the skill has no branch for the error return, an LLM driver
+   keys off absent fields → "nothing to fix, nothing ship-blocking" → emits a
+   ship-ready verdict though the gate never actually ran. Section 4 of /forge gets
+   this right ("a workflow-level error return is a stop condition"); the finish
+   step (section 5) forgot to. Check: does the skill treat a workflow `{error}`
+   return as ship-blocking, and does any field it reads have an early-return path
+   that drops it?
+
 **How to apply:** on any harness diff, grep for the old behavior's phrasing across
 README.md, docs/*.md, and workflow `meta` blocks; diff settings.json entries against the
-ask/deny intent, not just the deny literals.
+ask/deny intent, not just the deny literals. When a skill added/changed a call into a
+workflow, open that workflow and grep `return` — every non-happy-path return is a
+contract the skill must handle or fail-open.
 
 **Verification quirk:** `node --check` on workflow scripts requires stripping the
 leading `export ` (meta export) AND wrapping the body in `async function` (top-level
