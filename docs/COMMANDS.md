@@ -52,7 +52,10 @@ integration mode + cost once — and after your single approval runs wave after 
 of the `feature-pipeline` workflow. Every verified feature is pushed, gets its own
 evidence-bearing PR, and (in auto-integrate mode) is squash-merged so the next wave
 builds on it. Failures are collected and reported at the end, never discussed
-mid-run.
+mid-run. The run finishes with an automatic `deep-review` of the integrated result:
+confirmed critical/high findings are fixed on the spot in `/fix` discipline,
+medium/low land in the final report — which closes with ready-for-`/ship` or the
+reasons it is not.
 
 One line: **skills orchestrate *with you* in context; workflows orchestrate
 *without you* in breadth** — and skills are the bridge that fires workflows at the
@@ -69,7 +72,7 @@ right moment.
 | Raw batch, no PR ceremony | `/feature-pipeline` | Workflow (parallel worktrees) |
 | A bug | `/fix <symptom>` | Skill |
 | Bug survived 2 attempts | `/debug-hard` | Skill → Fable debugger |
-| Before shipping / after a `/forge` run | `/deep-review` | Workflow (review + refuters) |
+| Before shipping manual work (`/forge` fires it automatically) | `/deep-review` | Workflow (review + refuters) |
 | Before first public deploy | `/harden` | Skill → security agent |
 | Release | `/ship v0.2.0` | Skill → release-gate workflow |
 | Understand a big/foreign codebase | `/understand [question]` | Workflow |

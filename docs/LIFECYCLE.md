@@ -42,9 +42,11 @@ order. Always tests-first:
 
 ### 3. Review (`/deep-review`)
 Before anything user-facing ships — and before manual merges outside `/forge`'s gated
-flow: six-dimension review with adversarial verification. After a `/forge` run it
-covers the integrated result. Only CONFIRMED findings come back — fix criticals/highs,
-judge the rest. **Gate: zero confirmed critical findings before `/ship`.**
+flow: six-dimension review with adversarial verification. `/forge` fires it
+automatically on the integrated result as its finish step: confirmed critical/high
+findings are fixed on the spot (`/fix` discipline), medium/low go to the report.
+Only CONFIRMED findings come back — fix criticals/highs, judge the rest.
+**Gate: zero confirmed critical findings before `/ship`.**
 
 ### 4. Hardening (`/harden`)
 Once per project before first public exposure, and after auth/payment/data-model changes.

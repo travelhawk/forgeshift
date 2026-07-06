@@ -1,6 +1,6 @@
 ---
 name: forge
-description: Build the whole feature backlog hands-off - one wave-plan approval, then waves of parallel feature-pipeline builds, one PR per feature, verified work merged in dependency order. Use after /kickoff or /adopt when many features should be built without per-feature supervision.
+description: Build the whole feature backlog hands-off - one wave-plan approval, then waves of parallel feature-pipeline builds, one PR per feature, verified work merged in dependency order, finished by an automatic deep-review of the integrated result with confirmed critical/high findings auto-fixed. Use after /kickoff or /adopt when many features should be built without per-feature supervision.
 argument-hint: "[F#-list / range / feature descriptions - empty = all unchecked features]"
 disable-model-invocation: true
 ---
@@ -24,6 +24,8 @@ interrupt.
 - Remote status known (`git remote get-url origin`); when a remote exists,
   `gh auth status` must pass against a GitHub host before the PR-based modes below
   are offered.
+- Record the current HEAD commit as the run's baseline marker — the finish step
+  reviews everything merged after it.
 
 ## 1. Backlog
 
@@ -60,9 +62,15 @@ Present in one message, then get one approval:
   - **local** (no remote): offer `gh repo create --private --source .` once; declined →
     `git merge --no-ff` per verified feature, the merge commits are the audit trail,
     no PRs.
-- A rough cost expectation (each wave is a feature-pipeline run: 5–30x session tokens).
+- A rough cost expectation (each wave is a feature-pipeline run: 5–30x session
+  tokens, plus one deep-review for the finish).
+- The finish step (section 5) is included by default: automatic `deep-review` of the
+  integrated result, confirmed critical/high findings fixed on the spot. Opt-out
+  here at the gate — sensible only for mini-backlogs where the review overhead
+  outweighs the run.
 
-The approval covers everything downstream, including merges in auto-integrate mode.
+The approval covers everything downstream, including merges in auto-integrate mode
+and the finish step's fixes.
 
 ## 4. Execute (hands-off from here)
 
@@ -97,15 +105,46 @@ through a final pipeline wave with those issues in the context. Whatever fails t
 is reported for `/fix` or `/debug-hard` — a third automatic attempt is banned
 (hard rule 3).
 
-## 5. Report
+## 5. Finish (automatic — covered by the gate approval)
+
+Runs only on a completed run — a run halted by a stop condition skips finish and
+reports the stop instead. Unless opted out at the gate:
+
+**review-PRs mode has no integrated main** (nothing merged). There is no merged whole
+to review and no way to merge a fix PR, so the finish deep-review is skipped; the
+report instead recommends the user run `/deep-review` after merging the open PRs. The
+steps below apply to auto-integrate and local modes.
+
+1. Fire the `deep-review` workflow on the integrated result:
+   `{dir: <product path>, scope: "git diff <baseline commit>..HEAD — the merged output
+   of this /forge run"}`. Pipeline verification saw each feature in isolation — this is
+   the adversarial pass over the merged whole.
+2. CONFIRMED critical/high findings are fixed in `/fix` discipline: regression test
+   first, smallest fix, fresh `forge-quench` pass on the fix diff — the fixer never
+   verifies itself. Suite stays green versus the baseline. Two failed fix attempts
+   on a finding → stop fixing it, mark it ship-blocking (hard rule 3).
+3. Fixes integrate like features: one `fix/deep-review-<suffix>` branch → PR with
+   the findings as evidence → merged in auto-integrate mode (local mode: direct
+   commits).
+4. Fail closed on the `unverified` bucket: deep-review returns findings whose refuters
+   crashed as `unverified` ("treat as open, do not discard"). An unverified
+   critical/high is NOT auto-fixed but IS ship-blocking — it counts against the
+   ready-for-`/ship` verdict exactly like a twice-failed fix.
+5. Medium/low findings (confirmed or unverified) are NOT auto-fixed — they are
+   judgment calls and go to the report for the user to triage at `/ship` time.
+
+## 6. Report
 
 - Table: feature → branch → PR → verdict → merged.
 - Suite state on integrated main (pasted output); PROGRESS.md updated.
-- What needs the user: open PRs (review-PRs mode), skipped dependents, twice-failed
-  features.
-- Recommend `/deep-review` on the integrated result before `/ship` — pipeline
-  verification is one fresh-context pass per feature, not the adversarial
-  six-dimension gate.
+- Finish results: confirmed findings fixed (with evidence), unverified crit/high held
+  as ship-blocking, medium/low open. In review-PRs mode: the deferred-review note.
+- What needs the user: open PRs (review-PRs mode) with the run-`/deep-review`-after-
+  merge recommendation, skipped dependents, twice-failed features, medium/low triage.
+- Closing verdict: **ready for `/ship`** — or NOT ship-ready, with the reasons
+  (ship-blocking confirmed OR unverified crit/high, failed features, new suite
+  failures). Never soften this. review-PRs mode is never "ready for `/ship`" on its
+  own — it is "PRs ready for your review".
 
 ## Stop conditions (report, never push through)
 

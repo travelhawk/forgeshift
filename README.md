@@ -45,9 +45,9 @@ the harness root):
 ```bash
 > /feature F1        # plan → failing test → build → fresh-context review
 > /forge             # hands-off: approve the wave plan once → all features build in
->                    #   parallel waves, one evidence-bearing PR each
+>                    #   parallel waves, PR each, automatic deep-review finish
 > /fix <bug>         # bug lane: reproduce → regression test → fix → review
-> /deep-review       # before merging anything substantial
+> /deep-review       # gate for manual work — /forge fires it automatically
 > /harden            # before first public exposure
 > /ship v0.1.0       # release commit → 6 automated gates + checklist + deploy
 ```

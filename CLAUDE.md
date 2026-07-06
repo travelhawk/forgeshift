@@ -6,10 +6,10 @@ file governs how work happens anywhere under this root.
 
 ## The loop
 
-Idea → `/kickoff` → spec + scaffold → `/feature` loop — or `/forge` for the whole
-backlog hands-off (one wave-plan approval → parallel waves → PR per feature) →
-`/deep-review` gate → `/harden` before exposure → `/ship`. Details on demand:
-`docs/LIFECYCLE.md`
+Idea → `/kickoff` → spec + scaffold → `/feature` loop + `/deep-review` gate — or
+`/forge` for the whole backlog hands-off (one wave-plan approval → parallel waves →
+PR per feature → automatic deep-review finish) → `/harden` before exposure → `/ship`.
+Details on demand: `docs/LIFECYCLE.md`
 
 ## Command map
 
@@ -20,7 +20,7 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 | `/kickoff <idea>` | Interview → SPEC.md → stack from playbook → verified scaffold |
 | `/adopt <path>` | Existing codebase → as-built spec + PROGRESS + project CLAUDE.md |
 | `/feature <F# or description>` | One feature: plan → failing test → build → fresh-context verify |
-| `/forge [scope]` | Whole backlog: one wave-plan approval → parallel waves → PR per feature → merge |
+| `/forge [scope]` | Whole backlog: one approval → parallel waves → PR each → merge → review finish |
 | `/fix <bug>` | Bug lane: reproduce → regression test → fix → review |
 | `/harden [scope]` | Security audit + robustness sweep + gated fixes |
 | `/ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
