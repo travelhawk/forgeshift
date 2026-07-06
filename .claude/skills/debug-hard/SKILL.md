@@ -1,13 +1,14 @@
 ---
 name: debug-hard
-description: Escalate a stubborn bug to the Fable 5 debugging specialist with a structured handoff. Use when a bug survived two fix attempts, reproduces intermittently, or looks impossible - instead of a third normal attempt.
+description: Escalate a stubborn bug to the hard-bug debugging specialist with a structured handoff - it runs on the session model, so put the session on Fable 5 for the hardest ones when you have the quota. Use when a bug survived two fix attempts, reproduces intermittently, or looks impossible - instead of a third normal attempt.
 argument-hint: "[symptom in one line]"
 ---
 
 # /debug-hard — Escalate, don't grind
 
 The bug: "$ARGUMENTS". A third attempt with the same approach would fail like the first
-two — this skill changes the approach: full context, fresh eyes, bigger model.
+two — this skill changes the approach: full context, fresh eyes, the session's strongest
+model (switch the session to Fable 5 first if you have the quota).
 
 ## 1. Assemble the handoff (this is most of the value)
 

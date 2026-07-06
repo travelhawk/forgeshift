@@ -136,7 +136,7 @@ const verdicts = (await parallel([0, 1, 2].map(i => () =>
     `You are judge ${i + 1} of 3 on a design panel. Score every design against the brief. ` +
     `Be adversarial: probe each design for the failure that would kill it. Explore the target repository ` +
     `if you need ground truth about the existing system.\n\nBRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
-    { label: `judge:${i + 1}`, phase: 'Judge', model: 'fable', effort: 'high', schema: SCORE },
+    { label: `judge:${i + 1}`, phase: 'Judge', effort: 'high', schema: SCORE },
   ),
 ))).filter(Boolean)
 
@@ -175,7 +175,7 @@ const final = await agent(
   `Base the document on the winning design, but graft in specific superior ideas from the runners-up where judges flagged them. ` +
   `Address the judges' strongest criticisms of the winner explicitly (mitigate or accept with rationale). ` +
   `Structure: Context → Decision → Architecture → Components → Data flow → Failure handling → Rejected alternatives (one line each, why) → Build plan (ordered).`,
-  { label: 'synthesize:final', model: 'fable', effort: 'xhigh' },
+  { label: 'synthesize:final', effort: 'xhigh' },
 )
 
 if (!final) {

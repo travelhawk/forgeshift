@@ -14,9 +14,11 @@
 with Claude Code: any web app, SaaS, API, CLI, mobile, desktop, extension, or
 library — from idea to shipped, with quality gates that actually gate.
 
-Built for and around the Claude 5 era: **Fable 5** for judgment (architecture, specs,
-hard bugs, review verdicts), **Opus 4.8** for building, Sonnet/Haiku for execution and
-sweeps. Routing policy: [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md).
+Built for and around the Claude 5 era: judgment (architecture, specs, hard bugs, review
+verdicts) rides the **session model** — run the session on **Fable 5** on architecture
+days or **Opus 4.8** otherwise, and the whole gate layer rises with it (so nothing stalls
+when Fable is capped). **Opus 4.8** for building, Sonnet/Haiku for execution and sweeps.
+Routing policy: [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md).
 
 ## Prerequisites
 
@@ -57,7 +59,7 @@ the harness root):
 | Layer | Where | What |
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
-| Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (Fable 5); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
+| Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
 | Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
 | Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
@@ -69,8 +71,9 @@ the harness root):
 1. **Two invariants under everything:** protect the attention budget (fresh context for
    verification, subagents for bulk reading, state on disk not in chat) and close every
    loop with a runnable check (tests, gates, evidence — never "looks done").
-2. **Judgment up, execution down.** Fable decides, Opus builds, Sonnet executes plans,
-   Haiku sweeps. Escalate after two failures; never downgrade a review gate.
+2. **Judgment up, execution down.** The session model decides, Opus builds, Sonnet
+   executes plans, Haiku sweeps. Raise the session model after two failures; never
+   downgrade a review gate below Opus.
 3. **The spec is the contract.** `docs/SPEC.md` per product, checkable done-criteria,
    drift fixed in the same change that causes it.
 4. **Adversarial by default.** Review findings survive only if independent refuters fail

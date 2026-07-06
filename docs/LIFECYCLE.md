@@ -80,7 +80,7 @@ to `/fix` directly.
 - **Commit granularity = one reviewable idea.** Agents commit after each green
   test-build cycle, not one mega-commit per session.
 - **Escalate stuck work, don't grind.** Two failed attempts at the same problem → change
-  the approach: `/debug-hard` (Fable), `design-panel`, or ask the user. Third identical
+  the approach: `/debug-hard` (session model), `design-panel`, or ask the user. Third identical
   attempt is banned.
 - **You are the product owner.** Agents propose, verify, and build; scope and taste calls
   stay with you. Skills pause at the gates marked above.

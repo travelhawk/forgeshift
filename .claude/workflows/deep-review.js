@@ -137,7 +137,7 @@ const verified = await parallel(findings.map(f => () =>
       `plus its callers, and prove the scenario cannot happen (guarded elsewhere, unreachable input, intentional ` +
       `behavior, misread code). If after honest effort you cannot refute it, it stands. ` +
       `Default to refuted=true when the scenario is speculative.\n\nFINDING: ${JSON.stringify(f)}`,
-      { label: `verify:${f.file.split(/[\\/]/).pop()}:${f.line ?? 'file'}#${n}`, phase: 'Verify', model: 'fable', effort: 'high', schema: VERDICT },
+      { label: `verify:${f.file.split(/[\\/]/).pop()}:${f.line ?? 'file'}#${n}`, phase: 'Verify', effort: 'high', schema: VERDICT },
     ),
   )).then(votes => {
     const v = votes.filter(Boolean)

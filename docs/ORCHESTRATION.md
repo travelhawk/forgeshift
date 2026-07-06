@@ -67,8 +67,8 @@ the full suite on the merged result in the main session before calling the batch
    if tests pass".
 3. **Fresh context for verification.** The agent that built something never verifies it —
    builders grade themselves generously. `feature-pipeline` bakes this in.
-4. **Right-size the model.** Judgment-heavy → Fable; building → Opus; well-specified
-   execution → Sonnet; mechanical → Haiku. See docs/MODEL-ROUTING.md.
+4. **Right-size the model.** Judgment-heavy → session model (Fable/Opus); building → Opus;
+   well-specified execution → Sonnet; mechanical → Haiku. See docs/MODEL-ROUTING.md.
 5. **One retry, then rethink.** A subagent that failed twice on the same prompt will fail
    a third time. Change the decomposition instead.
 

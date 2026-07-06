@@ -24,7 +24,7 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 | `/fix <bug>` | Bug lane: reproduce → regression test → fix → review |
 | `/harden [scope]` | Security audit + robustness sweep + gated fixes |
 | `/ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
-| `/debug-hard <symptom>` | Structured escalation to the Fable debugger |
+| `/debug-hard <symptom>` | Structured escalation to the hard-bug debugger (session model) |
 | `/status` | Ground-truth state report + session handoff into PROGRESS.md |
 | `/retro` | Harness retrospective: observed friction → approved fixes → commits |
 | `/understand [question]` | Workflow: parallel codebase mapping → architecture brief |
@@ -35,10 +35,14 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 
 ## Model routing (short form — full policy on demand: `docs/MODEL-ROUTING.md`)
 
-Fable 5 = architecture, specs, hard bugs, review verdicts. Opus 4.8 = all real building
-(default). Sonnet 5 = docs, research, executing written plans. Haiku 4.5 = mechanical
-sweeps. Route by decision density, not task size. Escalate to Fable after two failed
-Opus attempts; never downgrade a review gate.
+Judgment (architecture, specs, hard bugs, review verdicts) rides the **session model** —
+agents run `model: inherit`, so the tier is whatever you run the session on: Fable 5 for
+architecture days (quota permitting), else Opus 4.8. This keeps gates working when Fable
+is capped. Opus 4.8 = all real building. Sonnet 5 = docs, research, executing written
+plans, codebase maps, command-running gates. Haiku 4.5 = mechanical sweeps/preflight.
+Route by decision density, not task size. When work loops, raise the session model (to
+Fable) and re-run rather than burning a third same-tier attempt; never downgrade a review
+gate below Opus.
 
 ## Delegation
 

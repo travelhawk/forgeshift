@@ -1,8 +1,8 @@
 ---
 name: forge-quench
-description: The Quench (reviewer) — adversarial code reviewer on Fable 5, always fresh-context. Use after any non-trivial implementation, before merge. Give it the diff scope and the plan/criteria it was built against. Use proactively after completing significant code changes.
+description: The Quench (reviewer) — adversarial code reviewer on the session model, always fresh-context. Use after any non-trivial implementation, before merge. Give it the diff scope and the plan/criteria it was built against. Use proactively after completing significant code changes.
 tools: Read, Grep, Glob, Bash
-model: fable
+model: inherit
 effort: xhigh
 memory: project
 color: red

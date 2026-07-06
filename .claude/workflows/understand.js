@@ -104,7 +104,7 @@ const layout = await agent(
   `3-10 coherent subsystems (frontend, api, db layer, auth, jobs, shared libs, infra, tests...). ` +
   `Do NOT read implementation files deeply — this is layout discovery only.` +
   (focus ? ` The caller's focus question is: "${focus}" — make sure subsystems relevant to it are separated out.` : ''),
-  { label: 'scout:layout', effort: 'low', schema: SUBSYSTEMS },
+  { label: 'scout:layout', model: 'sonnet', effort: 'low', schema: SUBSYSTEMS },
 )
 
 if (!layout || !layout.subsystems.length) {
@@ -121,7 +121,7 @@ const maps = await parallel(layout.subsystems.map(s => () =>
     `Report conventions precisely enough that a new contributor could write code that fits. ` +
     `If the paths turn out not to exist or hold no code, set found=false and say what you actually saw — NEVER invent a map.` +
     (focus ? ` Prioritize anything relevant to: "${focus}".` : ''),
-    { label: `map:${s.name}`, phase: 'Map', effort: 'medium', schema: MAP },
+    { label: `map:${s.name}`, phase: 'Map', model: 'sonnet', effort: 'medium', schema: MAP },
   ).then(m => m && { name: s.name, ...m }),
 ))
 

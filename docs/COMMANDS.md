@@ -34,7 +34,7 @@ verdicts). Orchestration is code, therefore reproducible.
 **`/feature F2` — a skill conducting agents.** The playbook anchors the goal (read
 the spec, run the suite), sizes the work, then: small → the session builds it
 itself; medium+ → plan and done-criteria go to `forge-hammer` (Opus,
-tests-first on a branch), the resulting diff goes to `forge-quench` (Fable, fresh
+tests-first on a branch), the resulting diff goes to `forge-quench` (session model, fresh
 context). Only after confirmed findings are fixed does it merge and tick
 PROGRESS.md — with pasted evidence.
 
@@ -72,7 +72,7 @@ right moment.
 | Whole backlog, hands-off | `/forge` | Skill → waves of feature-pipeline + PRs |
 | Raw batch, no PR ceremony | `/feature-pipeline` | Workflow (parallel worktrees) |
 | A bug | `/fix <symptom>` | Skill |
-| Bug survived 2 attempts | `/debug-hard` | Skill → Fable debugger |
+| Bug survived 2 attempts | `/debug-hard` | Skill → hard-bug debugger (session model) |
 | Before shipping manual work (`/forge` fires it automatically) | `/deep-review` | Workflow (review + refuters) |
 | Before first public deploy | `/harden` | Skill → security agent |
 | Release | `/ship v0.2.0` | Skill → release-gate workflow |

@@ -1,8 +1,8 @@
 ---
 name: forge-blueprint
-description: The Blueprint (planner) — architecture and spec specialist on Fable 5. Use for system design, product specs, technology decisions with real trade-offs, and decomposing large work into feature lists. Use proactively before any multi-file build starts without a written plan.
+description: The Blueprint (planner) — architecture and spec specialist on the session model. Use for system design, product specs, technology decisions with real trade-offs, and decomposing large work into feature lists. Use proactively before any multi-file build starts without a written plan.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
-model: fable
+model: inherit
 effort: high
 memory: project
 color: purple
