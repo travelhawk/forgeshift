@@ -29,7 +29,7 @@ when (parallel / pipelined), on which model, at which effort, with which output
 schema — and what happens to the results (dedup, refuter voting, fail-closed
 verdicts). Orchestration is code, therefore reproducible.
 
-## Two worked examples
+## Three worked examples
 
 **`/feature F2` — a skill conducting agents.** The playbook anchors the goal (read
 the spec, run the suite), sizes the work, then: small → the session builds it
@@ -45,6 +45,15 @@ sequentially), aggregated fail-closed — a gate that doesn't report blocks. The
 SHIP/NO-SHIP verdict returns to your session, where the playbook walks the manual
 checklist with you before tag and deploy.
 
+**`/forge` — one gate, then the whole backlog.** The skill has `forge-blueprint`
+partition the unchecked feature list into waves by predicted file footprint
+(overlapping or dependent features never run in parallel), presents wave plan +
+integration mode + cost once — and after your single approval runs wave after wave
+of the `feature-pipeline` workflow. Every verified feature is pushed, gets its own
+evidence-bearing PR, and (in auto-integrate mode) is squash-merged so the next wave
+builds on it. Failures are collected and reported at the end, never discussed
+mid-run.
+
 One line: **skills orchestrate *with you* in context; workflows orchestrate
 *without you* in breadth** — and skills are the bridge that fires workflows at the
 right moment.
@@ -56,10 +65,11 @@ right moment.
 | New product idea | `/kickoff <idea>` | Skill (interviews you) |
 | Existing repo to bring in | `/adopt <path>` | Skill |
 | Build one feature | `/feature F3` | Skill → agents |
-| 3+ independent features | `/feature-pipeline` | Workflow (parallel worktrees) |
+| Whole backlog, hands-off | `/forge` | Skill → waves of feature-pipeline + PRs |
+| Raw batch, no PR ceremony | `/feature-pipeline` | Workflow (parallel worktrees) |
 | A bug | `/fix <symptom>` | Skill |
 | Bug survived 2 attempts | `/debug-hard` | Skill → Fable debugger |
-| Before merging | `/deep-review` | Workflow (review + refuters) |
+| Before shipping / after a `/forge` run | `/deep-review` | Workflow (review + refuters) |
 | Before first public deploy | `/harden` | Skill → security agent |
 | Release | `/ship v0.2.0` | Skill → release-gate workflow |
 | Understand a big/foreign codebase | `/understand [question]` | Workflow |
@@ -69,7 +79,7 @@ right moment.
 
 ## Three rules of thumb
 
-1. **Triggering.** `/kickoff`, `/adopt`, `/ship`, `/retro` are user-only
+1. **Triggering.** `/kickoff`, `/adopt`, `/forge`, `/ship`, `/retro` are user-only
    (`disable-model-invocation`) — their consequences belong to you. `/feature`,
    `/fix`, `/harden`, `/status`, `/debug-hard` may also be invoked by Claude when
    the situation matches.

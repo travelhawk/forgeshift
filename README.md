@@ -44,6 +44,8 @@ the harness root):
 
 ```bash
 > /feature F1        # plan → failing test → build → fresh-context review
+> /forge             # hands-off: approve the wave plan once → all features build in
+>                    #   parallel waves, one evidence-bearing PR each
 > /fix <bug>         # bug lane: reproduce → regression test → fix → review
 > /deep-review       # before merging anything substantial
 > /harden            # before first public exposure
@@ -56,7 +58,7 @@ the harness root):
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
 | Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (Fable 5); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
+| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
 | Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
 | Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |

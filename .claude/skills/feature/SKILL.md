@@ -7,8 +7,9 @@ argument-hint: "[feature description or F# from the spec]"
 # /feature — One feature through the loop
 
 Build "$ARGUMENTS" tests-first with independent verification. One feature per
-invocation; a batch of independent features belongs in the `feature-pipeline` workflow
-instead (offer it when the user lists 3+ independent items).
+invocation; a whole backlog belongs in `/forge` (one approval, waves of parallel
+builds, PR per feature) and a raw batch without PR ceremony in the `feature-pipeline`
+workflow — point the user there when they list 3+ items.
 
 ## 1. Anchor
 

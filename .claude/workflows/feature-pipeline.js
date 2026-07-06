@@ -115,10 +115,13 @@ const BUILD = {
 const CHECK = {
   type: 'object',
   additionalProperties: false,
-  required: ['verdict', 'issues'],
+  required: ['verdict', 'issues', 'pr_title', 'pr_body', 'evidence'],
   properties: {
     verdict: { type: 'string', enum: ['pass', 'fail'] },
     issues: { type: 'array', items: { type: 'string' } },
+    pr_title: { type: 'string', description: 'Ready-to-use PR title: imperative, <= 72 chars' },
+    pr_body: { type: 'string', description: 'Ready-to-use PR body markdown: what & why, done-criteria as a checklist, test evidence from THIS verification run. On a fail verdict: what is broken instead' },
+    evidence: { type: 'string', description: 'Test command(s) the verifier ran and a one-line result summary — from this verification run, not the builder report' },
   },
 }
 
@@ -157,6 +160,9 @@ const results = await pipeline(
     `Verify the feature against its done-criteria there (install dependencies in the worktree first if the project needs them). ` +
     `Run the tests yourself — do not trust the builder's report. ` +
     `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
+    `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
+    `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
+    `plus the evidence summary itself. On a fail verdict the body states what is broken instead.\n\n` +
     `FEATURE: ${f}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
     { label: `verify:${i + 1}`, phase: 'Verify', effort: 'medium', schema: CHECK },
   ).then(c => ({ feature: f, ...r, check: c })),
@@ -173,11 +179,11 @@ log(`${passed.length}/${features.length} features passed verification` + (lost.l
 
 return {
   target: TARGET,
-  passed: passed.map(r => ({ feature: r.feature, branch: r.build.branch, summary: r.build.summary })),
+  passed: passed.map(r => ({ feature: r.feature, branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
   failed: [
     ...done.filter(r => !r.check || r.check.verdict === 'fail')
       .map(r => ({ feature: r.feature, branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
     ...lost,
   ],
-  note: 'Branches are unmerged. Review and merge in the main session: git merge --no-ff <branch> per feature, resolving conflicts in merge order of least → most files touched, then RUN THE FULL SUITE ON THE MERGED RESULT — each branch was verified in isolation; the merged whole has not been tested by any agent. Delete feature-pipeline.input.json if it was used. If the run was interrupted: git worktree prune, then inspect feature/wf-* branches for committed work before deleting any.',
+  note: 'Branches are unmerged. Review and merge in the main session: git merge --no-ff <branch> per feature, resolving conflicts in merge order of least → most files touched, then RUN THE FULL SUITE ON THE MERGED RESULT — each branch was verified in isolation; the merged whole has not been tested by any agent. When driven by /forge, the skill handles push → PR → merge per its approved integration mode instead. Delete feature-pipeline.input.json if it was used. If the run was interrupted: git worktree prune, then inspect feature/wf-* branches for committed work before deleting any.',
 }

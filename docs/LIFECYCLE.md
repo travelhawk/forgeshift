@@ -7,9 +7,9 @@ you stay at the decision points.
  IDEA ──► /kickoff ──► SPEC + STACK + SCAFFOLD
                             │
                  ┌──────────▼──────────┐
-                 │   FEATURE LOOP      │  /feature (one) or
-                 │  plan → test →      │  feature-pipeline workflow (batch)
-                 │  build → verify     │
+                 │   FEATURE LOOP      │  /feature (one) ·
+                 │  plan → test →      │  /forge (whole backlog, waves of PRs) ·
+                 │  build → verify     │  feature-pipeline workflow (raw batch)
                  └──────────┬──────────┘
                             │  gate: /deep-review  (+ /harden before exposure)
                             ▼
@@ -27,9 +27,11 @@ its own git history, CLAUDE.md, and CI-ready test setup. **Gate: you approve the
 stack before scaffolding.** For wide-open design questions, kickoff runs the
 `design-panel` workflow instead of guessing.
 
-### 2. Feature loop (`/feature` / `feature-pipeline`)
-One feature at a time interactively, or a batch of independent features in parallel
-worktrees. Always tests-first:
+### 2. Feature loop (`/feature` / `/forge` / `feature-pipeline`)
+One feature at a time interactively, a raw batch of independent features in parallel
+worktrees — or the whole backlog via `/forge`: one wave-plan approval, then waves of
+parallel pipeline builds, one PR per feature, verified work merged in dependency
+order. Always tests-first:
 
 1. **Plan** — smallest change that meets the done-criteria, fitting existing conventions
 2. **Test** — write the failing test that encodes the done-criteria
@@ -39,9 +41,10 @@ worktrees. Always tests-first:
 **Gate: no feature merges with failing or missing tests.** No exceptions "just this once".
 
 ### 3. Review (`/deep-review`)
-Before anything user-facing merges to main: six-dimension review with adversarial
-verification. Only CONFIRMED findings come back — fix criticals/highs, judge the rest.
-**Gate: zero confirmed critical findings.**
+Before anything user-facing ships — and before manual merges outside `/forge`'s gated
+flow: six-dimension review with adversarial verification. After a `/forge` run it
+covers the integrated result. Only CONFIRMED findings come back — fix criticals/highs,
+judge the rest. **Gate: zero confirmed critical findings before `/ship`.**
 
 ### 4. Hardening (`/harden`)
 Once per project before first public exposure, and after auth/payment/data-model changes.

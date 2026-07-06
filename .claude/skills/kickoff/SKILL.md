@@ -75,6 +75,7 @@ approves both** (this is the LIFECYCLE stage-1 gate).
 ## 5. Handoff
 
 Report: spec location, stack + why, what was verified (with command output), the
-feature list, and the suggested first `/feature`. Recommend a fresh session **started
-from the harness root** (that's where the skills, agents, and workflows load from),
-with the product directory as the working target.
+feature list, and the suggested first `/feature` — or `/forge` to build the entire
+approved feature list with a single wave-plan approval. Recommend a fresh session
+**started from the harness root** (that's where the skills, agents, and workflows
+load from), with the product directory as the working target.
