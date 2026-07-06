@@ -14,6 +14,8 @@
 with Claude Code: any web app, SaaS, API, CLI, mobile, desktop, extension, or
 library — from idea to shipped, with quality gates that actually gate.
 
+*Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
+
 Built for and around the Claude 5 era: judgment (architecture, specs, hard bugs, review
 verdicts) rides the **session model** — run the session on **Fable 5** on architecture
 days or **Opus 4.8** otherwise, and the whole gate layer rises with it (so nothing stalls
