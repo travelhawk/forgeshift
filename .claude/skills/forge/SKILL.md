@@ -71,9 +71,10 @@ Present in one message, then get one approval:
 - A rough cost expectation (each wave is a feature-pipeline run: 5–30x session
   tokens, plus one deep-review for the finish).
 - The finish step (section 5) is included by default: automatic `deep-review` of the
-  integrated result, confirmed critical/high findings fixed on the spot. Opt-out
-  here at the gate — sensible only for mini-backlogs where the review overhead
-  outweighs the run.
+  integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
+  products — a Playwright **visual walkthrough** (§5b: flow videos + a screen-overview
+  image). Opt-out here at the gate — sensible only for mini-backlogs where the review
+  overhead outweighs the run.
 
 The approval covers everything downstream, including merges in auto-integrate mode
 and the finish step's fixes.
@@ -148,12 +149,46 @@ steps below apply to auto-integrate and local modes.
 5. Medium/low findings (confirmed or unverified) are NOT auto-fixed — they are
    judgment calls and go to the report for the user to triage at `/ship` time.
 
+## 5b. Visual walkthrough (UI products only — automatic, fail-soft)
+
+Runs on the completed, green integrated result (auto-integrate and local modes; skipped
+in review-PRs mode — nothing is merged to run). **UI products only**, and **never a stop
+condition**: any failure is a note in the report, never a block on ready-for-`/ship` —
+this is a deliverable, not a gate. Delegate to `forge-proof` with the product path, the
+dev-server command (product `CLAUDE.md`), and the core journey + shipped features from
+`docs/SPEC.md`:
+
+1. **Applicability.** No runnable web UI (CLI, API, library) → report "no UI to capture"
+   and stop. UI present → ensure Playwright is available (`npx playwright install
+   chromium` if missing; the web-app playbook already ships it).
+2. **Run the app.** Start the dev server in the background, poll until it responds; kill
+   the whole process tree at the end — Windows: `taskkill //F //T //PID <pid>` or
+   `npx kill-port <port>` (a bare kill leaks node.exe holding the port).
+3. **Videos of the main user flows.** Derive the flows from the spec's core journey plus
+   the shipped features — one flow per journey, not one per click. A Playwright script
+   drives each flow end-to-end with `recordVideo` → one `.webm` per flow in
+   `docs/walkthroughs/videos/`. A flow that can't be driven (auth/seed not available) is
+   recorded as skipped with the reason; partial capture still ships what it got.
+4. **Overview image of all screens.** Screenshot every distinct screen/route into
+   `docs/walkthroughs/screens/`, then assemble ONE contact-sheet
+   `docs/walkthroughs/overview.png` (ImageMagick `montage`, or lay the shots into an HTML
+   grid and screenshot that).
+5. **Artifacts.** Commit the small, review-friendly ones (`overview.png`, the
+   screenshots); add `docs/walkthroughs/videos/` to the product `.gitignore` (videos are
+   large binaries) — they stay on disk and are linked in the report. Follow the product's
+   own convention if it already commits media.
+
+Covered by the same finish opt-out at the gate.
+
 ## 6. Report
 
 - Table: feature → branch → PR → verdict → merged.
 - Suite state on integrated main (pasted output); PROGRESS.md updated.
 - Finish results: confirmed findings fixed (with evidence), unverified crit/high held
   as ship-blocking, medium/low open. In review-PRs mode: the deferred-review note.
+- Visual walkthrough (UI products): the paths to the flow videos and `overview.png`, plus
+  any flows skipped and why. Not a UI product / not run → say so plainly. This is never a
+  ship blocker.
 - What needs the user: open PRs (review-PRs mode) with the run-`/deep-review`-after-
   merge recommendation, skipped dependents, twice-failed features, medium/low triage.
 - Closing verdict: **ready for `/ship`** — or NOT ship-ready, with the reasons

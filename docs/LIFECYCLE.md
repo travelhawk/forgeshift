@@ -56,6 +56,8 @@ automatically on the integrated result as its finish step (auto-integrate and lo
 modes; skipped in review-PRs mode and on opt-out): confirmed critical/high findings
 are fixed on the spot (`/fix` discipline), medium/low go to the report.
 Only CONFIRMED findings come back — fix criticals/highs, judge the rest.
+The `/forge` finish also produces, for UI products, a Playwright **visual walkthrough** —
+flow videos + a screen-overview image (fail-soft, never a ship blocker).
 **Gate: zero confirmed critical findings before `/ship`.**
 
 ### 4. Hardening (`/harden`)
