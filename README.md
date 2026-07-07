@@ -25,8 +25,9 @@ inside of.** You start Claude Code from its root and drive whole products throug
 of `/commands`: `/kickoff` to spec-and-scaffold, `/forge` to build a backlog hands-off,
 `/ship` to release. The workspace ships the parts that make that reliable:
 
-- **10 lifecycle skills** — `/kickoff`, `/feature`, `/forge`, `/fix`, `/harden`, `/ship`,
-  and more — playbooks that run *with you* in the session and pause at real decision points.
+- **11 lifecycle skills** — `/kickoff`, `/next`, `/feature`, `/forge`, `/fix`, `/harden`,
+  `/ship`, and more — playbooks that run *with you* in the session and pause at real
+  decision points.
 - **5 orchestration workflows** — parallel agent fleets for review, release gates, feature
   batches, codebase mapping, and design panels — that run *without you*, in breadth.
 - **8 specialist agents** — planner, implementer, reviewer, debugger, tester, security,
@@ -109,6 +110,17 @@ progress file from what's there.
 > /ship v0.1.0       # release commit → automated gates + checklist → tag → deploy
 ```
 
+**5. Ship the next version.** Once v1 is out and you have new ideas:
+
+```
+> /next add teams, usage-based billing, and a dark mode
+```
+
+`/next` is kickoff's iteration sibling — it clarifies the ideas (a lighter, spec-aware
+interview), appends them to the spec as the next version's risk-tiered features, and hands
+the whole slice to the forge flow under **one approval**. `/kickoff` births a product,
+`/next` grows it, `/forge` is the builder both hand off to.
+
 That's the loop. New to it? Read [docs/LIFECYCLE.md](docs/LIFECYCLE.md) for the full
 idea-to-ship path, and [docs/COMMANDS.md](docs/COMMANDS.md) for what each command costs
 and when it pauses for you.
@@ -123,7 +135,7 @@ and when it pauses for you.
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
 | Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
+| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/next` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
 | Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
 | Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |

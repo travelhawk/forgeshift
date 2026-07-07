@@ -16,7 +16,7 @@ you stay at the decision points.
                         /ship ──► release-gate workflow ──► deploy
                             │
                             ▼
-                     feedback → back into SPEC → loop
+                  feedback → /next → SPEC (next version) → loop
 ```
 
 ## Stages & gates
@@ -77,10 +77,14 @@ that fails → smallest fix → `forge-quench` on the diff → patch `/ship` wit
 abbreviated manual checklist (only the broken journey re-walked; the automated gate
 always runs in full). Bugs that survive two attempts escalate to `/debug-hard`.
 
-### 7. Feedback
+### 7. Feedback → next version (`/next`)
 Feature-shaped feedback goes back into `docs/SPEC.md` as new features or revisions —
-not straight into code. The spec stays the source of intent. Bug-shaped feedback goes
-to `/fix` directly.
+not straight into code. The spec stays the source of intent. `/next` is the one command
+for this: it clarifies the new ideas (a lighter, spec-aware interview than `/kickoff`),
+appends them to the spec as the next version's tiered features, and hands the slice to
+the forge flow under a single approval — waves of PRs, merge, deep-review finish. It is
+kickoff's iteration sibling: **`/kickoff` births a product, `/next` grows it, `/forge`
+is the builder both hand off to.** Bug-shaped feedback goes to `/fix` directly.
 
 ## Rules that hold across all stages
 

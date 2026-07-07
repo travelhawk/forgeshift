@@ -75,12 +75,21 @@ gate, or pass `/feature F3 as tier 1`. Full scheme: `docs/RISK-TIERS.md`.
 
 ## When to use what
 
+There are really **two intakes and one builder**. `/kickoff` (new product) and `/next`
+(next version of an existing product) both *interview you, shape tiered features, and hand
+off to the build*; `/forge` is the builder they hand off to, and `/feature` is the
+one-at-a-time lane when you don't want a batch. So after the initial run, the question
+"what's my entry point?" has a simple answer: **one feature → `/feature`; a new batch of
+ideas → `/next`; an already-spec'd backlog → `/forge`.** You rarely type `/feature-pipeline`
+by hand — it's the engine `/forge` and `/next` drive.
+
 | Situation | Command | Kind |
 |---|---|---|
 | New product idea | `/kickoff <idea>` | Skill (interviews you) |
 | Existing repo to bring in | `/adopt <path>` | Skill |
+| Next version of an existing product | `/next <ideas>` | Skill (interviews you) → forge flow |
 | Build one feature | `/feature F3` | Skill → agents |
-| Whole backlog, hands-off | `/forge` | Skill → waves of feature-pipeline + PRs |
+| Whole backlog already spec'd, hands-off | `/forge` | Skill → waves of feature-pipeline + PRs |
 | Raw batch, no PR ceremony | `/feature-pipeline` | Workflow (parallel worktrees) |
 | A bug | `/fix <symptom>` | Skill |
 | Bug survived 2 attempts | `/debug-hard` | Skill → hard-bug debugger (session model) |
@@ -94,10 +103,10 @@ gate, or pass `/feature F3 as tier 1`. Full scheme: `docs/RISK-TIERS.md`.
 
 ## Three rules of thumb
 
-1. **Triggering.** `/kickoff`, `/adopt`, `/forge`, `/ship`, `/retro` are user-only
-   (`disable-model-invocation`) — their consequences belong to you. `/feature`,
-   `/fix`, `/harden`, `/status`, `/debug-hard` may also be invoked by Claude when
-   the situation matches.
+1. **Triggering.** `/kickoff`, `/adopt`, `/next`, `/forge`, `/ship`, `/retro` are
+   user-only (`disable-model-invocation`) — their consequences belong to you.
+   `/feature`, `/fix`, `/harden`, `/status`, `/debug-hard` may also be invoked by Claude
+   when the situation matches.
 2. **Cost.** Skills cost roughly a normal session. Workflows cost 5–30x because
    they launch agent fleets — that's why they sit at the gates (review, release)
    and at genuine breadth (feature batches, codebase mapping), never at 20-line

@@ -9,7 +9,9 @@ file governs how work happens anywhere under this root.
 Idea → `/kickoff` → spec + scaffold → `/feature` loop + `/deep-review` gate — or
 `/forge` for the whole backlog hands-off (one wave-plan approval → parallel waves →
 PR per feature → automatic deep-review finish) → `/harden` before exposure → `/ship`.
-Details on demand: `docs/LIFECYCLE.md`
+For the **next version** of a product that already exists, `/next` is kickoff's iteration
+sibling: it clarifies new ideas into tiered features and hands them to the forge flow in
+one command. Details on demand: `docs/LIFECYCLE.md`
 
 Every feature is tagged with a **risk tier** (T1/T2/T3) at spec time; build+validate
 depth branches on it — T1 full loop + security pass, T2 build + one verify, T3 fast
@@ -22,8 +24,9 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 
 | Command | What it does |
 |---|---|
-| `/kickoff <idea>` | Interview → SPEC.md → stack from playbook → verified scaffold |
+| `/kickoff <idea>` | New product: interview → SPEC.md → stack from playbook → verified scaffold |
 | `/adopt <path>` | Existing codebase → as-built spec + PROGRESS + project CLAUDE.md |
+| `/next <ideas>` | Next version of an existing product: clarify ideas → tiered features → forge builds them |
 | `/feature <F# or description>` | One feature: plan → failing test → build → fresh-context verify |
 | `/forge [scope]` | Whole backlog: one approval → parallel waves → PR each → merge → review finish |
 | `/fix <bug>` | Bug lane: reproduce → regression test → fix → review |
