@@ -53,11 +53,25 @@ Recurring defect patterns when the diff target is the harness repo itself (not a
    return as ship-blocking, and does any field it reads have an early-return path
    that drops it?
 
+5. **Model-routing changes — the four surfaces that must agree (found 2026-07-07, session-model refactor 3572f00).**
+   When agent `model:` pins or workflow `agent()` model args change, cross-check FOUR spots
+   or one goes stale: (a) each agent's own `description:` frontmatter (it names the tier —
+   "on Fable 5" vs "on the session model"); (b) `docs/MODEL-ROUTING.md` "In this harness"
+   bullets AND the routing table rows; (c) README "What's inside" specialists row +
+   `docs/diagrams/command-architecture.svg` `<text>` tier labels; (d) CLAUDE.md model-routing
+   short form. `model: inherit` IS valid Claude Code subagent frontmatter (documented enum
+   sonnet|opus|haiku|inherit; inherit = main-conversation model) — not a defect. Workflow
+   `agent()` opts take string model names ('haiku'/'sonnet'); omitting `model:` = inherit
+   session. 3572f00 was clean on all four surfaces — no leftover `model: fable` pin, brand
+   name F.O.R.G.E.=Fable-Orchestrated correctly preserved as non-defect.
+
 **How to apply:** on any harness diff, grep for the old behavior's phrasing across
 README.md, docs/*.md, and workflow `meta` blocks; diff settings.json entries against the
 ask/deny intent, not just the deny literals. When a skill added/changed a call into a
 workflow, open that workflow and grep `return` — every non-happy-path return is a
-contract the skill must handle or fail-open.
+contract the skill must handle or fail-open. On model-routing diffs, grep the OLD tier
+name (e.g. `fable`/`Fable`) across agents+workflows+docs+svg and confirm each hit is
+either the brand name or the intended new framing.
 
 **Verification quirk:** `node --check` on workflow scripts requires stripping the
 leading `export ` (meta export) AND wrapping the body in `async function` (top-level
