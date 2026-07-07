@@ -1,7 +1,7 @@
 export const meta = {
   name: 'feature-pipeline',
   description: 'Implement independent features in parallel: plan → implement in isolated worktree → verify',
-  whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature strings, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). If args does not arrive intact (a known runtime failure mode), write the same {features, context} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
+  whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature entries, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). A feature entry is a string (defaults to risk tier T2; a bare string may carry a bracketed marker like "[T1] add password reset") or an object {feature, tier, done_criteria} — the tier (T1/T2/T3) sets build model/effort and verify depth (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet; see docs/RISK-TIERS.md). If args does not arrive intact (a known runtime failure mode), write the same {features, context} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
   phases: [
     { title: 'Plan', detail: 'per-feature implementation plan + test plan' },
     { title: 'Build', detail: 'implement in isolated git worktree' },
@@ -24,8 +24,24 @@ let features = []
 let context = ''
 if (Array.isArray(a)) features = a
 else if (a && typeof a === 'object' && Array.isArray(a.features)) { features = a.features; context = a.context || '' }
-// Coerce non-string entries so no stage receives '[object Object]'.
-const normalize = list => list.map(f => typeof f === 'string' ? f.trim() : JSON.stringify(f)).filter(f => f && f.length)
+// A feature entry is a plain string or {feature, tier, done_criteria}. Normalize every
+// entry to {feature, tier, done_criteria}. The tier (T1/T2/T3) drives build model/effort
+// and verify depth (see docs/RISK-TIERS.md). Default is T2 (a real verify pass): an
+// untagged entry must never fall silently to T3 smoke-only. A bare string may carry an
+// explicit bracketed marker, e.g. "[T1] add password reset".
+const TIERS = new Set(['T1', 'T2', 'T3'])
+const coerceTier = t => (t && TIERS.has(String(t).toUpperCase()) ? String(t).toUpperCase() : 'T2')
+const normalize = list => list.map(f => {
+  if (typeof f === 'string') {
+    const s = f.trim()
+    const m = s.match(/^\[(T[123])\]\s*(.+)$/i)
+    return m ? { feature: m[2].trim(), tier: m[1].toUpperCase(), done_criteria: null } : { feature: s, tier: 'T2', done_criteria: null }
+  }
+  if (f && typeof f === 'object' && typeof f.feature === 'string') {
+    return { feature: f.feature.trim(), tier: coerceTier(f.tier), done_criteria: Array.isArray(f.done_criteria) ? f.done_criteria : null }
+  }
+  return null
+}).filter(f => f && f.feature.length)
 features = normalize(features)
 
 const PREFLIGHT = {
@@ -42,7 +58,7 @@ const PREFLIGHT = {
       type: 'object', additionalProperties: false,
       description: 'ONLY if feature-pipeline.input.json exists in the target root: its parsed content',
       properties: {
-        features: { type: 'array', items: { type: 'string' } },
+        features: { type: 'array', description: 'Verbatim entries — may be strings or {feature, tier, done_criteria} objects; return them unchanged.' },
         context: { type: 'string' },
       },
     },
@@ -125,15 +141,51 @@ const CHECK = {
   },
 }
 
+// T1 features get a second, parallel security pass alongside the functional verify.
+const SECCHECK = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['verdict', 'issues', 'evidence'],
+  properties: {
+    verdict: { type: 'string', enum: ['pass', 'fail'] },
+    issues: { type: 'array', items: { type: 'string' }, description: 'Each: the concrete, reachable attack path' },
+    evidence: { type: 'string', description: 'What was inspected and the result' },
+  },
+}
+
+// Tier → build effort/model. T3 boilerplate builds fast on Sonnet (well-defined
+// execution); T1/T2 build on the session model at high/xhigh. See docs/RISK-TIERS.md.
+const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { effort: t === 'T1' ? 'xhigh' : 'high' })
+const planEffort = t => (t === 'T3' ? 'medium' : 'high')
+// Combine a T1 feature's functional + security verdicts. Fail-closed: a missing or
+// failed security pass sinks the feature (it retries), it does not pass on silence.
+const combineT1 = (fn, sec) => {
+  if (!fn) return null // functional verify died → feature drops to the failed bucket
+  const secPass = sec && sec.verdict === 'pass'
+  const secIssues = sec ? (sec.verdict === 'fail' ? sec.issues : []) : ['security pass agent failed — treat as unverified, do not merge']
+  return {
+    verdict: fn.verdict === 'pass' && secPass ? 'pass' : 'fail',
+    issues: [...(fn.issues || []), ...secIssues],
+    pr_title: fn.pr_title,
+    pr_body: fn.pr_body,
+    evidence: `${fn.evidence}${sec ? ` | security: ${sec.evidence}` : ' | security pass did not complete'}`,
+  }
+}
+
 const results = await pipeline(
   features,
+  // 1. Plan — effort follows the tier; caller-provided done-criteria are authoritative.
   (f, _, i) => agent(
     `Plan the implementation of this feature in the target repository. Read the relevant ` +
-    `existing code first; the plan must fit existing conventions.\n\nFEATURE: ${f}\n` +
+    `existing code first; the plan must fit existing conventions.\n\nFEATURE: ${f.feature}\n` +
+    `RISK TIER: ${f.tier} — drives how much validation it gets downstream.\n` +
+    (f.done_criteria ? `DONE CRITERIA (authoritative — plan to meet exactly these):\n${JSON.stringify(f.done_criteria)}\n` : '') +
     (context ? `SHARED CONTEXT:\n${context}\n` : '') +
-    `\nTests-first: the test plan is not optional. Keep the plan minimal — no speculative abstractions.`,
-    { label: `plan:${i + 1}`, phase: 'Plan', effort: 'high', schema: PLAN },
+    `\nTests-first: the test plan is not optional. For a T3 feature a smoke test (builds/renders + one happy path) ` +
+    `is the right-sized test — do not over-specify it. Keep the plan minimal — no speculative abstractions.`,
+    { label: `plan:${i + 1}`, phase: 'Plan', effort: planEffort(f.tier), schema: PLAN },
   ),
+  // 2. Build — isolated worktree; model/effort follow the tier (T3 → Sonnet/medium).
   (plan, f, i) => plan && agent(
     (runtimeIsolation
       ? `Implement this feature following the plan. You are in an ISOLATED git worktree — create and commit your work to a ` +
@@ -144,33 +196,78 @@ const results = await pipeline(
         `random alphanumeric string you generate (collision-proof across runs). Never reuse an existing feature/wf-* branch. ` +
         `Do ALL work inside that worktree (install dependencies there first if the project needs them). Report the exact branch ` +
         `name. When done — always, also on failure — remove the worktree from the main repo (git worktree remove --force <path>); the branch survives.\n`) +
-    `\nFEATURE: ${f}\n` +
+    `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\n` +
     (context ? `SHARED CONTEXT:\n${context}\n` : '') +
     `PLAN:\n${JSON.stringify(plan, null, 2)}\n\n` +
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
     `run the project's full relevant test suite. Match existing code style exactly. ` +
     `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
     `Commit with a clear message before finishing.`,
-    { label: `build:${i + 1}`, phase: 'Build', effort: 'high', schema: BUILD, ...(runtimeIsolation ? { isolation: 'worktree' } : {}) },
+    { label: `build:${i + 1}`, phase: 'Build', schema: BUILD, ...buildOpts(f.tier), ...(runtimeIsolation ? { isolation: 'worktree' } : {}) },
   ).then(b => b && { plan, build: b }),
-  (r, f, i) => r && agent(
-    `Fresh-context verification. In the target repository: first run "git worktree prune" ` +
-    `(clears stale worktree records from earlier runs), then check out the branch DETACHED in a temporary worktree at a ` +
-    `unique path: git worktree add --detach ../wf-verify-${i + 1}-<random suffix> ${r.build.branch}. ` +
-    `Verify the feature against its done-criteria there (install dependencies in the worktree first if the project needs them). ` +
-    `Run the tests yourself — do not trust the builder's report. ` +
-    `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
-    `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
-    `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
-    `plus the evidence summary itself. On a fail verdict the body states what is broken instead.\n\n` +
-    `FEATURE: ${f}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
-    { label: `verify:${i + 1}`, phase: 'Verify', effort: 'medium', schema: CHECK },
-  ).then(c => ({ feature: f, ...r, check: c })),
+  // 3. Verify — depth follows the tier: T1 functional + parallel security (both must
+  //    pass), T2 one functional pass, T3 smoke-only on Sonnet. See docs/RISK-TIERS.md.
+  (r, f, i) => {
+    if (!r) return null
+    const funcPrompt =
+      `Fresh-context verification. In the target repository: first run "git worktree prune" ` +
+      `(clears stale worktree records from earlier runs), then check out the branch DETACHED in a temporary worktree at a ` +
+      `unique path: git worktree add --detach ../wf-verify-${i + 1}-<random suffix> ${r.build.branch}. ` +
+      `Verify the feature against its done-criteria there (install dependencies in the worktree first if the project needs them). ` +
+      `Run the tests yourself — do not trust the builder's report. ` +
+      (f.tier === 'T1'
+        ? `This is a HIGH-RISK (T1) feature: exercise the failure and edge paths, not just the happy one. `
+        : `Cover the happy path and the top failure path; skip exhaustive edge-case grinding (T2). `) +
+      `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
+      `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
+      `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
+      `plus the evidence summary itself. On a fail verdict the body states what is broken instead.\n\n` +
+      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`
+
+    if (f.tier === 'T3') {
+      // Smoke-only: builds, renders/boots, one happy path. No deep review — the
+      // integrated deep-review (in /forge, or /deep-review before ship) is T3's net.
+      return agent(
+        `Smoke check ONLY — low-risk (T3) feature; do NOT do a deep or security review. In the target repo run ` +
+        `"git worktree prune", then git worktree add --detach ../wf-smoke-${i + 1}-<random suffix> ${r.build.branch} ` +
+        `(install deps in the worktree if needed). Confirm exactly three things: (1) it builds/compiles, (2) it ` +
+        `renders/boots without error, (3) the happy path works (run the smoke test the builder wrote). ALWAYS remove ` +
+        `the worktree afterwards (git worktree remove --force <path>), also on failure. Fail ONLY on a real ` +
+        `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
+        `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
+        `YOU produced), and the evidence summary.\n\n` +
+        `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
+        { label: `smoke:${i + 1}`, phase: 'Verify', model: 'sonnet', effort: 'medium', schema: CHECK },
+      ).then(c => ({ feature: f.feature, tier: f.tier, ...r, check: c }))
+    }
+
+    if (f.tier === 'T1') {
+      // Functional verify AND an adversarial security pass, in parallel; both must pass.
+      return parallel([
+        () => agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: 'high', schema: CHECK }),
+        () => agent(
+          `Adversarial SECURITY verification of a HIGH-RISK (T1) feature. In the target repo run "git worktree prune", ` +
+          `then git worktree add --detach ../wf-sec-${i + 1}-<random suffix> ${r.build.branch} (install deps if needed); ` +
+          `remove it with git worktree remove --force <path> when done, always. Hunt ONLY for real, reachable ` +
+          `vulnerabilities in the diff and the code it touches: broken or missing authz/authn, tenant/user-boundary ` +
+          `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
+          `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +
+          `handling flaws. Verdict 'fail' with the concrete attack path if you find one; 'pass' only after an honest ` +
+          `look that found none.\n\nFEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}`,
+          { label: `security:${i + 1}`, phase: 'Verify', effort: 'high', schema: SECCHECK },
+        ),
+      ]).then(([fn, sec]) => ({ feature: f.feature, tier: f.tier, ...r, check: combineT1(fn, sec) }))
+    }
+
+    // T2 — one functional fresh-context pass.
+    return agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: 'medium', schema: CHECK })
+      .then(c => ({ feature: f.feature, tier: f.tier, ...r, check: c }))
+  },
 )
 
 // Index-aligned: features whose plan/build stage died must not vanish from the report.
 const lost = features
-  .map((f, i) => (!results[i] ? { feature: f, branch: null, issues: ['plan or build stage failed before verification'] } : null))
+  .map((f, i) => (!results[i] ? { feature: f.feature, tier: f.tier, branch: null, issues: ['plan or build stage failed before verification'] } : null))
   .filter(Boolean)
 
 const done = results.filter(Boolean)
@@ -179,10 +276,10 @@ log(`${passed.length}/${features.length} features passed verification` + (lost.l
 
 return {
   target: TARGET,
-  passed: passed.map(r => ({ feature: r.feature, branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
+  passed: passed.map(r => ({ feature: r.feature, tier: r.tier, branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
   failed: [
     ...done.filter(r => !r.check || r.check.verdict === 'fail')
-      .map(r => ({ feature: r.feature, branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
+      .map(r => ({ feature: r.feature, tier: r.tier, branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
     ...lost,
   ],
   note: 'Branches are unmerged. Review and merge in the main session: git merge --no-ff <branch> per feature, resolving conflicts in merge order of least → most files touched, then RUN THE FULL SUITE ON THE MERGED RESULT — each branch was verified in isolation; the merged whole has not been tested by any agent. When driven by /forge, the skill handles push → PR → merge per its approved integration mode instead. Delete feature-pipeline.input.json if it was used. If the run was interrupted: git worktree prune, then inspect feature/wf-* branches for committed work before deleting any.',

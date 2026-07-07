@@ -4,6 +4,10 @@
 > for LARGE features only; small and medium features keep the plan in the conversation.
 > Archive or delete after merge.
 
+## Risk tier
+<T1 / T2 / T3> — <one-line justification: the capability signal that set it>. Determines
+how much validation this feature gets. See docs/RISK-TIERS.md.
+
 ## Goal
 <What the user can do after this ships that they couldn't before. One paragraph.>
 

@@ -39,6 +39,23 @@ Have `forge-blueprint` draft the spec CONTENT from the interview, following
 files; hold the draft, it lands on disk in step 4. Present the summary — scope table,
 out-of-scope list, open questions — and iterate until the user approves.
 
+**Tag each V1 feature with a risk tier** (fills the spec table's Risk column). Blueprint
+classifies by *capability signal*, not by the feature's noun (see `docs/RISK-TIERS.md`):
+
+- **T1** if any signal fires — touches money; crosses a tenant/user boundary (incl. **any
+  filter-dependent tenant query** — a list/search/get across a tenant-scoped table, where
+  a missing filter silently leaks other tenants' rows past the happy-path test); makes an
+  authz/authn decision (auth, session, permissions, tokens); accepts untrusted external
+  input (public endpoints, webhooks, uploads); irreversible sends. Includes auth email.
+- **T2** — side effects but no signal: business-logic route handlers, scoped data
+  mutations, transactional/marketing email.
+- **T3** — pure read/render of same-tenant data, UI components, page/server components,
+  CRUD scaffolding.
+
+Each tag carries a one-line justification naming the signal. Ties break **upward**.
+Present the tiers in the scope table; the user can adjust any before approving — the tag
+is seed, not verdict.
+
 If a genuinely hard architecture question surfaced (wide solution space, expensive to
 reverse), offer to run the `design-panel` workflow on it instead of guessing.
 
@@ -63,8 +80,9 @@ approves both** (this is the LIFECYCLE stage-1 gate).
    `CLAUDE.md` from `templates/PROJECT-CLAUDE.md` (filled with the real stack, commands,
    conventions), `docs/adr/001-stack.md` from `templates/ADR.md`.
 4. Create `PROGRESS.md` from `templates/PROGRESS.md` (harness root): the V1 feature
-   list from the spec as F#-rows, health baseline, and a seeded **"Next session
-   should"** line pointing at the suggested first `/feature`.
+   list from the spec as F#-rows — each carrying its **risk tier + justification** from
+   the spec table — a health baseline, and a seeded **"Next session should"** line
+   pointing at the suggested first `/feature`.
 5. Wire the test runner per playbook and add one smoke test that actually runs
    (`app boots` / `CLI prints version`). Verify: install, test, dev-server boot — all
    green. Boot check: start the dev server in the background, poll the URL until it

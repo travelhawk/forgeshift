@@ -1,7 +1,7 @@
 export const meta = {
   name: 'deep-review',
   description: 'Multi-dimension code review with adversarial verification of every finding',
-  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "..."} — dir pins the target repo (required when the session did not start in the product directory).',
+  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md).',
   phases: [
     { title: 'Review', detail: 'six dimensions in parallel' },
     { title: 'Verify', detail: 'ship-blocker findings attacked by 2 refuters, others by 1' },
@@ -20,6 +20,9 @@ const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.
 const scopeArg = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.scope === 'string' && a.scope.trim() ? a.scope.trim() : null
 const scope = scopeArg || 'the current uncommitted diff plus commits not yet on the default branch (git status / git diff / git log)'
+// Optional risk steer: names the high-risk (T1) features/paths so reviewers spend their
+// effort where it matters and sweep low-risk boilerplate lightly. See docs/RISK-TIERS.md.
+const priority = a && typeof a === 'object' && typeof a.priority === 'string' && a.priority.trim() ? a.priority.trim() : null
 
 const PREFLIGHT = {
   type: 'object', additionalProperties: false,
@@ -106,6 +109,7 @@ log(`Reviewing scope: ${scope}`)
 const all = await parallel(DIMENSIONS.map(d => () =>
   agent(
     `Review ${scope} in the target repository. Your single dimension: ${d.key}.\n${d.prompt}\n\n` +
+    (priority ? `RISK STEER: concentrate your effort on these high-risk paths first — ${priority}. Sweep low-risk boilerplate lightly.\n\n` : '') +
     `Read the surrounding code, not just the diff — a change can be wrong only in context. ` +
     `Report every issue you find, including ones you are uncertain about — a separate verification step filters. ` +
     `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario.`,

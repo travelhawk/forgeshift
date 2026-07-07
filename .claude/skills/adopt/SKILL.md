@@ -22,8 +22,10 @@ From the brief + manifests + README + git history, write into the project:
 
 1. `docs/SPEC.md` — as-built: what the product actually does today, its real users/
    journey as far as inferable, current feature set as F#-rows with observed behavior as
-   done-criteria. **Mark it clearly at the top: "Reverse-engineered <date> — verify
-   before relying on intent statements."** Unknowns go in Open Questions, not guesses.
+   done-criteria, **each tagged with a risk tier** (T1/T2/T3 + one-line justification, by
+   capability signal — `docs/RISK-TIERS.md`) so later `/feature`/`/forge` work on it is
+   right-sized. **Mark it clearly at the top: "Reverse-engineered <date> — verify before
+   relying on intent statements."** Unknowns go in Open Questions, not guesses.
 2. `CLAUDE.md` from `templates/PROJECT-CLAUDE.md` (harness root) — with the repo's REAL
    commands, verified by running them: install, test, dev, build. A command that fails
    gets documented as broken in Gotchas, not documented as working.

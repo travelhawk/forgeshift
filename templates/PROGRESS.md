@@ -6,8 +6,11 @@
 
 ## Features (from docs/SPEC.md)
 
-- [ ] F1 — <name> — <done-criteria in one line>
-- [ ] F2 — <name> — <done-criteria in one line>
+> Each row carries a risk tier **T1/T2/T3** + a one-line justification, seeded at spec
+> time and used to size validation. Edit the marker to override. See docs/RISK-TIERS.md.
+
+- [ ] F1 — <name> — **T?** (<why this tier — the capability signal>) — <done-criteria in one line>
+- [ ] F2 — <name> — **T?** (<why this tier>) — <done-criteria in one line>
 
 ## Health
 

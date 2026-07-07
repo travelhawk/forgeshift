@@ -41,15 +41,21 @@ Blueprint partitions the backlog:
 - Features with overlapping footprints or a build-order dependency never run in
   parallel: chain them into ONE pipeline entry (built sequentially inside it) or push
   the dependent one into a later wave.
-- Output: waves 1..N, each a list of pipeline entries with footprint, done-criteria,
-  why it is parallel-safe, and flagged risks. Fewer, fatter waves beat many thin ones —
-  parallelism inside a wave is the pipeline's job.
+- **Carry each feature's risk tier** (the `T?` marker from PROGRESS.md; classify any
+  untagged feature by capability signal per `docs/RISK-TIERS.md`, ties upward). The tier
+  sets its validation depth in the pipeline — it does not affect wave partitioning
+  (that's footprint only).
+- Output: waves 1..N, each a list of pipeline entries with footprint, **tier +
+  justification**, done-criteria, why it is parallel-safe, and flagged risks. Fewer,
+  fatter waves beat many thin ones — parallelism inside a wave is the pipeline's job.
 
 ## 3. The gate (the only one)
 
 Present in one message, then get one approval:
 
-- The wave table: feature → wave → footprint → done-criteria.
+- The wave table: feature → wave → **tier** → footprint → done-criteria. The tier
+  column is your batch override point — bump any feature up or down here before you
+  approve (`docs/RISK-TIERS.md`); the approval covers the adjustment.
 - The integration mode:
   - **auto-integrate** (default): every verified feature → branch pushed → PR with
     evidence → squash-merged → the next wave builds on the updated main. Hands-off
@@ -77,8 +83,10 @@ and the finish step's fixes.
 Per wave, in order:
 
 1. Fire the `feature-pipeline` workflow with `{dir: <product path>, features: [wave
-   entries], context}` — context carries the spec summary, project conventions,
-   per-feature done-criteria, and the known-red baseline if any. Write the same
+   entries], context}`. Each wave entry is an object `{feature, tier, done_criteria}` —
+   the tier drives the pipeline's build model/effort and verify depth (T1 verify +
+   security pass, T2 one verify, T3 smoke-only on Sonnet). Context carries the spec
+   summary, project conventions, and the known-red baseline if any. Write the same
    `{features, context}` to `feature-pipeline.input.json` in the product root before
    invoking and delete it after the wave (args-mangling fallback per CLAUDE.md). A
    workflow-level error return is a stop condition — report, don't continue.
@@ -117,8 +125,11 @@ steps below apply to auto-integrate and local modes.
 
 1. Fire the `deep-review` workflow on the integrated result:
    `{dir: <product path>, scope: "git diff <baseline commit>..HEAD — the merged output
-   of this /forge run"}` (substitute the section-0 baseline SHA). Pipeline verification
-   saw each feature in isolation — this is the adversarial pass over the merged whole.
+   of this /forge run", priority: "<T1 features + their paths>"}` (substitute the
+   section-0 baseline SHA). The `priority` note names the T1 features so reviewers
+   concentrate their effort on the high-risk paths — T3 boilerplate, already smoke-built,
+   gets swept but not ground over. Pipeline verification saw each feature in isolation —
+   this is the adversarial pass over the merged whole, and the one review T3 features get.
    A deep-review error return (a result with no `confirmed`/`unverified` — preflight
    flaked, target refused) is ship-blocking: report the error, never emit
    ready-for-`/ship` without a completed review (same rule as a section-4 workflow

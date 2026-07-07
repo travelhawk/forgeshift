@@ -19,10 +19,13 @@ plugin is installed.>
 ## Scope
 
 ### V1 — must ship
-| # | Feature | Done means |
-|---|---|---|
-| F1 | <feature> | <checkable statement> |
-| F2 | <feature> | <checkable statement> |
+Risk = validation tier T1/T2/T3 + why (the capability signal). Seeded at kickoff,
+overridable. See docs/RISK-TIERS.md.
+
+| # | Feature | Risk | Done means |
+|---|---|---|---|
+| F1 | <feature> | T? (<why>) | <checkable statement> |
+| F2 | <feature> | T? (<why>) | <checkable statement> |
 
 ### Explicitly out of scope (V1)
 - <thing people will ask about — and why it waits>

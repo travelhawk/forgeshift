@@ -11,6 +11,11 @@ Idea → `/kickoff` → spec + scaffold → `/feature` loop + `/deep-review` gat
 PR per feature → automatic deep-review finish) → `/harden` before exposure → `/ship`.
 Details on demand: `docs/LIFECYCLE.md`
 
+Every feature is tagged with a **risk tier** (T1/T2/T3) at spec time; build+validate
+depth branches on it — T1 full loop + security pass, T2 build + one verify, T3 fast
+Sonnet build + smoke test. Seeded automatically, overridable, ties break up. Full scheme:
+`docs/RISK-TIERS.md`.
+
 ## Command map
 
 Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`

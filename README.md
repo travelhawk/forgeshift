@@ -47,6 +47,11 @@ adversarial refutation, fail-closed release gates — and on *not making you bab
 - **Gates that gate.** No feature merges with failing or missing tests. Reviews only
   trust a finding after independent refuters fail to kill it. Release gates fail *closed* —
   a gate that doesn't report blocks the ship. None of this is optional "if you remember to."
+- **Risk-tiered validation.** Every feature is tagged T1/T2/T3 at spec time by what it can
+  *do* (touches money? crosses a tenant boundary? makes an authz call?). Auth and payment
+  code gets the full loop plus a security pass; CRUD boilerplate builds fast on Sonnet with
+  a smoke test. You stop paying for exhaustive validation on scaffolding and concentrate it
+  on the dangerous 20%. Overridable per feature. Details: [docs/RISK-TIERS.md](docs/RISK-TIERS.md).
 - **The builder never verifies itself.** Every review runs in a fresh agent context that
   never saw the builder's reasoning, so it can't inherit the builder's blind spots.
 - **Model routing by decision density, not vibes.** Judgment rides your session model

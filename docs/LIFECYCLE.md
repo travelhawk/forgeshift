@@ -38,7 +38,16 @@ order. Always tests-first:
 3. **Build** — implement until green, full suite still green
 4. **Verify** — fresh-context check against the plan (not the builder grading itself)
 
+**Validation depth follows the feature's risk tier**, tagged at spec time and overridable
+(`docs/RISK-TIERS.md`). **T1** (auth, payments, permissions, cross-tenant data, untrusted
+input) gets the full loop plus a security pass; **T2** (side effects, no security/money
+exposure) gets build + core coverage + one verify; **T3** (CRUD scaffolding, UI, page
+renders) builds fast on Sonnet and gets a smoke test only. Tiers classify **up** on doubt,
+and the integrated `deep-review` still sweeps T3 — so this right-sizes cost without opening
+a hole in the gates.
+
 **Gate: no feature merges with failing or missing tests.** No exceptions "just this once".
+A smoke test is the *right-sized* test for T3 — never zero tests, and never a weakened one.
 
 ### 3. Review (`/deep-review`)
 Before anything user-facing ships — and before manual merges outside `/forge`'s gated

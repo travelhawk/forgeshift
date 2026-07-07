@@ -62,6 +62,16 @@ One line: **skills orchestrate *with you* in context; workflows orchestrate
 *without you* in breadth** — and skills are the bridge that fires workflows at the
 right moment.
 
+## Risk tiers cut the cost of breadth
+
+Every feature is tagged **T1/T2/T3** at spec time (by capability signal, not by label),
+and `/feature`, `/forge`, and `feature-pipeline` branch validation depth on the tag: T1
+gets the full loop plus a security pass, T2 build + one verify, T3 a fast Sonnet build
+with a smoke test only. That's what keeps `/forge` affordable on a backlog full of
+boilerplate while concentrating scrutiny on auth/payment/tenant code. Tags are seeded
+automatically and overridable — edit the marker in PROGRESS.md, adjust at the `/forge`
+gate, or pass `/feature F3 as tier 1`. Full scheme: `docs/RISK-TIERS.md`.
+
 ## When to use what
 
 | Situation | Command | Kind |
