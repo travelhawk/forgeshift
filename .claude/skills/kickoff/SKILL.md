@@ -39,6 +39,12 @@ Have `forge-blueprint` draft the spec CONTENT from the interview, following
 files; hold the draft, it lands on disk in step 4. Present the summary — scope table,
 out-of-scope list, open questions — and iterate until the user approves.
 
+**Right-size the feature list.** A feature is a slice of user value (independently
+buildable + testable, ~2-5 done-criteria), not one-per-requirement — a small tool has
+~3-6, a typical MVP ~8-15. A V1 phase caps at ~15; a bigger backlog gets phased into V2
+rather than padded or crammed (see `forge-blueprint`'s granularity rule). Fewer, coherent
+features mean fewer `/forge` waves and subagents.
+
 **Tag each V1 feature with a risk tier** (fills the spec table's Risk column). Blueprint
 classifies by *capability signal*, not by the feature's noun (see `docs/RISK-TIERS.md`):
 

@@ -19,6 +19,9 @@ plugin is installed.>
 ## Scope
 
 ### V1 — must ship
+Each row is a slice of user value (independently buildable + testable, ~2-5 done-criteria),
+not one-per-requirement. Right-size to the project: small tool ~3-6, MVP ~8-15; a V1 caps
+at ~15 — phase a bigger backlog into a V2 section below rather than padding or cramming.
 Risk = validation tier T1/T2/T3 + why (the capability signal). Seeded at kickoff,
 overridable. See docs/RISK-TIERS.md.
 
