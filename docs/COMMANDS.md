@@ -35,8 +35,9 @@ verdicts). Orchestration is code, therefore reproducible.
 the spec, run the suite), sizes the work, then: small → the session builds it
 itself; medium+ → plan and done-criteria go to `forge-hammer` (Opus,
 tests-first on a branch), the resulting diff goes to `forge-quench` (session model, fresh
-context). Only after confirmed findings are fixed does it merge and tick
-PROGRESS.md — with pasted evidence.
+context). Only after confirmed findings are fixed does it open a PR for the branch
+(evidence in the body) and tick PROGRESS.md — with pasted evidence. The feature never
+lands straight on main; the PR is the review record you merge.
 
 **`/ship v0.1.0` — a skill firing a workflow.** The playbook first writes the
 release commit (CHANGELOG, version bump), then invokes the `release-gate` workflow:

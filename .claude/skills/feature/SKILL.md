@@ -24,6 +24,9 @@ workflow — point the user there when they list 3+ items.
   steps below.
 - Run the existing test suite first. Starting from red means fixing that first or
   explicitly recording that the red is pre-existing and unrelated.
+- Note remote status (`git remote get-url origin`); a GitHub remote with `gh auth
+  status` passing enables the PR flow in step 5. No remote → step 5 falls back to a
+  local merge.
 
 ## 2. Plan — size it honestly
 
@@ -36,8 +39,10 @@ workflow — point the user there when they list 3+ items.
 
 ## 3. Build
 
-- Medium+ features build on a branch `feature/<F#-or-slug>`; merge to main only after
-  step 4 verification passes. Small fixes may commit straight to main.
+- The feature builds on its own branch `feature/<F#-or-slug>` — **never commit a
+  feature straight to main**. It integrates only through step 5's PR (or the
+  local-merge fallback), and only after step 4 verification passes. Even a trivial
+  one-line fix gets a branch and a PR — the PR is the review record.
 - Implement per the plan — yourself for small work, via `forge-hammer` for medium+
   (give it the plan, done-criteria, and paths; it works tests-first and commits per
   green cycle). Never delete or weaken existing tests to get to green.
@@ -66,13 +71,33 @@ obvious. Branch by risk tier (`docs/RISK-TIERS.md`):
 however small. The "cosmetic changes may skip" shortcut applies to T3 only — say so
 explicitly when you take it.
 
-## 5. Close
+## 5. Integrate — one PR per feature
+
+Verification green (step 4) → the feature branch integrates through a PR, never a
+direct push to main:
+
+- Push the branch: `git push -u origin feature/<...>`.
+- Open the PR with evidence: `gh pr create --head feature/<...> --base main
+  --title ... --body-file <scratchpad file>` — body = one-line summary, the
+  done-criteria as a checklist, and the step-4 verification evidence (test names +
+  output, review verdict). `--head` is required; the session checkout stays on main,
+  never on the feature branch.
+- Leave the PR open for you to review and merge — `/feature` is the supervised lane,
+  so the merge call is yours. Ask and it squash-merges for you (`gh pr merge <n>
+  --squash --delete-branch`); otherwise the report hands you the PR link.
+- **No GitHub remote:** offer `gh repo create --private --source .` once. Declined →
+  fall back to `git merge --no-ff feature/<...>` into main (the merge commit is the
+  audit trail) — still never an unreviewed fast-forward onto main.
+
+## 6. Close
 
 - Tick the feature in `PROGRESS.md` **only after** done-criteria are demonstrably met —
-  paste the evidence (test names + output) into the session log line.
+  paste the evidence (test names + output) into the session log line, and note the PR
+  (`#N`, open or merged).
 - Update `docs/SPEC.md` if the implementation legitimately deviated from it.
-- Commit(s) are already granular from the build; ensure the final state is committed.
-- Report: what shipped, evidence, deviations, and what's the natural next feature.
+- Commit(s) are already granular from the build; ensure the final state is committed and
+  the branch pushed.
+- Report: what shipped, evidence, the PR link, deviations, and the natural next feature.
 
 ## Escalation
 
