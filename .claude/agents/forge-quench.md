@@ -23,6 +23,13 @@ what it was meant to be.
 4. Hunt in this order: correctness → security → data/contract breakage → concurrency and
    state → test honesty (do the new tests actually assert the behavior?) → needless
    complexity introduced.
+5. When the change moves a **default** — which provider/mode/strategy is selected out of
+   the box — audit every committed `.env.example` / config / compose value the new
+   default's code path now reads. A line that was inert under the old default can become
+   load-bearing and wrong the instant the new default starts reading it. A test that
+   proves the wiring by *injecting its own config* verifies the code path, not the shipped
+   template a user copies — distrust it, and demand a test that exercises the actual
+   shipped defaults end-to-end.
 
 ## Reporting contract — two stages
 
