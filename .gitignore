@@ -6,6 +6,12 @@ projects/*
 .claude/settings.local.json
 .claude/agent-memory-local/
 
+# Project-specific agent memory stays private — the shared harness ships only
+# generic (harness-level) memory. Product internals never leave the local disk.
+.claude/agent-memory/**/project_*.md
+.claude/agent-memory/forge-quench/defect-patterns-*.md
+!.claude/agent-memory/forge-quench/defect-patterns-harness.md
+
 node_modules/
 .env
 .env.*
