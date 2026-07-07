@@ -71,6 +71,12 @@ the full suite on the merged result in the main session before calling the batch
    well-specified execution → Sonnet; mechanical → Haiku. See docs/MODEL-ROUTING.md.
 5. **One retry, then rethink.** A subagent that failed twice on the same prompt will fail
    a third time. Change the decomposition instead.
+6. **Distill once, don't re-read N times.** When several agents work the same feature
+   (plan → build → verify), the plan agent — which already reads the code — emits a
+   self-contained *brief*: the acceptance criteria plus the specific files, conventions,
+   and applicable pitfalls this feature touches. Downstream agents read that ~2k brief,
+   not the full spec + architecture + all of memory. One cheap extraction replaces N
+   expensive re-reads. `feature-pipeline`'s PLAN object is this brief.
 
 ## When a workflow dies mid-run
 

@@ -3,7 +3,7 @@ export const meta = {
   description: 'Implement independent features in parallel: plan → implement in isolated worktree → verify',
   whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature entries, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). A feature entry is a string (defaults to risk tier T2; a bare string may carry a bracketed marker like "[T1] add password reset") or an object {feature, tier, done_criteria} — the tier (T1/T2/T3) sets build model/effort and verify depth (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet; see docs/RISK-TIERS.md). If args does not arrive intact (a known runtime failure mode), write the same {features, context} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
   phases: [
-    { title: 'Plan', detail: 'per-feature implementation plan + test plan' },
+    { title: 'Plan', detail: 'per-feature self-contained brief: plan + conventions + pitfalls + criteria' },
     { title: 'Build', detail: 'implement in isolated git worktree' },
     { title: 'Verify', detail: 'fresh-context check against the plan, tests run' },
   ],
@@ -104,13 +104,22 @@ const agent = (p, o) => agent0(AT + p, o)
 // the target repo (same semantics: isolated tree, fresh branch, branch survives).
 const runtimeIsolation = pre.cwdIsTarget
 
+// The PLAN is the per-feature BRIEF: produced once by the plan agent (which already
+// reads the code), it is the ONLY context the downstream builder + verifier get. One
+// cheap extraction here replaces N expensive re-reads of the full spec/architecture/
+// memory by every downstream agent. So it must be self-contained: besides the plan
+// proper, it carries the exact conventions the feature must match and the applicable
+// pitfalls/lessons — the feature-relevant slice, distilled from the shared context and
+// the code, not the whole corpus re-read downstream.
 const PLAN = {
   type: 'object',
   additionalProperties: false,
-  required: ['approach', 'files_to_touch', 'test_plan', 'done_criteria'],
+  required: ['approach', 'files_to_touch', 'conventions', 'pitfalls', 'test_plan', 'done_criteria'],
   properties: {
     approach: { type: 'string' },
     files_to_touch: { type: 'array', items: { type: 'string' } },
+    conventions: { type: 'string', description: 'The specific existing patterns, helpers, and naming/style THIS feature must follow — distilled from the code the plan agent read, so the builder need not re-derive them. Name concrete files + symbols, not generic advice.' },
+    pitfalls: { type: 'array', items: { type: 'string' }, description: 'The applicable gotchas/lessons for THIS feature only (from the shared context and the code) — the relevant subset, not every lesson. Empty array if none apply.' },
     test_plan: { type: 'string', description: 'Which tests to write first and what they assert' },
     done_criteria: { type: 'array', items: { type: 'string' }, description: 'Checkable statements that define done' },
   },
@@ -176,12 +185,17 @@ const results = await pipeline(
   features,
   // 1. Plan — effort follows the tier; caller-provided done-criteria are authoritative.
   (f, _, i) => agent(
-    `Plan the implementation of this feature in the target repository. Read the relevant ` +
-    `existing code first; the plan must fit existing conventions.\n\nFEATURE: ${f.feature}\n` +
+    `Plan the implementation of this feature in the target repository, and return it as a ` +
+    `SELF-CONTAINED per-feature brief. Read the relevant existing code first; the plan must ` +
+    `fit existing conventions.\n\nFEATURE: ${f.feature}\n` +
     `RISK TIER: ${f.tier} — drives how much validation it gets downstream.\n` +
     (f.done_criteria ? `DONE CRITERIA (authoritative — plan to meet exactly these):\n${JSON.stringify(f.done_criteria)}\n` : '') +
-    (context ? `SHARED CONTEXT:\n${context}\n` : '') +
-    `\nTests-first: the test plan is not optional. For a T3 feature a smoke test (builds/renders + one happy path) ` +
+    (context ? `SHARED CONTEXT (spec summary, conventions, lessons — distill only the slice THIS feature needs):\n${context}\n` : '') +
+    `\nThe brief you return is the ONLY context the downstream builder and verifier receive — they will NOT ` +
+    `re-open the full spec, architecture, or memory. So it must stand alone: in "conventions" capture the exact ` +
+    `existing helpers/patterns/naming this feature must match (name concrete files + symbols); in "pitfalls" list ` +
+    `only the gotchas/lessons that apply to THIS feature (the relevant subset — empty if none). ` +
+    `Tests-first: the test plan is not optional. For a T3 feature a smoke test (builds/renders + one happy path) ` +
     `is the right-sized test — do not over-specify it. Keep the plan minimal — no speculative abstractions.`,
     { label: `plan:${i + 1}`, phase: 'Plan', effort: planEffort(f.tier), schema: PLAN },
   ),
@@ -197,8 +211,10 @@ const results = await pipeline(
         `Do ALL work inside that worktree (install dependencies there first if the project needs them). Report the exact branch ` +
         `name. When done — always, also on failure — remove the worktree from the main repo (git worktree remove --force <path>); the branch survives.\n`) +
     `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\n` +
-    (context ? `SHARED CONTEXT:\n${context}\n` : '') +
-    `PLAN:\n${JSON.stringify(plan, null, 2)}\n\n` +
+    `BRIEF — your complete context. The plan agent already distilled the spec, conventions, and lessons ` +
+    `relevant to THIS feature into it; do NOT re-open the full spec, architecture, or memory. Read the ` +
+    `specific files in files_to_touch and their tests to match style, follow "conventions", heed "pitfalls":\n` +
+    `${JSON.stringify(plan, null, 2)}\n\n` +
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
     `run the project's full relevant test suite. Match existing code style exactly. ` +
     `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
@@ -222,7 +238,10 @@ const results = await pipeline(
       `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
       `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
       `plus the evidence summary itself. On a fail verdict the body states what is broken instead.\n\n` +
-      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`
+      `The brief's done-criteria and pitfalls below are your spec — verify against them; you need not re-open ` +
+      `the full spec or architecture.\n` +
+      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
+      `PITFALLS TO PROBE:\n${JSON.stringify(r.plan.pitfalls || [])}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`
 
     if (f.tier === 'T3') {
       // Smoke-only: builds, renders/boots, one happy path. No deep review — the
@@ -253,7 +272,8 @@ const results = await pipeline(
           `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
           `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +
           `handling flaws. Verdict 'fail' with the concrete attack path if you find one; 'pass' only after an honest ` +
-          `look that found none.\n\nFEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}`,
+          `look that found none.\n\nFEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
+          `KNOWN PITFALLS FROM THE BRIEF (probe these first):\n${JSON.stringify(r.plan.pitfalls || [])}`,
           { label: `security:${i + 1}`, phase: 'Verify', effort: 'high', schema: SECCHECK },
         ),
       ]).then(([fn, sec]) => ({ feature: f.feature, tier: f.tier, ...r, check: combineT1(fn, sec) }))
