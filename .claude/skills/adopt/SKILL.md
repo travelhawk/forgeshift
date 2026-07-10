@@ -36,6 +36,12 @@ From the brief + manifests + README + git history, write into the project:
 4. `docs/adr/` — one ADR-001 recording the CURRENT stack as-found (no rationale
    invented; "historical, adopted as-is").
 
+If a reference matches this product type — consult `references/INDEX.md` (harness root)
+and read only the match, never the whole folder — use its checklist to surface **gaps**:
+missing must-haves (e.g. no Impressum on a landing page) go into the spec's Open
+Questions, not silently added (this is as-built adoption). No index or no match → skip
+(`CLAUDE.md` → References).
+
 ## 3. Health baseline
 
 Run the test suite and note the state honestly in PROGRESS.md (X passing / Y failing /

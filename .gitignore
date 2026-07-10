@@ -12,6 +12,11 @@ projects/*
 .claude/agent-memory/forge-quench/defect-patterns-*.md
 !.claude/agent-memory/forge-quench/defect-patterns-harness.md
 
+# Private reference playbooks — your reusable product-type knowledge (landing-page
+# checklists, layout conventions, ...). Consulted selectively at intake (kickoff/next/
+# adopt), never loaded into every agent. Content stays local for now.
+references/
+
 node_modules/
 .env
 .env.*

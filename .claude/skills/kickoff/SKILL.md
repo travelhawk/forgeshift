@@ -32,6 +32,12 @@ only what the idea leaves open:
 Propose defaults in every question — the user reacts faster than they specify.
 If the user says "du entscheidest" / "you decide", decide and record the decision.
 
+**Pull in a reference if one fits.** If `references/INDEX.md` exists (harness root), read
+the index and pull in the *single* reference matching this product type — read only that
+file, not the folder — and let its must-haves shape the interview and spec (a landing-page
+reference, say, reminds you to confirm Impressum, Datenschutzerklärung, i18n). No index or
+no match → skip silently. See `CLAUDE.md` → References.
+
 ## 2. Spec draft
 
 Have `forge-blueprint` draft the spec CONTENT from the interview, following

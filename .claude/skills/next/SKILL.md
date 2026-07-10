@@ -36,6 +36,10 @@ kickoff), approve once, and the build runs hands-off from there.
 - **Read the product first**: `docs/SPEC.md`, `PROGRESS.md`, and `docs/adr/`. You are
   iterating a known product, not starting blank — this is what lets the intake be lighter
   than a kickoff.
+- **Pull in a reference if one fits.** If `references/INDEX.md` exists (harness root),
+  consult the index for this product's type/domain and read only the matching reference,
+  folding its checklist into the new features. No index or no match → skip; never read the
+  whole folder (`CLAUDE.md` → References).
 - Push back where it matters (AskUserQuestion, batched, **only on genuine ambiguity** —
   you already have the spec + code, so keep it tight). Cover only what the ideas leave
   open:

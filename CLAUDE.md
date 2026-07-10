@@ -111,3 +111,16 @@ never define project agents/hooks that shadow or double the global ones.
 Stack defaults per product type (versions as of 2026-07): `docs/playbooks/` — web-app,
 static-site, api-service, cli-tool, mobile-app, desktop-app, browser-extension, library.
 Verify major versions against the live ecosystem at kickoff; playbooks age.
+
+## References (private, opt-in)
+
+`references/` (harness root, **gitignored** — content stays local for now) holds your own
+reusable, product-type reference playbooks: checklists and conventions too specific or
+private for the shared `docs/playbooks/` (e.g. a landing-page must-have list — Impressum,
+Datenschutzerklärung, i18n, your layout). Playbooks are shared generic stack defaults;
+references are your private domain knowledge. Consumed **selectively, at intake only**
+(`/kickoff`, `/next`, `/adopt`): the skill reads `references/INDEX.md` (one line per
+reference), pulls in the *single* matching file, and folds it into the spec. It is never
+loaded into every agent — build/verify agents get the relevant bits from the spec and the
+per-feature brief, not from `references/`. Absent or no match → skipped silently. The
+mechanism is tracked here; the reference files are not.
