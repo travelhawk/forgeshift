@@ -36,6 +36,14 @@ workflow — point the user there when they list 3+ items.
 - **Large or judgment-heavy** (new subsystem, data-model change, security-relevant):
   delegate planning to `forge-blueprint`, record the plan as `docs/features/F<#>.md` from
   `templates/FEATURE.md` (harness root), and **block on user approval** before building.
+- **Integrates an external HTTP API** (a raw-`fetch` adapter behind an interface, no
+  vendor SDK)? Capture the verified request/response contract *now*, at plan time —
+  delegate to `forge-prospector` (it has web access) to confirm the endpoint, auth header,
+  request-body shape, and the success/error signal against live vendor docs, and record it
+  in the plan (or the feature doc). `forge-quench` has **no network** and cannot check
+  adapter fidelity itself; the recorded contract is the spec it verifies the code against.
+  Skip this and a faithful-looking-but-wrong adapter passes review (e.g. Postmark returns a
+  non-zero `ErrorCode` inside an HTTP 200 — only the docs tell you that).
 
 ## 3. Build
 

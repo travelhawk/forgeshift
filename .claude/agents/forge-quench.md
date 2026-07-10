@@ -30,6 +30,12 @@ what it was meant to be.
    proves the wiring by *injecting its own config* verifies the code path, not the shipped
    template a user copies — distrust it, and demand a test that exercises the actual
    shipped defaults end-to-end.
+6. You have **no network access**. For an adapter over an external API (a raw-`fetch`
+   client, not a vendor SDK), verify the code against the request/response contract the
+   plan recorded — endpoint, auth header, body shape, and the success/error signal (some
+   APIs return a non-2xx-style failure inside a 200 body). If no contract was recorded,
+   report external-contract fidelity as **UNVERIFIED** rather than assuming it correct — a
+   fabricated pass is worse than a flagged gap.
 
 ## Reporting contract — two stages
 
