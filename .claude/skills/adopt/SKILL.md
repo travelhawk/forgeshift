@@ -54,3 +54,8 @@ Commit the added artifacts on a branch `chore/harness-adopt` (the repo is theirs
 merge). Report: what was mapped, what the spec claims vs. what is unverified, health
 baseline, and the recommended first move. The full lifecycle now works: `/feature`,
 `/harden`, `/ship` all anchor on the files just created.
+
+**Make the as-built spec easy to verify** — it's reverse-engineered, so the user must
+review it. Present it for quick review without hunting through the editor: render
+`docs/SPEC.md` as an **artifact** (Artifact tool, minimal design; load `artifact-design`
+first) and/or drop a direct link to it in the handoff.

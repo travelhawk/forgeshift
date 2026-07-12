@@ -42,8 +42,15 @@ no match → skip silently. See `CLAUDE.md` → References.
 
 Have `forge-blueprint` draft the spec CONTENT from the interview, following
 `templates/SPEC.md` (harness root). The planner returns markdown — it does not write
-files; hold the draft, it lands on disk in step 4. Present the summary — scope table,
-out-of-scope list, open questions — and iterate until the user approves.
+files; hold the draft, it lands on disk in step 4.
+
+**Present it for review without making the user open an editor.** Render the held draft
+as an **artifact**: write the markdown to your scratchpad and publish it with the Artifact
+tool (Markdown, minimal design — it's a document to read, not a designed page; load
+`artifact-design` first). Put the artifact link in chat beside a short in-chat summary
+(scope table, out-of-scope, open questions), and **re-publish the same artifact on each
+edit** as you iterate to approval. Artifact tool unavailable → link the scratchpad `.md`
+instead. Either way the user reviews the full spec in place and reacts in chat.
 
 **Right-size the feature list.** A feature is a slice of user value (independently
 buildable + testable, ~2-5 done-criteria), not one-per-requirement — a small tool has
@@ -79,8 +86,16 @@ Adapt the nearest one and record the deltas in ADR-001. Deviations from a playbo
 default need a one-line reason. Verify with a quick web search that no major version
 shifted since the playbook's as-of date.
 
-**Present spec + stack together for explicit approval. Do not scaffold before the user
-approves both** (this is the LIFECYCLE stage-1 gate).
+**Present spec + stack together for explicit approval** — the spec as its rendered
+artifact/link (from §2, refreshed if it changed since), the stack inline.
+
+The spec **file does not exist yet** — the scaffolder needs an empty dir, so `docs/SPEC.md`
+is written only in step 4 *on approval*. Therefore the **artifact is the review surface at
+this gate**: link it immediately before the approval question and word the question to
+point there (e.g. "review the full spec in the artifact above"). **Never** phrase the gate
+as "the spec lands in / is in `docs/SPEC.md`" — that file isn't created until the user
+approves, so it's not something they can open to review now. **Do not scaffold before the
+user approves both** (this is the LIFECYCLE stage-1 gate).
 
 ## 4. Scaffold (order matters)
 

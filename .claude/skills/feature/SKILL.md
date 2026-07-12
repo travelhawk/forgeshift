@@ -35,7 +35,9 @@ workflow — point the user there when they list 3+ items.
   without waiting for approval; the user can interrupt.
 - **Large or judgment-heavy** (new subsystem, data-model change, security-relevant):
   delegate planning to `forge-blueprint`, record the plan as `docs/features/F<#>.md` from
-  `templates/FEATURE.md` (harness root), and **block on user approval** before building.
+  `templates/FEATURE.md` (harness root), **present it for review as an artifact/link** so
+  the user needn't open the file (Artifact tool, minimal design — load `artifact-design`
+  first; or link the doc), and **block on user approval** before building.
 - **Integrates an external HTTP API** (a raw-`fetch` adapter behind an interface, no
   vendor SDK)? Capture the verified request/response contract *now*, at plan time —
   delegate to `forge-prospector` (it has web access) to confirm the endpoint, auth header,

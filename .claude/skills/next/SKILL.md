@@ -72,6 +72,14 @@ it returns markdown/structure, it does not write files (the draft lands in step 
 
 ## 3. The gate (the only one — this IS forge's gate, run early)
 
+**Render the proposed new features (the new spec section) as an artifact** for quick
+review — publish the held draft markdown with the Artifact tool (minimal design; load
+`artifact-design` first; unavailable → link a scratchpad `.md`) and link it in the gate
+message, so the user reviews the full slice in place rather than opening a file (same
+mechanism as `/kickoff` §2). The features are appended to `docs/SPEC.md` only in step 4
+*on approval*, so the **artifact is the review surface here** — word the gate to point at
+it, never at the on-disk spec (which doesn't include the new features yet).
+
 Present in one message, get one approval:
 
 - **Proposed new features**: feature → version → tier → done-criteria. The tier column is
