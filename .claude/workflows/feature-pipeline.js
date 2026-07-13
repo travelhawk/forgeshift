@@ -3,7 +3,7 @@ export const meta = {
   description: 'Implement independent features in parallel: plan → implement in isolated worktree → verify',
   whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature entries, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). A feature entry is a string (defaults to risk tier T2; a bare string may carry a bracketed marker like "[T1] add password reset") or an object {feature, tier, done_criteria} — the tier (T1/T2/T3) sets build model/effort and verify depth (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet; see docs/RISK-TIERS.md). If args does not arrive intact (a known runtime failure mode), write the same {features, context} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
   phases: [
-    { title: 'Plan', detail: 'per-feature self-contained brief: plan + conventions + pitfalls + criteria' },
+    { title: 'Plan', detail: 'per-feature self-contained brief (T1/T2 only — T3 builds direct, no plan agent)' },
     { title: 'Build', detail: 'implement in isolated git worktree' },
     { title: 'Verify', detail: 'fresh-context check against the plan, tests run' },
   ],
@@ -165,7 +165,6 @@ const SECCHECK = {
 // Tier → build effort/model. T3 boilerplate builds fast on Sonnet (well-defined
 // execution); T1/T2 build on the session model at high/xhigh. See docs/RISK-TIERS.md.
 const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { effort: t === 'T1' ? 'xhigh' : 'high' })
-const planEffort = t => (t === 'T3' ? 'medium' : 'high')
 // Combine a T1 feature's functional + security verdicts. Fail-closed: a missing or
 // failed security pass sinks the feature (it retries), it does not pass on silence.
 const combineT1 = (fn, sec) => {
@@ -183,8 +182,20 @@ const combineT1 = (fn, sec) => {
 
 const results = await pipeline(
   features,
-  // 1. Plan — effort follows the tier; caller-provided done-criteria are authoritative.
-  (f, _, i) => agent(
+  // 1. Plan — T1/T2 get a plan agent that distills the brief. T3 boilerplate gets a
+  //    SYNTHETIC brief at zero agent cost: the Sonnet builder plans inline while
+  //    building, which is right-sized for well-defined boilerplate (one fewer agent
+  //    per T3 feature; the shared context rides along as its conventions).
+  (f, _, i) => f.tier === 'T3'
+    ? {
+        approach: 'T3 direct build — no separate plan agent; plan inline while building.',
+        files_to_touch: [],
+        conventions: context || 'Match the style and patterns of the files you touch.',
+        pitfalls: [],
+        test_plan: 'Smoke test: builds/renders + one happy path. Do not over-specify.',
+        done_criteria: f.done_criteria || [f.feature],
+      }
+    : agent(
     `Plan the implementation of this feature in the target repository, and return it as a ` +
     `SELF-CONTAINED per-feature brief. Read the relevant existing code first; the plan must ` +
     `fit existing conventions.\n\nFEATURE: ${f.feature}\n` +
@@ -195,9 +206,8 @@ const results = await pipeline(
     `re-open the full spec, architecture, or memory. So it must stand alone: in "conventions" capture the exact ` +
     `existing helpers/patterns/naming this feature must match (name concrete files + symbols); in "pitfalls" list ` +
     `only the gotchas/lessons that apply to THIS feature (the relevant subset — empty if none). ` +
-    `Tests-first: the test plan is not optional. For a T3 feature a smoke test (builds/renders + one happy path) ` +
-    `is the right-sized test — do not over-specify it. Keep the plan minimal — no speculative abstractions.`,
-    { label: `plan:${i + 1}`, phase: 'Plan', effort: planEffort(f.tier), schema: PLAN },
+    `Tests-first: the test plan is not optional. Keep the plan minimal — no speculative abstractions.`,
+    { label: `plan:${i + 1}`, phase: 'Plan', effort: 'high', schema: PLAN },
   ),
   // 2. Build — isolated worktree; model/effort follow the tier (T3 → Sonnet/medium).
   (plan, f, i) => plan && agent(
@@ -211,9 +221,13 @@ const results = await pipeline(
         `Do ALL work inside that worktree (install dependencies there first if the project needs them). Report the exact branch ` +
         `name. When done — always, also on failure — remove the worktree from the main repo (git worktree remove --force <path>); the branch survives.\n`) +
     `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\n` +
-    `BRIEF — your complete context. The plan agent already distilled the spec, conventions, and lessons ` +
-    `relevant to THIS feature into it; do NOT re-open the full spec, architecture, or memory. Read the ` +
-    `specific files in files_to_touch and their tests to match style, follow "conventions", heed "pitfalls":\n` +
+    `BRIEF — your complete context. ` +
+    (f.tier === 'T3'
+      ? `This T3 brief is deliberately thin: plan inline as you build, read the files you touch to match their ` +
+        `style, and keep the test at smoke size (builds/renders + one happy path). `
+      : `The plan agent already distilled the spec, conventions, and lessons relevant to THIS feature into it; ` +
+        `read the specific files in files_to_touch and their tests to match style. `) +
+    `Do NOT re-open the full spec, architecture, or memory. Follow "conventions", heed "pitfalls":\n` +
     `${JSON.stringify(plan, null, 2)}\n\n` +
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
     `run the project's full relevant test suite. Match existing code style exactly. ` +

@@ -218,4 +218,16 @@ suite('cost optimizations', () => {
     assert.match(src, /wide \? ANGLES : ANGLES\.filter/, 'lean drops a designer')
     assert.match(src, /label: 'judge\+synthesize'/, 'lean judge also synthesizes (one agent, two tasks)')
   })
+
+  test('feature-pipeline: T3 features build direct — no plan agent', () => {
+    const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(src, /f\.tier === 'T3'\s*\?\s*\{/, 'T3 gets a synthetic brief, not an agent call')
+    assert.match(src, /T3 direct build/, 'synthetic brief marks itself')
+  })
+
+  test('/forge: waves of 1-2 features skip the workflow (direct /feature loop)', () => {
+    const src = read('.claude', 'skills', 'forge', 'SKILL.md')
+    assert.match(src, /Small-wave shortcut/, 'shortcut documented in Execute step')
+    assert.match(src, /Waves of 3\+/, 'pipeline reserved for 3+ feature waves')
+  })
 })

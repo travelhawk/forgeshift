@@ -68,8 +68,9 @@ Present in one message, then get one approval:
   - **local** (no remote): offer `gh repo create --private --source .` once; declined →
     `git merge --no-ff` per verified feature, the merge commits are the audit trail,
     no PRs.
-- A rough cost expectation (each wave is a feature-pipeline run: 5–30x session
-  tokens, plus one deep-review for the finish).
+- A rough cost expectation (a 3+-feature wave is a feature-pipeline run: 5–30x
+  session tokens; a 1–2-feature wave runs the direct `/feature` loop at roughly
+  half that; plus one deep-review for the finish).
 - The finish step (section 5) is included by default: automatic `deep-review` of the
   integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
   products — a Playwright **visual walkthrough** (§5b: flow videos + a screen-overview
@@ -80,6 +81,15 @@ The approval covers everything downstream, including merges in auto-integrate mo
 and the finish step's fixes.
 
 ## 4. Execute (hands-off from here)
+
+**Small-wave shortcut (1–2 features):** the pipeline's value is parallel fan-out +
+context isolation; below 3 features its fixed overhead (preflight, per-feature plan
+agent, re-contexting) outweighs it. For such a wave, skip the workflow and run the
+`/feature` loop §2–§4 directly per feature — plan inline (forge-blueprint only if
+large), `forge-hammer` builds on a `feature/<slug>` branch, fresh-context verify per
+tier (T1: quench + warden, T2: quench, T3: smoke) — still hands-off under the gate
+approval, then continue at step 2 below (PR/merge machinery identical). Waves of 3+
+fire the pipeline:
 
 Per wave, in order:
 
