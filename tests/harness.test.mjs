@@ -209,3 +209,13 @@ suite('safety invariants', () => {
     assert.match(src, /security pass agent failed/, 'missing security pass sinks the feature')
   })
 })
+
+// --- cost-optimization invariants (each optimization locks its shape here) ---
+suite('cost optimizations', () => {
+  test('design-panel defaults to the lean panel (3 designers, judge+synthesizer combined)', () => {
+    const src = readFileSync(join(workflowDir, 'design-panel.js'), 'utf8')
+    assert.match(src, /a\.panel === 'wide'/, 'wide panel is explicit opt-in')
+    assert.match(src, /wide \? ANGLES : ANGLES\.filter/, 'lean drops a designer')
+    assert.match(src, /label: 'judge\+synthesize'/, 'lean judge also synthesizes (one agent, two tasks)')
+  })
+})

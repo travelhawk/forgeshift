@@ -1,11 +1,11 @@
 export const meta = {
   name: 'design-panel',
   description: 'Generate N independent design approaches, score them with a judge panel, synthesize the winner',
-  whenToUse: 'Architecture or design decisions where the solution space is wide and a wrong pick is expensive: system design, data model, API shape, major refactor strategy. Pass the design brief (problem, constraints, context) as args — or an object {dir: "<product path>", brief: "..."}; dir pins the target repo (required when the session did not start in the product directory). If args does not arrive intact, write the brief to design-panel.input.md in the target repo root before invoking; it is read as a fallback.',
+  whenToUse: 'Architecture or design decisions where the solution space is wide and a wrong pick is expensive: system design, data model, API shape, major refactor strategy. Pass the design brief (problem, constraints, context) as args — or an object {dir: "<product path>", brief: "...", panel: "wide"}; dir pins the target repo (required when the session did not start in the product directory). Default is the LEAN panel (3 designers + 1 judge-synthesizer); pass panel: "wide" only for the most expensive decisions (4 designers, 3 voting judges, separate synthesis). If args does not arrive intact, write the brief to design-panel.input.md in the target repo root before invoking; it is read as a fallback.',
   phases: [
-    { title: 'Design', detail: '4 independent designers, different priors' },
-    { title: 'Judge', detail: '3 judges score all designs' },
-    { title: 'Synthesize', detail: 'winner + grafted ideas from runners-up' },
+    { title: 'Design', detail: 'independent designers, different priors (3 lean / 4 wide)' },
+    { title: 'Judge', detail: 'lean: 1 judge scores AND synthesizes; wide: 3 judges vote' },
+    { title: 'Synthesize', detail: 'wide mode only: separate synthesis of winner + grafted ideas' },
   ],
 }
 
@@ -20,6 +20,9 @@ if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a)
 const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
 let brief = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.brief === 'string' && a.brief.trim() ? a.brief.trim() : null
+// Lean by default: 3 designers + 1 judge-synthesizer (5 agents incl. preflight).
+// panel: 'wide' opts into the full 4-designer / 3-judge / separate-synthesis panel.
+const wide = !!(a && typeof a === 'object' && a.panel === 'wide')
 
 const PREFLIGHT = {
   type: 'object', additionalProperties: false,
@@ -73,6 +76,9 @@ const ANGLES = [
   { key: 'ops-first', prior: 'Operations and failure first. Design from the failure modes backwards: what breaks, how you notice, how you recover, how you debug at 3am.' },
   { key: 'user-first', prior: 'User experience first. Work backwards from the ideal user-facing behavior (latency, offline, error states) and let that dictate the architecture.' },
 ]
+// Lean drops 'evolution' — the judge's rubric still scores long-term risk, and the
+// simplicity prior already fights the overbuilding that evolution-thinking invites.
+const angles = wide ? ANGLES : ANGLES.filter(x => x.key !== 'evolution')
 
 const DESIGN = {
   type: 'object',
@@ -89,8 +95,8 @@ const DESIGN = {
 }
 
 phase('Design')
-log('4 designers working the brief independently')
-const designs = (await parallel(ANGLES.map(a2 => () =>
+log(`${angles.length} designers working the brief independently (${wide ? 'wide' : 'lean'} panel)`)
+const designs = (await parallel(angles.map(a2 => () =>
   agent(
     `You are designing a solution. Explore the target repository for real context (existing code, stack, conventions) before designing.\n\n` +
     `BRIEF:\n${brief}\n\nYOUR DESIGN PRIOR — commit to it fully; other designers cover other priors:\n${a2.prior}\n\n` +
@@ -128,6 +134,42 @@ const SCORE = {
     best: { type: 'string', enum: designKeys, description: 'key of the winning design' },
     reasoning: { type: 'string' },
   },
+}
+
+// --- LEAN panel (default): one judge scores adversarially AND writes the final
+// document in the same pass — one agent, two tasks. Runs at xhigh on the session
+// model; the wide path below (3 voting judges + separate synthesis) is for the
+// decisions expensive enough to pay for redundancy.
+if (!wide) {
+  const LEANVERDICT = {
+    ...SCORE,
+    required: [...SCORE.required, 'design_doc'],
+    properties: {
+      ...SCORE.properties,
+      design_doc: { type: 'string', description: 'The final design document, markdown' },
+    },
+  }
+  phase('Judge')
+  const one = await agent(
+    `You are the single adversarial judge AND synthesizer of a design panel. First score every design against ` +
+    `the brief (fitness, simplicity, risk — probe each design for the failure that would kill it; explore the ` +
+    `target repository if you need ground truth). Then write the FINAL design document in design_doc: base it on ` +
+    `your winning design, graft in specific superior ideas from the runners-up, and address your own strongest ` +
+    `criticism of the winner explicitly (mitigate or accept with rationale). ` +
+    `Structure: Context → Decision → Architecture → Components → Data flow → Failure handling → ` +
+    `Rejected alternatives (one line each, why) → Build plan (ordered).\n\n` +
+    `BRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
+    { label: 'judge+synthesize', phase: 'Judge', effort: 'xhigh', schema: LEANVERDICT },
+  )
+  if (!one) {
+    return { target: TARGET, error: 'Judge-synthesizer failed — designs returned for manual judging.', designs }
+  }
+  log(`Lean panel verdict: ${one.best}`)
+  return {
+    target: TARGET, design: one.design_doc, winner: one.best, tied: false,
+    tally: { [one.best]: 1 }, designs,
+    verdicts: [{ scores: one.scores, best: one.best, reasoning: one.reasoning }],
+  }
 }
 
 phase('Judge')

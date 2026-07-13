@@ -36,7 +36,7 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 | `/status` | Ground-truth state report + session handoff into PROGRESS.md |
 | `/retro` | Harness retrospective: observed friction → approved fixes → commits |
 | `/understand [question]` | Workflow: parallel codebase mapping → architecture brief |
-| `/design-panel <brief>` | Workflow: 4 designs, 3 judges, synthesized winner |
+| `/design-panel <brief>` | Workflow: 3 designs, 1 judge-synthesizer (wide opt-in: 4+3) |
 | `/feature-pipeline <features>` | Workflow: parallel build of independent features in worktrees |
 | `/deep-review [scope]` | Workflow: 6-dimension review, findings adversarially verified |
 | `/release-gate [context]` | Workflow: 6 parallel ship gates with evidence |
