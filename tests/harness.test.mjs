@@ -230,4 +230,10 @@ suite('cost optimizations', () => {
     assert.match(src, /Small-wave shortcut/, 'shortcut documented in Execute step')
     assert.match(src, /Waves of 3\+/, 'pipeline reserved for 3+ feature waves')
   })
+
+  test('/kickoff hands off to /forge in the SAME session', () => {
+    const src = read('.claude', 'skills', 'kickoff', 'SKILL.md')
+    assert.match(src, /same session/i, 'same-session continuation offered')
+    assert.match(src, /no new session needed/i, 'new session is the exception, not the rule')
+  })
 })

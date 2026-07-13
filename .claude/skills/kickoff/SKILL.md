@@ -117,10 +117,19 @@ user approves both** (this is the LIFECYCLE stage-1 gate).
    or `npx kill-port <port>`; a bare `kill` leaves node.exe holding the port.
 6. Commit: `chore: scaffold <name> (<stack summary>)`.
 
-## 5. Handoff
+## 5. Handoff — straight into the build, same session
 
 Report: spec location, stack + why, what was verified (with command output), the
-feature list, and the suggested first `/feature` — or `/forge` to build the entire
-approved feature list with a single wave-plan approval. Recommend a fresh session
-**started from the harness root** (that's where the skills, agents, and workflows
-load from), with the product directory as the working target.
+feature list, and offer the continuation **in this session** — no new session needed
+(this one started at the harness root, so skills/agents/workflows are loaded, and
+everything the build needs lives on disk in `docs/SPEC.md` + `PROGRESS.md`, not in
+chat context):
+
+- **Default offer: `/forge` now.** One word from the user ("forge" / "build it")
+  and you run the forge flow directly. If the interview ran long, suggest an
+  optional `/compact` first — auto-compaction covers it either way, since `/forge`
+  re-reads all its inputs from disk.
+- **`/feature F1`** for a supervised first slice instead.
+
+Only when the session did NOT start at the harness root (skills would be missing):
+recommend a fresh session from the harness root with the product as working target.
