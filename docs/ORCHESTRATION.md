@@ -77,6 +77,9 @@ the full suite on the merged result in the main session before calling the batch
    and applicable pitfalls this feature touches. Downstream agents read that ~2k brief,
    not the full spec + architecture + all of memory. One cheap extraction replaces N
    expensive re-reads. `feature-pipeline`'s PLAN object is this brief.
+7. **Return data, not essays.** A subagent's final message is a return value, not a
+   status update: findings, paths, evidence, verdicts — no narration of the journey.
+   Prefer schemas (structured output) wherever a downstream step consumes the result.
 
 ## When a workflow dies mid-run
 

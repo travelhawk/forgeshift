@@ -78,6 +78,12 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 5. **Secrets never in code or commits.** `.env` + committed `.env.example` everywhere.
 6. **Simplest thing that works well.** No speculative abstraction, no unrequested
    refactors, validation only at system boundaries.
+7. **Slim output.** Verbosity is a cost bug. Reports = tables/bullets + evidence, never
+   prose restating inputs; session-log lines ≤ 2; subagent returns carry data, not
+   narration; generated docs say each thing once. Context (evidence, paths, criteria)
+   is never cut — only words about words.
+8. **Harness changes run the regression suite.** `npm test` (harness root) green before
+   any commit that touches skills/agents/workflows/docs; new invariants get a test.
 
 ## Working in a product (`projects/<name>/`)
 

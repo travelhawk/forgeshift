@@ -236,4 +236,10 @@ suite('cost optimizations', () => {
     assert.match(src, /same session/i, 'same-session continuation offered')
     assert.match(src, /no new session needed/i, 'new session is the exception, not the rule')
   })
+
+  test('hard rules include slim output + regression-suite gate', () => {
+    const src = read('CLAUDE.md')
+    assert.match(src, /\*\*Slim output\.\*\*/, 'output-discipline hard rule present')
+    assert.match(src, /npm test/, 'regression suite wired into the hard rules')
+  })
 })
