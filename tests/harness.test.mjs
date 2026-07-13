@@ -199,7 +199,7 @@ suite('safety invariants', () => {
   })
 
   test('all lifecycle templates exist', () => {
-    for (const t of ['SPEC.md', 'PROGRESS.md', 'PROJECT-CLAUDE.md', 'ADR.md', 'FEATURE.md', 'RELEASE-CHECKLIST.md']) {
+    for (const t of ['SPEC.md', 'PROGRESS.md', 'PROJECT-CLAUDE.md', 'ADR.md', 'FEATURE.md', 'RELEASE-CHECKLIST.md', 'RELEASE-KIT.md']) {
       assert.ok(existsSync(p('templates', t)), `templates/${t} exists`)
     }
   })
@@ -241,5 +241,12 @@ suite('cost optimizations', () => {
     const src = read('CLAUDE.md')
     assert.match(src, /\*\*Slim output\.\*\*/, 'output-discipline hard rule present')
     assert.match(src, /npm test/, 'regression suite wired into the hard rules')
+  })
+
+  test('/ship produces a release kit for user-facing products', () => {
+    const src = read('.claude', 'skills', 'ship', 'SKILL.md')
+    assert.match(src, /Release kit/, 'release-kit step present')
+    assert.match(src, /RELEASE-KIT\.md/, 'wired to the template')
+    assert.match(src, /incomplete kit blocks the\s+release/i, 'store products fail closed')
   })
 })

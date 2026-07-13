@@ -47,6 +47,23 @@ Env vars in the deploy target: compare **key names only** — read the committed
 the deploy target. Never read actual `.env` values (denied by permissions, and rightly
 so). Copy the filled checklist to `docs/releases/<version>.md`.
 
+## 3b. Release kit (user-facing products — apps, SaaS, sites)
+
+Store/listing assets into `docs/release-kit/<version>/` per `templates/RELEASE-KIT.md`
+(harness root). Libraries/CLIs/APIs: skip, say so. Unchanged since last release →
+copy forward, refresh "What's new" + changed screens only. Run both in parallel:
+
+- **Texts** — `forge-etcher` from `docs/SPEC.md` + CHANGELOG: name, subtitle/short
+  description, long description, keywords, what's-new — within store char limits,
+  one set per shipped language. Web: OG title/description + landing copy.
+- **Images** — `forge-proof` from the RUNNING app (reuse the walkthrough machinery
+  from `/forge` §5b where present): screenshots at store sizes, feature graphic /
+  OG image. Real data on screen, never lorem.
+
+**Store-distributed products (mobile/desktop stores): an incomplete kit blocks the
+release** — the submission literally requires it. Web products: kit is default-on,
+gaps are report notes, not blockers.
+
 ## 4. Release
 
 1. Tag `v<version>`.
@@ -58,6 +75,7 @@ so). Copy the filled checklist to `docs/releases/<version>.md`.
 
 ## 5. Close
 
-Report: version, gate evidence summary, deploy URL/artifact, post-deploy check result.
-Add the release to PROGRESS.md session log. If anything was skipped or accepted as a
-gap, it's in the report — plainly, not in a footnote.
+Report: version, gate evidence summary, release-kit location (or why skipped),
+deploy URL/artifact, post-deploy check result. Add the release to PROGRESS.md session
+log. If anything was skipped or accepted as a gap, it's in the report — plainly, not
+in a footnote.
