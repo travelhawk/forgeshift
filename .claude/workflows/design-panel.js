@@ -98,7 +98,9 @@ phase('Design')
 log(`${angles.length} designers working the brief independently (${wide ? 'wide' : 'lean'} panel)`)
 const designs = (await parallel(angles.map(a2 => () =>
   agent(
-    `You are designing a solution. Explore the target repository for real context (existing code, stack, conventions) before designing.\n\n` +
+    `You are designing a solution. Ground yourself in the target repository first, but SCOPE-BOXED: ` +
+    `the manifest/stack config, the modules the brief touches, and one representative example of the ` +
+    `existing conventions — do NOT crawl the whole tree, the full spec, or docs beyond what the brief names.\n\n` +
     `BRIEF:\n${brief}\n\nYOUR DESIGN PRIOR — commit to it fully; other designers cover other priors:\n${a2.prior}\n\n` +
     `Produce a complete, concrete design. Name real technologies and real modules, not placeholders.`,
     { label: `design:${a2.key}`, phase: 'Design', effort: 'high', schema: DESIGN },
@@ -152,8 +154,8 @@ if (!wide) {
   phase('Judge')
   const one = await agent(
     `You are the single adversarial judge AND synthesizer of a design panel. First score every design against ` +
-    `the brief (fitness, simplicity, risk — probe each design for the failure that would kill it; explore the ` +
-    `target repository if you need ground truth). Then write the FINAL design document in design_doc: base it on ` +
+    `the brief (fitness, simplicity, risk — probe each design for the failure that would kill it; touch the ` +
+    `target repository only to spot-check specific claims, not to explore). Then write the FINAL design document in design_doc: base it on ` +
     `your winning design, graft in specific superior ideas from the runners-up, and address your own strongest ` +
     `criticism of the winner explicitly (mitigate or accept with rationale). ` +
     `Structure: Context → Decision → Architecture → Components → Data flow → Failure handling → ` +
@@ -176,8 +178,8 @@ phase('Judge')
 const verdicts = (await parallel([0, 1, 2].map(i => () =>
   agent(
     `You are judge ${i + 1} of 3 on a design panel. Score every design against the brief. ` +
-    `Be adversarial: probe each design for the failure that would kill it. Explore the target repository ` +
-    `if you need ground truth about the existing system.\n\nBRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
+    `Be adversarial: probe each design for the failure that would kill it. Touch the target repository ` +
+    `only to spot-check specific claims about the existing system — not to explore.\n\nBRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
     { label: `judge:${i + 1}`, phase: 'Judge', effort: 'high', schema: SCORE },
   ),
 ))).filter(Boolean)

@@ -80,6 +80,12 @@ the full suite on the merged result in the main session before calling the batch
 7. **Return data, not essays.** A subagent's final message is a return value, not a
    status update: findings, paths, evidence, verdicts — no narration of the journey.
    Prefer schemas (structured output) wherever a downstream step consumes the result.
+8. **Scope-box the context.** Every subagent prompt names what to read (diff, brief,
+   specific files + their callers/tests) AND what not to (full spec, PROGRESS, ADRs,
+   memory, unrelated modules). "Explore for context" without bounds is a token leak:
+   N subagents each crawling the repo re-pays the same reading N times. Deliberate
+   exceptions: mappers (`understand`) and security audits (`forge-warden`), whose job
+   IS the broad read.
 
 ## When a workflow dies mid-run
 

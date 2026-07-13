@@ -62,6 +62,9 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 
 - Default to the lowest orchestration level that works; escalate on demonstrated failure.
 - Subagent prompts are self-contained: paths, context, done-definition included.
+- **Scope-box every subagent**: it gets the slice it needs (diff, brief, named files +
+  their callers/tests) and an explicit do-NOT-read line — never "read the spec/memory/
+  docs" wholesale. Mappers (`understand`) are the deliberate exception.
 - The agent that built something never verifies it — fresh context reviews.
 - Demand evidence (test output, command results), never accept "looks done".
 

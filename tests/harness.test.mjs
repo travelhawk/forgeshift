@@ -259,6 +259,18 @@ suite('cost optimizations', () => {
     assert.match(src, /label: 'gate:security'/, 'security keeps its own session-model agent')
   })
 
+  test('subagents are scope-boxed — bounded reads, no wholesale spec/memory crawls', () => {
+    const dr = readFileSync(join(workflowDir, 'deep-review.js'), 'utf8')
+    assert.match(dr, /CONTEXT BUDGET/, 'review lenses carry an explicit context budget')
+    const dp = readFileSync(join(workflowDir, 'design-panel.js'), 'utf8')
+    assert.match(dp, /SCOPE-BOXED/, 'designers get bounded exploration')
+    assert.ok(!/Explore the target repository if you need ground truth/.test(dp), 'unbounded judge exploration removed')
+    const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(fp, /do NOT re-open the full spec/i, 'builders live off the brief')
+    assert.match(read('CLAUDE.md'), /Scope-box every subagent/, 'delegation rule present')
+    assert.match(read('docs', 'ORCHESTRATION.md'), /Scope-box the context/, 'orchestration contract rule present')
+  })
+
   test('/ship produces a release kit for user-facing products', () => {
     const src = read('.claude', 'skills', 'ship', 'SKILL.md')
     assert.match(src, /Release kit/, 'release-kit step present')

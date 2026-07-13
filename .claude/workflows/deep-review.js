@@ -111,6 +111,9 @@ const all = await parallel(DIMENSIONS.map(d => () =>
     `Review ${scope} in the target repository. Your single dimension: ${d.key}.\n${d.prompt}\n\n` +
     (priority ? `RISK STEER: concentrate your effort on these high-risk paths first — ${priority}. Sweep low-risk boilerplate lightly.\n\n` : '') +
     `Read the surrounding code, not just the diff — a change can be wrong only in context. ` +
+    `CONTEXT BUDGET: the scope, the files it touches, their direct callers and tests — nothing more. ` +
+    `Do NOT read the full spec, PROGRESS, ADRs, docs, or unrelated modules; everything you need is in ` +
+    `the scope and the code around it. ` +
     `Report every issue you find, including ones you are uncertain about — a separate verification step filters. ` +
     `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario.`,
     { label: `review:${d.key}`, phase: 'Review', effort: 'high', schema: FINDINGS },
