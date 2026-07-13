@@ -87,6 +87,10 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 
 ## Working in a product (`projects/<name>/`)
 
+Products don't have to live in `projects/` — `/adopt <absolute path>` brings any repo
+on disk under the harness; skills take the product by path, workflows by `dir` arg.
+`projects/` is the default home, not a requirement.
+
 **Always launch sessions from the harness root** — skills, forge-agents, workflows, and
 permission rules load from here and are NOT visible when Claude Code starts inside
 `projects/<name>/`. In the session, make the product the working target (`cd` in the
