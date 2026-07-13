@@ -243,6 +243,22 @@ suite('cost optimizations', () => {
     assert.match(src, /npm test/, 'regression suite wired into the hard rules')
   })
 
+  test('deep-review: 3 merged lenses, batch refuter for medium/low, fail-closed', () => {
+    const src = readFileSync(join(workflowDir, 'deep-review.js'), 'utf8')
+    const lenses = [...src.matchAll(/\{ key: '([a-z-]+)', prompt:/g)].map(m => m[1])
+    assert.deepEqual(lenses, ['bugs', 'boundaries', 'craft'], 'exactly 3 merged review lenses')
+    assert.match(src, /label: 'verify:batch'/, 'medium/low findings refuted in one batch agent')
+    assert.match(src, /'UNVERIFIED'/, 'missing verdicts stay open, never a free pass')
+  })
+
+  test('release-gate: 6 gates run by 3 agents, fail-closed on missing gates', () => {
+    const src = readFileSync(join(workflowDir, 'release-gate.js'), 'utf8')
+    assert.match(src, /label: 'gate:static\+docs'/, 'hygiene gates share one agent')
+    assert.match(src, /label: 'gate:tests\+build\+runtime'/, 'execute gates share one runner')
+    assert.match(src, /gate agent failed to report/, 'missing gate is a blocker')
+    assert.match(src, /label: 'gate:security'/, 'security keeps its own session-model agent')
+  })
+
   test('/ship produces a release kit for user-facing products', () => {
     const src = read('.claude', 'skills', 'ship', 'SKILL.md')
     assert.match(src, /Release kit/, 'release-kit step present')

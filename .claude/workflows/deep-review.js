@@ -3,8 +3,8 @@ export const meta = {
   description: 'Multi-dimension code review with adversarial verification of every finding',
   whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md).',
   phases: [
-    { title: 'Review', detail: 'six dimensions in parallel' },
-    { title: 'Verify', detail: 'ship-blocker findings attacked by 2 refuters, others by 1' },
+    { title: 'Review', detail: 'three merged lenses in parallel: bugs, boundaries, craft' },
+    { title: 'Verify', detail: 'crit/high refuted individually, all medium/low by one batch refuter' },
   ],
 }
 
@@ -61,13 +61,13 @@ const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working dir
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
 
+// Three merged lenses, not six single-topic reviewers: past ~3 genuinely different
+// priors the findings overlap and the extra agents mostly pay to rediscover them.
+// Each lens still reads with fresh context; related topics share one reader.
 const DIMENSIONS = [
-  { key: 'correctness', prompt: 'Logic bugs, off-by-ones, wrong conditionals, broken edge cases, unhandled error paths that produce wrong results.' },
-  { key: 'security', prompt: 'Injection, authz/authn gaps, secrets in code, unsafe deserialization, path traversal, SSRF, exposed internals. Only real, reachable issues.' },
-  { key: 'concurrency-state', prompt: 'Race conditions, stale state, missing transactions/locking, cache invalidation bugs, async ordering assumptions.' },
-  { key: 'data-contracts', prompt: 'Schema/API mismatches, breaking changes for existing consumers or stored data, migration gaps, nullability violations.' },
-  { key: 'tests', prompt: 'Behavior changed without test changes, tests that assert nothing, missing coverage for the risky branch just introduced.' },
-  { key: 'simplify', prompt: 'Dead code introduced, needless abstraction, duplicated logic that existing helpers already cover, over-engineering vs the task.' },
+  { key: 'bugs', prompt: 'Correctness and state. Logic bugs, off-by-ones, wrong conditionals, broken edge cases, unhandled error paths that produce wrong results; race conditions, stale state, missing transactions/locking, cache invalidation bugs, async ordering assumptions.' },
+  { key: 'boundaries', prompt: 'Security and contracts. Injection, authz/authn gaps, secrets in code, unsafe deserialization, path traversal, SSRF, exposed internals (only real, reachable issues); schema/API mismatches, breaking changes for existing consumers or stored data, migration gaps, nullability violations.' },
+  { key: 'craft', prompt: 'Tests and simplicity. Behavior changed without test changes, tests that assert nothing, missing coverage for the risky branch just introduced; dead code, needless abstraction, duplicated logic that existing helpers already cover, over-engineering vs the task.' },
 ]
 
 const FINDINGS = {
@@ -130,29 +130,68 @@ log(`${findings.length} unique findings across ${DIMENSIONS.length} dimensions`)
 if (!findings.length) return { target: TARGET, confirmed: [], message: 'No findings survived the review pass.' }
 
 phase('Verify')
-// Refuter count scales with stakes: ship-blockers get two independent attackers,
-// medium/low findings get one — same standard of proof, ~40% less verify cost.
-const refuterCount = f => (f.severity === 'critical' || f.severity === 'high' ? [1, 2] : [1])
-const verified = await parallel(findings.map(f => () =>
-  parallel(refuterCount(f).map(n => () =>
-    agent(
-      `Adversarially verify this code-review finding. Your job is to REFUTE the FAILURE SCENARIO, not the ` +
-      `line number: read ${f.file} (line ${f.line ?? 'unspecified — file-level finding'} is a hint, not the claim) ` +
-      `plus its callers, and prove the scenario cannot happen (guarded elsewhere, unreachable input, intentional ` +
-      `behavior, misread code). If after honest effort you cannot refute it, it stands. ` +
-      `Default to refuted=true when the scenario is speculative.\n\nFINDING: ${JSON.stringify(f)}`,
-      { label: `verify:${f.file.split(/[\\/]/).pop()}:${f.line ?? 'file'}#${n}`, phase: 'Verify', effort: 'high', schema: VERDICT },
-    ),
-  )).then(votes => {
-    const v = votes.filter(Boolean)
-    const upheld = v.filter(x => !x.refuted).length
-    // ALL assigned refuters must fail to kill it. Zero valid votes = infrastructure failure, NOT a refutation.
-    const verdict = v.length === 0 ? 'UNVERIFIED' : (upheld === v.length ? 'CONFIRMED' : 'REFUTED')
-    return { ...f, verdict, refutations: v.map(x => x.reasoning) }
-  }),
-))
+// Refute cost scales with stakes: each ship-blocker (critical/high) gets its own
+// refuter agent; ALL medium/low findings are refuted by ONE batch agent in a single
+// pass. Fail-closed either way: a missing verdict is UNVERIFIED, never a free pass.
+const indexed = findings.map((f, id) => ({ ...f, id }))
+const blockerF = indexed.filter(f => f.severity === 'critical' || f.severity === 'high')
+const restF = indexed.filter(f => f.severity !== 'critical' && f.severity !== 'high')
 
-const done = verified.filter(Boolean)
+const BATCH = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['verdicts'],
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'refuted', 'reasoning'],
+        properties: {
+          id: { type: 'integer', description: 'the id of the finding being judged' },
+          refuted: { type: 'boolean', description: 'true if the finding is NOT a real problem' },
+          reasoning: { type: 'string' },
+        },
+      },
+    },
+  },
+}
+
+const toVerdict = (f, v) => ({ ...f, verdict: v ? (v.refuted ? 'REFUTED' : 'CONFIRMED') : 'UNVERIFIED', refutations: v ? [v.reasoning] : [] })
+
+const tasks = blockerF.map(f => () =>
+  agent(
+    `Adversarially verify this code-review finding. Your job is to REFUTE the FAILURE SCENARIO, not the ` +
+    `line number: read ${f.file} (line ${f.line ?? 'unspecified — file-level finding'} is a hint, not the claim) ` +
+    `plus its callers, and prove the scenario cannot happen (guarded elsewhere, unreachable input, intentional ` +
+    `behavior, misread code). If after honest effort you cannot refute it, it stands. ` +
+    `Default to refuted=true when the scenario is speculative.\n\nFINDING: ${JSON.stringify(f)}`,
+    { label: `verify:${f.file.split(/[\\/]/).pop()}:${f.line ?? 'file'}`, phase: 'Verify', effort: 'high', schema: VERDICT },
+  ).then(v => toVerdict(f, v)),
+)
+if (restF.length) {
+  tasks.push(() => agent(
+    `Adversarially verify these ${restF.length} code-review findings (all medium/low severity) in ONE pass. ` +
+    `For EACH finding, by its id: read its file (the line is a hint, not the claim) plus callers, and try to ` +
+    `prove the failure scenario cannot happen (guarded elsewhere, unreachable input, intentional behavior, ` +
+    `misread code). refuted=true when you can refute it or the scenario is speculative; refuted=false only if ` +
+    `after honest effort it stands. Return exactly one verdict per id — a missing id counts as open, never as ` +
+    `refuted.\n\nFINDINGS:\n${JSON.stringify(restF, null, 2)}`,
+    { label: 'verify:batch', phase: 'Verify', effort: 'medium', schema: BATCH },
+  ).then(b => ({ __batch: b })))
+}
+
+const out = (await parallel(tasks)).filter(Boolean)
+const singles = out.filter(x => !('__batch' in x))
+const singleIds = new Set(singles.map(s => s.id))
+for (const f of blockerF) if (!singleIds.has(f.id)) singles.push({ ...f, verdict: 'UNVERIFIED', refutations: [] })
+const batchRes = out.find(x => '__batch' in x)
+const bmap = new Map()
+if (batchRes && batchRes.__batch) for (const v of batchRes.__batch.verdicts) bmap.set(v.id, v)
+const batched = restF.map(f => toVerdict(f, bmap.get(f.id)))
+
+const done = [...singles, ...batched]
 const order = { critical: 0, high: 1, medium: 2, low: 3 }
 const bySeverity = (a, b) => order[a.severity] - order[b.severity]
 const confirmed = done.filter(f => f.verdict === 'CONFIRMED').sort(bySeverity)

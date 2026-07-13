@@ -3,8 +3,8 @@ export const meta = {
   description: 'Pre-release checks: static, security, docs in parallel, then tests, build, runtime smoke in sequence - one blocking verdict',
   whenToUse: 'Before tagging/deploying a release. Run from the project root AFTER the release commit exists (CHANGELOG entry + version bump) — /ship handles that ordering. Pass optional args string with release context — or an object {dir: "<product path>", context: "..."}; dir pins the target repo (required when the session did not start in the product directory). Fails closed: a gate that does not report blocks the verdict.',
   phases: [
-    { title: 'Inspect', detail: 'static, security, docs — read-mostly, parallel' },
-    { title: 'Execute', detail: 'tests → build → runtime, sequential (they share ports and build dirs)' },
+    { title: 'Inspect', detail: 'hygiene agent (static+docs) ∥ security agent — 2 agents' },
+    { title: 'Execute', detail: 'ONE runner: tests → build → runtime in order (they share ports and build dirs)' },
     { title: 'Verdict', detail: 'aggregate; missing gate = blocker' },
   ],
 }
@@ -89,26 +89,53 @@ const gatePrompt = g =>
   `Be strict and honest: report exactly what the commands output. Never mark pass without having run the check. ` +
   `If a needed command does not exist, status=skipped and say what is missing.`
 
+// One agent can run several similar gates: the schema returns one gates[] entry per
+// key, and the fail-closed aggregation below still treats any missing key as a blocker.
+const MULTICHECK = keys => ({
+  type: 'object',
+  additionalProperties: false,
+  required: ['gates'],
+  properties: {
+    gates: {
+      type: 'array',
+      items: { ...CHECK, properties: { ...CHECK.properties, gate: { type: 'string', enum: keys } } },
+    },
+  },
+})
+const multiPrompt = (gates, extra) =>
+  `You are running ${gates.length} release gates for the target project in ONE pass. ${context}\n\n` +
+  gates.map(g => `GATE "${g.key}": ${g.task}`).join('\n\n') + `\n\n${extra ? extra + ' ' : ''}` +
+  `Return exactly one gates[] entry per key (${gates.map(g => g.key).join(', ')}). Be strict and honest: report ` +
+  `exactly what the commands output. Never mark a gate pass without having run its check; a needed command that ` +
+  `does not exist = status=skipped with what is missing.`
+
 phase('Inspect')
-log('Running static, security, docs in parallel')
-// Most gates just run a command and report honestly — well-defined execution → Sonnet.
-// Only the security read needs real judgment (reason about the diff for reachable vulns),
-// so it rides the session model at high effort. Aggregation (fail-closed) is code, not agents.
-const gateOpts = k => (k === 'security' ? { effort: 'high' } : { model: 'sonnet', effort: 'medium' })
-const inspect = await parallel(INSPECT_GATES.map(g => () =>
-  agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Inspect', ...gateOpts(g.key), schema: CHECK }).then(r => r && { ...r, gate: g.key }),
-))
+log('2 inspectors: hygiene (static+docs, Sonnet) ∥ security (session model)')
+// Hygiene gates are well-defined command-running → one Sonnet agent covers both.
+// Only the security read needs real judgment (reason about the diff for reachable
+// vulns) → its own session-model agent. Aggregation (fail-closed) is code, not agents.
+const [hygiene, security] = await parallel([
+  () => agent(multiPrompt(INSPECT_GATES.filter(g => g.key !== 'security')),
+    { label: 'gate:static+docs', phase: 'Inspect', model: 'sonnet', effort: 'medium', schema: MULTICHECK(['static', 'docs']) }),
+  () => agent(gatePrompt(INSPECT_GATES.find(g => g.key === 'security')),
+    { label: 'gate:security', phase: 'Inspect', effort: 'high', schema: CHECK }).then(r => r && { ...r, gate: 'security' }),
+])
 
 phase('Execute')
-const execute = []
-for (const g of EXECUTE_GATES) {
-  log(`Running ${g.key} gate`)
-  const r = await agent(gatePrompt(g), { label: `gate:${g.key}`, phase: 'Execute', model: 'sonnet', effort: 'medium', schema: CHECK })
-  execute.push(r && { ...r, gate: g.key })
-}
+log('1 runner: tests → build → runtime in order')
+// These were always sequential (shared ports/build dirs) — one agent runs all three
+// and reports each separately; three agents here was pure re-contexting overhead.
+const exec = await agent(
+  multiPrompt(EXECUTE_GATES, 'Run the gates STRICTLY IN THIS ORDER: tests, build, runtime. An earlier failure does not skip the later gates — attempt and report every gate honestly.'),
+  { label: 'gate:tests+build+runtime', phase: 'Execute', model: 'sonnet', effort: 'medium', schema: MULTICHECK(['tests', 'build', 'runtime']) },
+)
 
 phase('Verdict')
-const results = [...inspect, ...execute].filter(Boolean)
+const results = [
+  ...(hygiene ? hygiene.gates : []),
+  security,
+  ...(exec ? exec.gates : []),
+].filter(Boolean)
 const failed = results.filter(r => r.status === 'fail')
 const skipped = results.filter(r => r.status === 'skipped')
 const blockers = results.flatMap(r => r.blockers.map(b => `[${r.gate}] ${b}`))
