@@ -1,0 +1,10 @@
+{
+  "name": "forge-harness",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "F.O.R.G.E. harness — regression tests for the skills/agents/workflows contract. Run npm test after every harness change.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\""
+  }
+}
