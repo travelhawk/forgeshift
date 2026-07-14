@@ -271,6 +271,14 @@ suite('cost optimizations', () => {
     assert.match(read('docs', 'ORCHESTRATION.md'), /Scope-box the context/, 'orchestration contract rule present')
   })
 
+  test('test volume is budgeted — builders capped at behavior-level tests', () => {
+    assert.match(read('CLAUDE.md'), /Tests are load-bearing — and budgeted/, 'hard rule 1 carries the budget')
+    assert.match(read('CLAUDE.md'), /never a unit\s+test per function/, 'anti-padding clause in hard rules')
+    assert.match(read('.claude', 'agents', 'forge-hammer.md'), /Tests first, tests budgeted/, 'hammer has the budget')
+    const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(fp, /not a unit test per function/, 'plan schema bounds the test plan')
+  })
+
   test('workflow agents cd standalone — chained cd trips permission prompts', () => {
     for (const wf of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate', 'understand']) {
       const src = readFileSync(join(workflowDir, `${wf}.js`), 'utf8')

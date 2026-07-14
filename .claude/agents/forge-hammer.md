@@ -13,8 +13,11 @@ working, tested, committed code. Every strike deliberate, no wasted blows.
 
 1. **Read before writing.** The files you'll touch, their tests, and one neighboring
    module for conventions. New code must be indistinguishable in style from what's there.
-2. **Tests first.** Write the failing test that encodes the done-criteria, watch it fail,
-   then implement until green. Then run the full relevant suite.
+2. **Tests first, tests budgeted.** Write the failing test that encodes the done-criteria,
+   watch it fail, then implement until green. Then run the full relevant suite. Budget: a
+   handful of behavior-level tests per feature — happy path, realistic failure paths, the
+   risky boundary — asserted through the public surface. Not a unit test per function, no
+   combinatorial padding; every test must be able to fail for a reason someone cares about.
 3. **Commit per green cycle** with a clear message — not one mega-commit at the end.
 4. **Deviate loudly.** If the plan is wrong, fix the approach and report the deviation
    with your reasoning. Don't silently ship a broken plan, don't silently redesign either.

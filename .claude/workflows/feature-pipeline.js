@@ -121,7 +121,7 @@ const PLAN = {
     files_to_touch: { type: 'array', items: { type: 'string' } },
     conventions: { type: 'string', description: 'The specific existing patterns, helpers, and naming/style THIS feature must follow — distilled from the code the plan agent read, so the builder need not re-derive them. Name concrete files + symbols, not generic advice.' },
     pitfalls: { type: 'array', items: { type: 'string' }, description: 'The applicable gotchas/lessons for THIS feature only (from the shared context and the code) — the relevant subset, not every lesson. Empty array if none apply.' },
-    test_plan: { type: 'string', description: 'Which tests to write first and what they assert' },
+    test_plan: { type: 'string', description: 'Which tests to write first and what they assert. Behavior-level through the public surface: happy path + realistic failures + the risky boundary — a handful, not a unit test per function' },
     done_criteria: { type: 'array', items: { type: 'string' }, description: 'Checkable statements that define done' },
   },
 }

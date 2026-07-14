@@ -70,8 +70,11 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 
 ## Hard rules (apply to every session under this root)
 
-1. **Tests are load-bearing.** Never delete, weaken, or skip a test to get green. A newly
-   failing test is a finding to report, not an obstacle to remove.
+1. **Tests are load-bearing — and budgeted.** Never delete, weaken, or skip a test to get
+   green; a newly failing test is a finding to report, not an obstacle to remove. But
+   volume is a cost bug like verbosity: cover behavior at the public surface — happy path,
+   realistic failures, risky boundaries, a regression test per real bug — never a unit
+   test per function or combinatorial padding.
 2. **Evidence before claims.** Progress reports cite tool results from this session.
    Unverified work is reported as unverified.
 3. **Two strikes → change approach.** Third identical attempt at a failed fix/design is
