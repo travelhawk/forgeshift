@@ -271,6 +271,15 @@ suite('cost optimizations', () => {
     assert.match(read('docs', 'ORCHESTRATION.md'), /Scope-box the context/, 'orchestration contract rule present')
   })
 
+  test('workflow agents cd standalone — chained cd trips permission prompts', () => {
+    for (const wf of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate', 'understand']) {
+      const src = readFileSync(join(workflowDir, `${wf}.js`), 'utf8')
+      assert.match(src, /standalone cd into it/, `${wf}: AT preamble mandates a standalone cd`)
+      assert.ok(!/cd there at the start of/.test(src), `${wf}: per-command cd instruction removed`)
+    }
+    assert.match(read('docs', 'ORCHESTRATION.md'), /Standalone `cd`, never chained/, 'orchestration rule present')
+  })
+
   test('/ship produces a release kit for user-facing products', () => {
     const src = read('.claude', 'skills', 'ship', 'SKILL.md')
     assert.match(src, /Release kit/, 'release-kit step present')

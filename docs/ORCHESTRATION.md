@@ -86,6 +86,10 @@ the full suite on the merged result in the main session before calling the batch
    N subagents each crawling the repo re-pays the same reading N times. Deliberate
    exceptions: mappers (`understand`) and security audits (`forge-warden`), whose job
    IS the broad read.
+9. **Standalone `cd`, never chained.** When a prompt sends an agent into another
+   directory: one bare `cd <target>` first (cwd persists between commands), then plain
+   commands. `cd X && git ...` triggers a permission prompt on every call — chained
+   `cd` bypasses the allow rules that plain commands match.
 
 ## When a workflow dies mid-run
 

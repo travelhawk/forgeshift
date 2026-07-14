@@ -95,8 +95,9 @@ if (!features.length) {
   return { error: 'feature-pipeline requires features: pass args ["feature 1", ...] / {dir, features, context}, or write feature-pipeline.input.json into the target repo root.', preflight: pre }
 }
 const TARGET = pre.path
-const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. cd there at the start of ` +
-  `every shell command (or use absolute paths under it) and stay within it (sibling worktree dirs excepted).\n\n`
+const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
+  `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
+  `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
 // Runtime worktree isolation clones the SESSION's repo — only correct when the
