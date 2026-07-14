@@ -58,7 +58,7 @@ const PREFLIGHT = {
       type: 'object', additionalProperties: false,
       description: 'ONLY if feature-pipeline.input.json exists in the target root: its parsed content',
       properties: {
-        features: { type: 'array', description: 'Verbatim entries — may be strings or {feature, tier, done_criteria} objects; return them unchanged.' },
+        features: { type: 'array', items: {}, description: 'Verbatim entries — each is EITHER a string OR a {feature, tier, done_criteria} object; return each EXACTLY as found (object stays an object — never stringified, or its tier is silently lost).' },
         context: { type: 'string' },
       },
     },
@@ -71,7 +71,10 @@ const pre = await globalThis.agent(
   `Report per the schema: absolute target path, whether it exists, is a git repo with at least one commit, ` +
   `holds a real project, and whether it looks like an agent-harness/control-center repo instead of a product. ` +
   `Additionally: if a file feature-pipeline.input.json exists in the target root, read it and return its ` +
-  `{features, context} content in the input field (features as an array of strings, verbatim).`,
+  `{features, context} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
+  `in the JSON — if an entry is an object {feature, tier, done_criteria}, return the OBJECT unchanged; do NOT ` +
+  `stringify or flatten it. Stringifying an object entry silently drops its risk tier (a T1 feature would lose ` +
+  `its security pass). Preserve strings as strings and objects as objects, verbatim.`,
   { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
 )
 if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>", features: [...]} and retry.' }
@@ -233,7 +236,9 @@ const results = await pipeline(
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
     `run the project's full relevant test suite. Match existing code style exactly. ` +
     `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
-    `Commit with a clear message before finishing.`,
+    `Commit with a clear message before finishing. INTEGRATION BOUNDARY: commit to your feature branch only — ` +
+    `do NOT git push, do NOT create or edit pull requests, do NOT merge. The orchestrator owns all integration ` +
+    `(push → evidence-verified PR → merge) so the audit trail stays single-sourced.`,
     { label: `build:${i + 1}`, phase: 'Build', schema: BUILD, ...buildOpts(f.tier), ...(runtimeIsolation ? { isolation: 'worktree' } : {}) },
   ).then(b => b && { plan, build: b }),
   // 3. Verify — depth follows the tier: T1 functional + parallel security (both must
@@ -252,7 +257,9 @@ const results = await pipeline(
       `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
       `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
       `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
-      `plus the evidence summary itself. On a fail verdict the body states what is broken instead.\n\n` +
+      `plus the evidence summary itself. On a fail verdict the body states what is broken instead. ` +
+      `INTEGRATION BOUNDARY: return the PR title/body as DATA — do NOT git push, do NOT run gh, do NOT open a PR ` +
+      `or merge yourself; the orchestrator creates the PR from what you return.\n\n` +
       `The brief's done-criteria and pitfalls below are your spec — verify against them; you need not re-open ` +
       `the full spec or architecture.\n` +
       `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
