@@ -62,6 +62,14 @@ via `drizzle-kit migrate` in CI/predeploy — never auto-push schema from dev ag
   config at scaffold time, not first-failure time.
 - Killing the dev server on Windows: a bare `kill` hits the pnpm wrapper and leaves
   node.exe holding port 3000 — use `taskkill //F //T //PID <pid>` or `npx kill-port 3000`.
+- `create-next-app`'s default `.gitignore` has `.env*`, which silently swallows your
+  committed `.env.example` (a hard-rule-5 artifact). After scaffold, append
+  `!.env.example` and confirm `git status` shows the file staged. (as of 2026-07)
+- `create-next-app` does NOT `git init` inside a subdirectory that sits under a parent
+  repo (e.g. `projects/<name>/` in the harness — `projects/` is gitignored, so the tool
+  sees the parent repo and skips init). Verify with `git rev-parse --show-toplevel`
+  inside the product; if it points at the parent, run `git init -b main` + initial
+  commit before building. (as of 2026-07)
 
 ## In flux (re-check at kickoff)
 
