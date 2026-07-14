@@ -110,6 +110,14 @@ root). If args arrive mangled (known runtime bug), `feature-pipeline` and
 `design-panel` fall back to `feature-pipeline.input.json` / `design-panel.input.md`
 in the product root — write the file before invoking, delete it after.
 
+**Invoke workflows by `scriptPath`, not `name`.** On this machine, `Workflow({name:
+"feature-pipeline"})` fails the permission check with "script contains control
+characters" whenever the checked-out `.claude/workflows/*.js` has CRLF line endings
+(git's `core.autocrlf` on Windows). `.gitattributes` now pins those files to `eol=lf`,
+but the reliable call is `Workflow({scriptPath: "<abs>/.claude/workflows/<wf>.js",
+args: {...}})` — it bypasses the name→script resolution that trips the check. The
+input-file fallback still applies for mangled args.
+
 Each product has: `CLAUDE.md` (commands/conventions — trust it over guesses),
 `docs/SPEC.md` (intent), `PROGRESS.md` (state + session log), `docs/adr/` (decisions).
 Read `PROGRESS.md` "Next session should" before doing anything else; run the smoke test
