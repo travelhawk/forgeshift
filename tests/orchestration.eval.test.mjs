@@ -5,7 +5,7 @@
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  loadSource, runWorkflow, SCENARIOS,
+  loadSource, runWorkflow, SCENARIOS, preflightWithScripts,
   deepReviewResponder, featurePipelineResponder, designPanelResponder, releaseGateResponder,
 } from '../evals/sim.mjs'
 
@@ -29,6 +29,19 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(result.passed.length, 6)
     const t3builds = calls.filter(c => c.label.startsWith('build:') && c.model === 'sonnet')
     assert.equal(t3builds.length, 2, 'T3 builds on Sonnet')
+  })
+
+  test('feature-pipeline: the forge-worktree.sh (WT) branch preserves orchestration shape', async () => {
+    // The default preflight (cwdIsTarget:true, no scriptsDir) only ever walks the inline-git
+    // fallback, so the change's headline path — agents calling forge-worktree.sh — was
+    // unexercised. This forces the WT branch (script present, cwd != target) and asserts it
+    // is orchestration-equivalent: same agents, same passes, no crash on the new prompts.
+    const { result, calls } = await run('feature-pipeline', 'feature-pipeline',
+      featurePipelineResponder({ preflight: preflightWithScripts }))
+    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 4, 'T1/T2 planned, T3 not')
+    assert.equal(calls.filter(c => c.label.startsWith('build:')).length, 6)
+    assert.equal(calls.filter(c => c.label.startsWith('security:')).length, 2, 'security pass only for T1')
+    assert.equal(result.passed.length, 6, 'WT branch builds + verifies all 6, same as the fallback path')
   })
 
   test('design-panel: lean = 5 agents, wide = 9', async () => {

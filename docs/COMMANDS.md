@@ -99,6 +99,7 @@ by hand — it's the engine `/forge` and `/next` drive.
 | Understand a big/foreign codebase | `/understand [question]` | Workflow |
 | Hard architecture decision | `/design-panel <brief>` | Workflow (lean: 3 designers + 1 judge-synthesizer; `panel: "wide"` → 4+3) |
 | Session end / re-entry | `/status` | Skill |
+| A `/forge`/`/next` run died mid-way | `/resume` | Skill (reads `.forge/run.json`, reconciles with git) |
 | After a milestone | `/retro` | Skill (improves the harness itself) |
 
 ## Three rules of thumb

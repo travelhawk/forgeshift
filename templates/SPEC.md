@@ -50,5 +50,25 @@ framework + version, DB, auth, hosting, package manager.>
 |---|---|---|---|
 | <e.g. auth provider> | <choice> | <one line> | <trigger> |
 
+## Decision policy
+Once this spec is approved, the build phase decides by a **reversibility** test, not by
+whether an answer feels obvious — so a hands-off run (`/forge`, `/next`) does not stall on
+questions the branch already makes cheap to unwind. This block is the authority the single
+spec-approval grants.
+
+- **Decide-and-log — two-way doors (no interrupt).** Anything cheap to reverse: a
+  library/pattern choice inside the chosen stack, an internal data shape, naming, file
+  layout, any change that lives on a feature branch. Pick the reversible default, record it
+  as a one-line ADR in `docs/adr/`, and keep building. Do not ask.
+- **Stop-and-ask — one-way doors (rare, and batched).** Only what is expensive to unwind
+  once later work builds on it: a persisted schema or a public API/contract shape later
+  features depend on, money or auth *semantics*, or anything that changes this spec's
+  scope. Even these **accumulate** into one batched question rather than blocking mid-run —
+  a wrong reversible call is cheap to overrule at the deep-review gate, where every feature
+  is still isolated on its own branch/PR.
+
+The net: you commit once at this spec; your next required touch is review-time, not
+mid-build. The run's autonomous calls are surfaced together in the finish report.
+
 ## Open questions
 - [ ] <question> — owner: <you/agent>, blocking: <F#/no>

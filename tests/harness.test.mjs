@@ -122,8 +122,8 @@ suite('cross-references', () => {
   })
 
   test('every forge-* agent referenced anywhere exists in .claude/agents/', () => {
-    // Terms that look like agent names but are prose, not agents.
-    const NON_AGENT_TERMS = new Set(['forge-agents', 'forge-themed'])
+    // Terms that look like agent names but are prose (or shell scripts), not agents.
+    const NON_AGENT_TERMS = new Set(['forge-agents', 'forge-themed', 'forge-worktree', 'forge-pr'])
     const sources = [
       ['CLAUDE.md', claudeMd],
       ...skills.map(s => [`skills/${s}`, read('.claude', 'skills', s, 'SKILL.md')]),
@@ -208,6 +208,22 @@ suite('safety invariants', () => {
     const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(src, /security pass agent failed/, 'missing security pass sinks the feature')
   })
+
+  test('reviewers are read-only; quench treats contract-surface changes as first-class', () => {
+    const q = read('.claude', 'agents', 'forge-quench.md')
+    const w = read('.claude', 'agents', 'forge-warden.md')
+    assert.match(q, /read-only/i, 'quench is declared read-only — closes the Bash-write hole')
+    assert.match(w, /read-only/i, 'warden is declared read-only')
+    assert.match(q, /Contract-surface/i, 'quench flags public signature/route/schema/CLI/config changes')
+  })
+
+  test('reversibility decision policy: spec template + blueprint + forge report', () => {
+    const spec = read('templates', 'SPEC.md')
+    assert.match(spec, /## Decision policy/, 'every spec carries the decision policy')
+    assert.match(spec, /two-way door/i, 'reversible calls are decided-and-logged, not asked mid-run')
+    assert.match(read('.claude', 'agents', 'forge-blueprint.md'), /one-way door/i, 'blueprint escalates only one-way doors')
+    assert.match(read('.claude', 'skills', 'forge', 'SKILL.md'), /Autonomous decisions/i, 'forge report surfaces the autonomous calls for review')
+  })
 })
 
 // --- cost-optimization invariants (each optimization locks its shape here) ---
@@ -225,10 +241,10 @@ suite('cost optimizations', () => {
     assert.match(src, /T3 direct build/, 'synthetic brief marks itself')
   })
 
-  test('/forge: waves of 1-2 features skip the workflow (direct /feature loop)', () => {
+  test('/forge: waves of 1-3 features skip the workflow (direct /feature loop)', () => {
     const src = read('.claude', 'skills', 'forge', 'SKILL.md')
     assert.match(src, /Small-wave shortcut/, 'shortcut documented in Execute step')
-    assert.match(src, /Waves of 3\+/, 'pipeline reserved for 3+ feature waves')
+    assert.match(src, /Waves of 4\+/, 'pipeline reserved for 4+ feature waves (prompt-driven path is the robust default below that)')
   })
 
   test('/kickoff hands off to /forge in the SAME session', () => {
@@ -293,5 +309,30 @@ suite('cost optimizations', () => {
     assert.match(src, /Release kit/, 'release-kit step present')
     assert.match(src, /RELEASE-KIT\.md/, 'wired to the template')
     assert.match(src, /incomplete kit blocks the\s+release/i, 'store products fail closed')
+  })
+
+  test('deterministic plumbing lives in scripts, not in agent prompts', () => {
+    assert.ok(existsSync(p('scripts', 'forge-worktree.sh')), 'forge-worktree.sh extracted')
+    assert.ok(existsSync(p('scripts', 'forge-pr.sh')), 'forge-pr.sh extracted')
+    const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(fp, /forge-worktree\.sh/, 'build/verify agents call the worktree script')
+    assert.match(fp, /scriptsDir/, 'preflight resolves the script path; inline git is the fallback')
+    // The workflow's WT branch must invoke the SAME subcommands the script defines — a typo
+    // on either side (e.g. `newbuild`) would ship a broken agent instruction the sim's
+    // fallback-only run never walks. Assert both sides carry each token, in lockstep.
+    const wt = read('scripts', 'forge-worktree.sh')
+    for (const cmd of ['new-build', 'new-detached', 'clean']) {
+      assert.ok(wt.includes(cmd), `script defines the ${cmd} subcommand`)
+      assert.match(fp, new RegExp(`\\$\\{WT\\} ${cmd}`), `workflow WT branch invokes forge-worktree.sh with ${cmd}`)
+    }
+    assert.match(read('CLAUDE.md'), /Deterministic work is a script/, 'the principle is a hard rule')
+  })
+
+  test('a stalled run is resumable: /forge writes run-state, /resume reconciles it', () => {
+    assert.ok(skills.includes('resume'), '/resume skill exists')
+    assert.match(read('.claude', 'skills', 'forge', 'SKILL.md'), /\.forge\/run\.json/, '/forge writes .forge/run.json at boundaries')
+    assert.match(read('.claude', 'skills', 'next', 'SKILL.md'), /\.forge\/run\.json/, '/next writes it too')
+    assert.match(read('.claude', 'skills', 'resume', 'SKILL.md'), /reconcile/i, '/resume reconciles run-state against git ground truth')
+    assert.match(read('.gitignore'), /^\.forge\/$/m, 'run-state is local-only (gitignored)')
   })
 })

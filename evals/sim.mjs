@@ -64,6 +64,13 @@ export const preflightOK = {
   path: DIR, exists: true, isGitRepo: true, hasCode: true,
   isControlCenter: false, cwdIsTarget: true,
 }
+// Variant: session cwd is NOT the target AND the harness ships forge-worktree.sh, so
+// feature-pipeline takes the script-call (WT) branch of buildWorktree/detachedWorktree
+// instead of inline git. Same orchestration shape — lets an eval walk the script path the
+// default preflightOK (cwdIsTarget: true, no scriptsDir) never exercises.
+export const preflightWithScripts = {
+  ...preflightOK, cwdIsTarget: false, scriptsDir: 'T:/harness/scripts',
+}
 
 // 12-finding pool: ids 0-3 ship-blocking (critical/high), 4-11 medium/low.
 export const FINDINGS_POOL = Array.from({ length: 12 }, (_, i) => ({

@@ -1,6 +1,6 @@
 ---
 name: defect-patterns-harness
-description: Recurring defect classes in the Forge harness repo itself (meta/doc drift, settings.json allowlist creep) — check these first when reviewing harness changes
+description: Recurring defect classes in the Forge harness repo itself (meta/doc drift, settings.json allowlist creep, diverged numeric thresholds across sibling skills, cross-skill run-state schema/boundary refs, eval-sim canned-preflight lag leaving new branches unexercised) — check these first when reviewing harness changes
 metadata:
   type: project
 ---
@@ -64,6 +64,45 @@ Recurring defect patterns when the diff target is the harness repo itself (not a
    `agent()` opts take string model names ('haiku'/'sonnet'); omitting `model:` = inherit
    session. 3572f00 was clean on all four surfaces — no leftover `model: fable` pin, brand
    name F.O.R.G.E.=Fable-Orchestrated correctly preserved as non-defect.
+
+6. **Threshold/number change — sweep sibling skills that name the same number (found 2026-07-15, /forge pipeline threshold 3+→4+).**
+   When a diff raises/lowers a numeric threshold in one skill (e.g. `/forge`'s "pipeline
+   fires at 4+ features, 1–3 use the direct loop"), grep the OLD number across ALL skills,
+   not just the changed one. `/feature`'s SKILL.md still said "point the user to
+   feature-pipeline at **3+** items" — a diverged threshold for the same "when is the
+   feature-pipeline worth its overhead" question. The rationale attached to the change
+   (fixed-overhead-of-the-workflow) is usually general, so any sibling that names the old
+   number goes stale even if the diff didn't touch it. Also watch loose cost-summaries
+   ("each wave is a feature-pipeline run") that a widened exception range makes more wrong.
+
+7. **Cross-skill run-state (`.forge/run.json`) coherence — check schema + boundary refs (found 2026-07-15).**
+   New multi-skill state files (`/forge`+`/next` write, `/resume` reads) need three checks:
+   (a) every field a reader consumes is written by some writer (this diff was complete:
+   baseline_sha/integration_mode/known_red/per-feature tier/branch/pr/evidence all wired);
+   (b) status vocabularies — writer wrote `pending`/`merged`/`failed`, reader derived a
+   richer `PR-open`/`built`/`not-started`; benign ONLY because the file is explicitly
+   non-authoritative and the reader re-derives from git (if any step trusted the stored
+   status to branch, this would break); (c) **boundary cross-refs** — `/forge` §0 and
+   `/next` §4 claim run.json is "updated at every boundary in §4/§5", but §5 (Finish) has
+   NO run.json-update step; only §4 does. A pointer to a section for behavior that section
+   doesn't implement is a dangling ref, even when re-derivation masks the impact.
+
+8. **Eval-sim canned preflight lags a new preflight-schema field → the new code branch it gates is never exercised (found 2026-07-15, worktree-script extraction).**
+   `evals/sim.mjs` `preflightOK` is a frozen object (path/exists/isGitRepo/hasCode/
+   isControlCenter/cwdIsTarget). When a workflow adds a preflight field that SELECTS a new
+   agent-prompt branch (here `scriptsDir` → `SCRIPTS`/`WT` → the "agents call
+   forge-worktree.sh" path), the sim keeps returning the old object, so `WT===null` and the
+   orchestration eval only ever walks the INLINE fallback. Agent *counts* stay identical (the
+   field only changes prompt TEXT, not the number of agents), so the count-based eval passes
+   and looks like coverage — but the headline behavior of the change has ZERO execution. Pair
+   this with a static test that also only asserts the SCRIPT side: the `deterministic
+   plumbing` test checks `wt.includes('new-build'|'new-detached'|'clean')` against the SHELL
+   script and `fp.match(/forge-worktree\.sh/)` against the workflow, but never asserts the
+   workflow's WT-branch emits the correct subcommand *tokens*. Net: a JS-prompt-only drift
+   (e.g. workflow says `newbuild`, script keeps `new-build`) ships green. Check: when a diff
+   adds a preflight field that gates a prompt branch, does `preflightOK` (or a scenario
+   override) set it so an eval walks the new branch, AND does a test assert the branch's
+   emitted command string, not just the target script's own vocabulary?
 
 **How to apply:** on any harness diff, grep for the old behavior's phrasing across
 README.md, docs/*.md, and workflow `meta` blocks; diff settings.json entries against the

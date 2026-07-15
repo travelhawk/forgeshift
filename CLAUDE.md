@@ -34,6 +34,7 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 | `/ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
 | `/debug-hard <symptom>` | Structured escalation to the hard-bug debugger (session model) |
 | `/status` | Ground-truth state report + session handoff into PROGRESS.md |
+| `/resume` | Resume a stalled `/forge`/`/next` run: read `.forge/run.json`, reconcile with git, state the next action |
 | `/retro` | Harness retrospective: observed friction → approved fixes → commits |
 | `/understand [question]` | Workflow: parallel codebase mapping → architecture brief |
 | `/design-panel <brief>` | Workflow: 3 designs, 1 judge-synthesizer (wide opt-in: 4+3) |
@@ -90,6 +91,11 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
    is never cut — only words about words.
 8. **Harness changes run the regression suite.** `npm test` (harness root) green before
    any commit that touches skills/agents/workflows/docs; new invariants get a test.
+9. **Deterministic work is a script, never an agent turn.** Git plumbing, worktree
+   lifecycle, PR assembly, running the suite, version bumps — anything with a single
+   correct answer — lives in `scripts/` (or a command a skill runs directly), never a
+   probabilistic agent told to run raw commands. It is cheaper *and* it deletes a failure
+   class. Reviewers are read-only: they run tests and git-reads, never mutate tracked files.
 
 ## Working in a product (`projects/<name>/`)
 
@@ -123,6 +129,13 @@ Each product has: `CLAUDE.md` (commands/conventions — trust it over guesses),
 Read `PROGRESS.md` "Next session should" before doing anything else; run the smoke test
 before starting new work. When a skill's target product is ambiguous, ask instead of
 guessing.
+
+**Run state.** `/forge` and `/next` write `.forge/run.json` in the product at each
+wave/feature boundary (baseline SHA, integration mode, per-feature status/branch/PR/
+evidence, next action). `/resume` reads it to recover a run that died mid-way. It is
+gitignored in the product and is an *accelerator over git*, never a source of truth — git
+branches + `PROGRESS.md` stay authoritative, so a missing or stale file only costs a
+reconcile, never a break.
 
 ## Coexistence with the global setup
 

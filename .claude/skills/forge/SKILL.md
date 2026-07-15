@@ -26,6 +26,13 @@ interrupt.
   are offered.
 - Record the current HEAD commit as the run's baseline marker — the finish step
   reviews everything merged after it.
+- Write the run-state `.forge/run.json` (the map `/resume` reads after a mid-run stop):
+  `{run_id, command: "/forge", baseline_sha, integration_mode (once the gate sets it),
+  known_red, waves:[{n, features:[{id, tier, branch, status:"pending", pr, evidence}]}],
+  next}`. It is local-only (gitignore `.forge/` in the product) and an accelerator, not a
+  source of truth — git stays authoritative, so a stale file never blocks. Update it at
+  every boundary in §4/§5; on any stop condition, leave `next` pointing at the exact
+  resume action.
 
 ## 1. Backlog
 
@@ -68,8 +75,8 @@ Present in one message, then get one approval:
   - **local** (no remote): offer `gh repo create --private --source .` once; declined →
     `git merge --no-ff` per verified feature, the merge commits are the audit trail,
     no PRs.
-- A rough cost expectation (a 3+-feature wave is a feature-pipeline run: 5–30x
-  session tokens; a 1–2-feature wave runs the direct `/feature` loop at roughly
+- A rough cost expectation (a 4+-feature wave is a feature-pipeline run: 5–30x
+  session tokens; a 1–3-feature wave runs the direct `/feature` loop at roughly
   half that; plus one deep-review for the finish).
 - The finish step (section 5) is included by default: automatic `deep-review` of the
   integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
@@ -78,18 +85,24 @@ Present in one message, then get one approval:
   overhead outweighs the run.
 
 The approval covers everything downstream, including merges in auto-integrate mode
-and the finish step's fixes.
+and the finish step's fixes. It also grants the build phase the spec's **Decision policy**
+authority (`docs/SPEC.md`): reversible two-way-door calls are decided and logged as ADRs
+mid-run, never surfaced as questions; only genuine one-way doors (persisted schema, public
+contract, money/auth semantics, scope change) stop the run — and those batch. This is why
+"no questions after the gate" is safe, not reckless: every call rides a branch/PR and is
+overruleable at the finish deep-review.
 
 ## 4. Execute (hands-off from here)
 
-**Small-wave shortcut (1–2 features):** the pipeline's value is parallel fan-out +
-context isolation; below 3 features its fixed overhead (preflight, per-feature plan
-agent, re-contexting) outweighs it. For such a wave, skip the workflow and run the
-`/feature` loop §2–§4 directly per feature — plan inline (forge-blueprint only if
-large), `forge-hammer` builds on a `feature/<slug>` branch, fresh-context verify per
-tier (T1: quench + warden, T2: quench, T3: smoke) — still hands-off under the gate
-approval, then continue at step 2 below (PR/merge machinery identical). Waves of 3+
-fire the pipeline:
+**Small-wave shortcut (1–3 features):** the pipeline's value is parallel fan-out +
+context isolation; below 4 features its fixed overhead (preflight, per-feature plan
+agent, re-contexting) outweighs it — and the prompt-driven `/feature` path is the more
+robust default anyway (fewer moving parts than the JS engine, so fewer break points). For
+such a wave, skip the workflow and run the `/feature` loop §2–§4 directly per feature —
+plan inline (forge-blueprint only if large), `forge-hammer` builds on a `feature/<slug>`
+branch, fresh-context verify per tier (T1: quench + warden, T2: quench, T3: smoke) — still
+hands-off under the gate approval, then continue at step 2 below (PR/merge machinery
+identical). Waves of 4+ genuinely-independent features fire the pipeline:
 
 Per wave, in order:
 
@@ -110,12 +123,18 @@ Per wave, in order:
    Auto-integrate: `gh pr merge <num> --squash --delete-branch`; blocked by required
    checks → `gh pr checks <num> --watch`, then merge; still blocked → leave the PR
    open and skip any later feature that depends on it (report why).
+   (`scripts/forge-pr.sh` wraps this exact flow so the flags can't drift — one call per
+   step: `bash <harness-root>/scripts/forge-pr.sh open <branch> "<title>" <body-file>`
+   then `… merge <num>`; `FORGE_BASE` overrides the base branch. The raw commands above are
+   the fallback.)
 3. After a wave's merges: `git pull`, then run the FULL suite on integrated main —
    each branch was verified in isolation, the merged whole was not. NEW failures
    versus the recorded baseline → stop the run, report, leave later waves unbuilt.
    Never "fix forward" into the next wave.
 4. Tick PROGRESS.md per merged feature with its evidence string; one session-log line
-   per wave.
+   per wave. Update `.forge/run.json` the same moment — the feature's `status`
+   (`merged`/`failed`), `branch`, `pr`, `evidence`, and the run's `next` — so a stop right
+   after this leaves a resumable trail for `/resume`.
 5. Per FAILED feature: record branch + issues and continue the wave. A failure only
    blocks features that depend on it.
 
@@ -158,6 +177,9 @@ steps below apply to auto-integrate and local modes.
    ready-for-`/ship` verdict exactly like a twice-failed fix.
 5. Medium/low findings (confirmed or unverified) are NOT auto-fixed — they are
    judgment calls and go to the report for the user to triage at `/ship` time.
+6. Keep `.forge/run.json`'s `next` current through the finish (`finish: deep-review` →
+   `finish: fixing <finding>` → `complete — ready for /ship` / the blocker) — a stop
+   during the finish is then as resumable via `/resume` as one mid-wave.
 
 ## 5b. Visual walkthrough (UI products only — automatic, fail-soft)
 
@@ -196,6 +218,11 @@ Covered by the same finish opt-out at the gate.
 - Suite state on integrated main (pasted output); PROGRESS.md updated.
 - Finish results: confirmed findings fixed (with evidence), unverified crit/high held
   as ship-blocking, medium/low open. In review-PRs mode: the deferred-review note.
+- **Autonomous decisions — review these:** the reversible (two-way-door) calls the build
+  phase decided and logged as ADRs during this run, per the spec's Decision policy — each
+  with its one-line rationale and `docs/adr/` path, so you can overrule any at the finish
+  gate. A one-way door that forced a mid-run stop is reported separately as a blocker, not
+  here.
 - Visual walkthrough (UI products): the paths to the flow videos and `overview.png`, plus
   any flows skipped and why. Not a UI product / not run → say so plainly. This is never a
   ship blocker.
@@ -213,4 +240,5 @@ Unrecorded red baseline at start · more than half a wave fails verification · 
 suite failures on integrated main after a merge · a workflow-level pipeline error ·
 an unmergeable PR that later waves depend on. /forge never
 force-pushes, never merges a feature that failed verification, and never weakens a
-test to get green.
+test to get green. On any stop (or a killed session), `.forge/run.json` holds the state —
+`/resume` reads it, reconciles against git, and states the next action.
