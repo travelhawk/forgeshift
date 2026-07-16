@@ -36,3 +36,7 @@ Commit `PROGRESS.md` (and any stray uncommitted work the user wants kept — ask
 assume). If the session surfaced durable project facts that belong in the project's
 CLAUDE.md (a new command, a new convention), add them there — tersely, and prune
 anything now stale while you're in the file.
+
+Close the report with an explicit **Next →** line naming the single most valuable next
+command (the same move as the "Next session should" handoff) — matched to the health
+verdict, never `/ship` while tests are red.

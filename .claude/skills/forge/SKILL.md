@@ -74,8 +74,9 @@ Present in one message, then get one approval:
 - The finish step (section 5) is included by default: automatic `deep-review` of the
   integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
   products — a Playwright **visual walkthrough** (§5b: flow videos + a screen-overview
-  image). Opt-out here at the gate — sensible only for mini-backlogs where the review
-  overhead outweighs the run.
+  image), and a **documentation pass** (§5c: `forge-etcher` rewrites the README from the
+  shipped reality, replacing scaffolder boilerplate). Opt-out here at the gate — sensible
+  only for mini-backlogs where the review overhead outweighs the run.
 
 The approval covers everything downstream, including merges in auto-integrate mode
 and the finish step's fixes.
@@ -94,19 +95,26 @@ fire the pipeline:
 Per wave, in order:
 
 1. Fire the `feature-pipeline` workflow with `{dir: <product path>, features: [wave
-   entries], context}`. Each wave entry is an object `{feature, tier, done_criteria}` —
-   the tier drives the pipeline's build model/effort and verify depth (T1 verify +
-   security pass, T2 one verify, T3 smoke-only on Sonnet). Context carries the spec
-   summary, project conventions, and the known-red baseline if any. Write the same
-   `{features, context}` to `feature-pipeline.input.json` in the product root before
-   invoking and delete it after the wave (args-mangling fallback per CLAUDE.md). A
-   workflow-level error return is a stop condition — report, don't continue.
-   The pipeline's verify stage returns `pr_title`, `pr_body`, and `evidence` per
-   feature.
+   entries], context, known_failures}`. Each wave entry is an object `{feature, tier,
+   done_criteria}` — the tier drives the pipeline's build model/effort and verify depth
+   (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet). Context carries
+   the spec summary and project conventions. **Pass the recorded known-red baseline as its
+   own `known_failures` field, not buried in `context`** — the pipeline threads it verbatim
+   to every builder and verifier so a pre-existing failure is never counted as this
+   feature's regression (a distilled `context` can drop it; a first-class field cannot).
+   Write the same `{features, context, known_failures}` to `feature-pipeline.input.json`
+   in the product root before invoking and delete it after the wave (args-mangling
+   fallback per CLAUDE.md). A workflow-level error return is a stop condition — report,
+   don't continue. The pipeline's verify stage returns `pr_title`, `pr_body`, and
+   `evidence` per feature.
 2. Per PASSED feature: `git push -u origin <branch>`, then `gh pr create --head
    <branch> --base main --title ... --body-file <scratchpad file>` (body: summary,
    done-criteria checklist, evidence) — `--head` is required; the session checkout
-   stays on main, never on the feature branch.
+   stays on main, never on the feature branch. The pipeline's `pr_title`/`pr_body` are
+   ready to use as-is; only if a title is a bare task id ("wire up F7") or a body lacks
+   the What / How-to-review / Evidence sections, polish it inline here at `gh pr create`
+   time (main session, cheap) — but carry the done-criteria checklist and the verification
+   evidence through **verbatim**; a polish that trims evidence violates hard rule 7.
    Auto-integrate: `gh pr merge <num> --squash --delete-branch`; blocked by required
    checks → `gh pr checks <num> --watch`, then merge; still blocked → leave the PR
    open and skip any later feature that depends on it (report why).
@@ -158,6 +166,11 @@ steps below apply to auto-integrate and local modes.
    ready-for-`/ship` verdict exactly like a twice-failed fix.
 5. Medium/low findings (confirmed or unverified) are NOT auto-fixed — they are
    judgment calls and go to the report for the user to triage at `/ship` time.
+6. Spot-check the `rejectedBlockers` bucket: deep-review returns each critical/high
+   finding it dismissed together with the refutation reasoning. These are not
+   ship-blocking, but a single refuter killed a would-be ship-blocker — skim the
+   reasoning, and if a dismissal looks wrong, re-open it as a confirmed finding and fix
+   it in step-2 discipline. List them in the report so the call is visible, never silent.
 
 ## 5b. Visual walkthrough (UI products only — automatic, fail-soft)
 
@@ -190,6 +203,34 @@ dev-server command (product `CLAUDE.md`), and the core journey + shipped feature
 
 Covered by the same finish opt-out at the gate.
 
+## 5c. Documentation pass (`forge-etcher` — automatic, fail-soft)
+
+Runs on the completed, green integrated result (auto-integrate and local modes; skipped
+in review-PRs mode — nothing is merged). **Never a stop condition**: a docs failure is a
+report note, never a block on ready-for-`/ship`. `/forge` builds features from the spec
+and reviews code — nothing in that loop owns the README, so a scaffolded product ships
+with boilerplate (`create-next-app`'s "bootstrapped with…" page, a bare `cargo`/`poetry`
+stub) unless this step replaces it. Delegate to `forge-etcher` with the product path,
+`docs/SPEC.md`, `PROGRESS.md`, and the actual `package.json`/manifest scripts:
+
+1. **README.** Rewrite (or create) `README.md` from the SHIPPED reality — what the product
+   is and does, the architecture in brief (link `docs/adr/`), the real stack, getting
+   started, the actual scripts, honest limitations/known-gaps drawn from PROGRESS (do not
+   oversell), and a one-line-per-module project map. Replace any scaffolder boilerplate
+   outright. **Verify every command it documents by running it** (`install`, `test`,
+   `typecheck`, `build` at minimum) — a README that documents a command that fails is a
+   lie (hard rule 2). State anything unverifiable in-session (a live deploy, a paid API)
+   as such rather than claiming it.
+2. **Docs sync.** If the run changed commands, env vars, or setup that a committed doc
+   (`README`, a `docs/` getting-started, `.env.example` prose) now contradicts, fix the
+   drift in the same pass. Do NOT invent new docs beyond the README — CHANGELOG and
+   release/listing texts belong to `/ship`, not here.
+3. **Commit** the docs (small, review-friendly) directly on the integrated branch —
+   `docs: README + docs sync (/forge finish)` — like the walkthrough artifacts. In
+   auto-integrate mode a docs-only commit needs no PR; push it with the finish.
+
+Covered by the same finish opt-out at the gate.
+
 ## 6. Report
 
 - Table: feature → branch → PR → verdict → merged.
@@ -199,6 +240,8 @@ Covered by the same finish opt-out at the gate.
 - Visual walkthrough (UI products): the paths to the flow videos and `overview.png`, plus
   any flows skipped and why. Not a UI product / not run → say so plainly. This is never a
   ship blocker.
+- Documentation pass (§5c): README written/refreshed with the commands verified, or the
+  reason it was skipped/failed. Never a ship blocker.
 - What needs the user: open PRs (review-PRs mode) with the run-`/deep-review`-after-
   merge recommendation, skipped dependents, twice-failed features, medium/low triage.
 - Closing verdict: **ready for `/ship`** — or NOT ship-ready, with the reasons
@@ -206,6 +249,11 @@ Covered by the same finish opt-out at the gate.
   features, new suite failures). Never soften this. Two cases are never a bare "ready
   for `/ship`": review-PRs mode is "PRs ready for your review"; a finish opt-out is
   "ship-ready pending the deep-review you skipped — run `/deep-review` before `/ship`".
+- **Next →** the line that matches the verdict: ready-for-ship → `**Next →** /ship`;
+  NOT ship-ready → `**Next →** /fix <feature>` (or `/debug-hard` if it resisted a retry)
+  for each blocker; review-PRs → `**Next →** merge the PRs, then /deep-review`; finish
+  opt-out → `**Next →** /deep-review, then /ship`. Never point at `/ship` under a
+  blocking verdict.
 
 ## Stop conditions (report, never push through)
 

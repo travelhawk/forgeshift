@@ -20,8 +20,11 @@ the lower level demonstrably fails (missed findings, serial slog through indepen
 
 - **Adversarial verification** (`deep-review`) — findings are only trustworthy after
   independent refutation attempts; that's inherently multi-agent.
-- **Wide independent work** (`feature-pipeline`, `understand`) — N independent items,
-  each fits one context window, no shared mutable state (worktrees isolate the rest).
+- **Wide independent work** (`feature-pipeline`) — N independent items, each fits one
+  context window, no shared mutable state (worktrees isolate the rest). (Codebase
+  *mapping* is also wide-independent, but `/understand` is a **skill**, not a workflow —
+  it has no fail-closed gate or code-only aggregation to justify the runtime, so the main
+  session fans out its readers directly.)
 - **Wide decision spaces** (`design-panel`) — independent designers with different priors
   beat one design iterated, because iteration anchors on the first idea.
 - **Trust-but-verify gates** (`release-gate`) — parallel checks where each agent must
@@ -40,7 +43,7 @@ the lower level demonstrably fails (missed findings, serial slog through indepen
 
 Workflow agents inherit the **session's start directory**, not your shell `cd` — a
 session started from the harness root (or any parent) would otherwise run its agents
-against the wrong repository (observed live). Three rules, enforced in all five
+against the wrong repository (observed live). Three rules, enforced in all four
 workflows:
 
 1. **Pass the target explicitly:** `args: {dir: "<absolute product path>", ...}`
@@ -95,9 +98,10 @@ the full suite on the merged result in the main session before calling the batch
 
 Rate limits, sleep, crashes — mid-run death is normal, plan for it:
 
-1. **Findings/read-only workflows** (`understand`, `deep-review`, `design-panel`,
-   `release-gate`): nothing to clean up; partial results may still be in the run output.
-   Re-run, optionally scoped to what's missing.
+1. **Findings/read-only workflows** (`deep-review`, `design-panel`, `release-gate`):
+   nothing to clean up; partial results may still be in the run output. Re-run,
+   optionally scoped to what's missing. (`/understand`, now a skill, is likewise just
+   re-runnable — its per-subsystem map files on disk are the salvage.)
 2. **`feature-pipeline`**: work survives as `feature/wf-*` branches (commits live in the
    shared .git — worktree removal never deletes branches). Recovery: `git worktree list`
    → `git worktree prune` (clears stale records that block future `worktree add`) →

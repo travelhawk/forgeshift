@@ -126,3 +126,7 @@ on integrated main (pasted), finish results (confirmed fixed / unverified held /
 open), walkthrough artifacts, and the closing **ready-for-`/ship`** or NOT-ship-ready
 verdict — plus, at the top: the spec/PROGRESS update (new version section, commit) and any
 ideas that were intentionally phased to a later version.
+
+Close with the same **Next →** line `/forge` §6 mandates: `/ship` on a ready-for-ship
+verdict, `/fix <feature>` (or `/debug-hard`) per named blocker otherwise — never `/ship`
+under a blocking verdict.

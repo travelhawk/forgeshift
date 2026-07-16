@@ -1,7 +1,7 @@
 export const meta = {
   name: 'feature-pipeline',
   description: 'Implement independent features in parallel: plan → implement in isolated worktree → verify',
-  whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature entries, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). A feature entry is a string (defaults to risk tier T2; a bare string may carry a bracketed marker like "[T1] add password reset") or an object {feature, tier, done_criteria} — the tier (T1/T2/T3) sets build model/effort and verify depth (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet; see docs/RISK-TIERS.md). If args does not arrive intact (a known runtime failure mode), write the same {features, context} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
+  whenToUse: 'A batch of INDEPENDENT features/tasks from a spec, in a git repo with at least one commit. Pass args as an array of feature entries, or an object {dir: "<product path>", features: [...], context: "shared context"} — dir pins the target repo (required when the session did not start in the product directory). A feature entry is a string (defaults to risk tier T2; a bare string may carry a bracketed marker like "[T1] add password reset") or an object {feature, tier, done_criteria} — the tier (T1/T2/T3) sets build model/effort and verify depth (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet; see docs/RISK-TIERS.md). Pass known_failures (string) when the repo starts from a recorded known-red baseline — it is threaded verbatim to every builder/verifier so a pre-existing failure is not mistaken for a regression. If args does not arrive intact (a known runtime failure mode), write the same {features, context, known_failures} object to feature-pipeline.input.json in the target repo root before invoking; it is read as a fallback and should be deleted after the run. Dependent features belong in one entry.',
   phases: [
     { title: 'Plan', detail: 'per-feature self-contained brief (T1/T2 only — T3 builds direct, no plan agent)' },
     { title: 'Build', detail: 'implement in isolated git worktree' },
@@ -22,8 +22,15 @@ const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir =
 
 let features = []
 let context = ''
+// Known-red baseline: tests already failing before this batch. Threaded to every
+// verifier as a first-class field (NOT buried in context, where the plan agent may
+// distill it away) so a pre-existing failure is never mistaken for a regression.
+let knownRed = ''
 if (Array.isArray(a)) features = a
-else if (a && typeof a === 'object' && Array.isArray(a.features)) { features = a.features; context = a.context || '' }
+else if (a && typeof a === 'object' && Array.isArray(a.features)) {
+  features = a.features; context = a.context || ''
+  knownRed = a.known_failures || a.knownRed || ''
+}
 // A feature entry is a plain string or {feature, tier, done_criteria}. Normalize every
 // entry to {feature, tier, done_criteria}. The tier (T1/T2/T3) drives build model/effort
 // and verify depth (see docs/RISK-TIERS.md). Default is T2 (a real verify pass): an
@@ -60,6 +67,7 @@ const PREFLIGHT = {
       properties: {
         features: { type: 'array', items: {}, description: 'Verbatim entries — each is EITHER a string OR a {feature, tier, done_criteria} object; return each EXACTLY as found (object stays an object — never stringified, or its tier is silently lost).' },
         context: { type: 'string' },
+        known_failures: { type: 'string', description: 'ONLY if present in the file: the recorded known-red baseline, verbatim' },
       },
     },
   },
@@ -71,7 +79,7 @@ const pre = await globalThis.agent(
   `Report per the schema: absolute target path, whether it exists, is a git repo with at least one commit, ` +
   `holds a real project, and whether it looks like an agent-harness/control-center repo instead of a product. ` +
   `Additionally: if a file feature-pipeline.input.json exists in the target root, read it and return its ` +
-  `{features, context} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
+  `{features, context, known_failures} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
   `in the JSON — if an entry is an object {feature, tier, done_criteria}, return the OBJECT unchanged; do NOT ` +
   `stringify or flatten it. Stringifying an object entry silently drops its risk tier (a T1 feature would lose ` +
   `its security pass). Preserve strings as strings and objects as objects, verbatim.`,
@@ -92,6 +100,7 @@ if (!pre.exists || !pre.hasCode || pre.isControlCenter || !pre.isGitRepo) {
 if (!features.length && pre.input && Array.isArray(pre.input.features)) {
   features = normalize(pre.input.features)
   context = pre.input.context || ''
+  if (!knownRed) knownRed = pre.input.known_failures || ''
   if (features.length) log(`Inputs read from feature-pipeline.input.json (${features.length} features) — args did not arrive intact`)
 }
 if (!features.length) {
@@ -107,6 +116,17 @@ const agent = (p, o) => agent0(AT + p, o)
 // session cwd IS the target. Otherwise the builder manages its own worktree of
 // the target repo (same semantics: isolated tree, fresh branch, branch survives).
 const runtimeIsolation = pre.cwdIsTarget
+
+// Known-red baseline preamble, appended to every builder/verifier prompt. Without it a
+// verifier that runs the full suite and hits a pre-existing failure fails the feature —
+// the exact false-negative /forge's "stop on NEW failures, not on the known red" rule
+// exists to prevent. Empty string when no baseline red was passed (the common case).
+const knownRedNote = knownRed && String(knownRed).trim()
+  ? `\nBASELINE (KNOWN-RED): these tests/checks are ALREADY failing before this feature and are NOT yours to fix: ` +
+    `${typeof knownRed === 'string' ? knownRed : JSON.stringify(knownRed)}. A pre-existing failure among them is NOT ` +
+    `a regression — only a NEW failure (something green at baseline now failing) fails this feature. Do not touch ` +
+    `unrelated red; do not report it as your break.\n`
+  : ''
 
 // The PLAN is the per-feature BRIEF: produced once by the plan agent (which already
 // reads the code), it is the ONLY context the downstream builder + verifier get. One
@@ -148,8 +168,8 @@ const CHECK = {
   properties: {
     verdict: { type: 'string', enum: ['pass', 'fail'] },
     issues: { type: 'array', items: { type: 'string' } },
-    pr_title: { type: 'string', description: 'Ready-to-use PR title: imperative, <= 72 chars' },
-    pr_body: { type: 'string', description: 'Ready-to-use PR body markdown: what & why, done-criteria as a checklist, test evidence from THIS verification run. On a fail verdict: what is broken instead' },
+    pr_title: { type: 'string', description: 'Ready-to-use PR title: imperative, <= 72 chars, NAMES THE USER-VISIBLE VALUE the feature delivers, not the internal task id — "Add password reset via email link", not "wire up F7"' },
+    pr_body: { type: 'string', description: 'Ready-to-use PR body markdown, sections in order: "## What & why" · "## How to review" (the 1-3 files/paths to read first and the behavior to exercise) · "## Evidence" (the test command(s) and result from THIS verification run, verbatim — never trimmed) · done-criteria as a checklist. On a fail verdict: what is broken instead' },
     evidence: { type: 'string', description: 'Test command(s) the verifier ran and a one-line result summary — from this verification run, not the builder report' },
   },
 }
@@ -167,8 +187,12 @@ const SECCHECK = {
 }
 
 // Tier → build effort/model. T3 boilerplate builds fast on Sonnet (well-defined
-// execution); T1/T2 build on the session model at high/xhigh. See docs/RISK-TIERS.md.
-const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { effort: t === 'T1' ? 'xhigh' : 'high' })
+// execution); T1/T2 PIN Opus — building is Opus's tier (docs/MODEL-ROUTING.md: "Opus =
+// all real building", and forge-hammer pins model: opus). Pinning keeps builds off the
+// session model, so a Fable-5 session day doesn't pay 2x for boilerplate and builds stay
+// at Opus quality when the session runs below it. Build-tier escalation on looping work
+// goes through /debug-hard (session model), never a bigger build model here.
+const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { model: 'opus', effort: t === 'T1' ? 'xhigh' : 'high' })
 // Combine a T1 feature's functional + security verdicts. Fail-closed: a missing or
 // failed security pass sinks the feature (it retries), it does not pass on silence.
 const combineT1 = (fn, sec) => {
@@ -211,7 +235,7 @@ const results = await pipeline(
     `existing helpers/patterns/naming this feature must match (name concrete files + symbols); in "pitfalls" list ` +
     `only the gotchas/lessons that apply to THIS feature (the relevant subset — empty if none). ` +
     `Tests-first: the test plan is not optional. Keep the plan minimal — no speculative abstractions.`,
-    { label: `plan:${i + 1}`, phase: 'Plan', effort: 'high', schema: PLAN },
+    { label: `plan:${i + 1}`, phase: 'Plan', effort: f.tier === 'T1' ? 'high' : 'medium', schema: PLAN },
   ),
   // 2. Build — isolated worktree; model/effort follow the tier (T3 → Sonnet/medium).
   (plan, f, i) => plan && agent(
@@ -234,7 +258,7 @@ const results = await pipeline(
     `Do NOT re-open the full spec, architecture, or memory. Follow "conventions", heed "pitfalls":\n` +
     `${JSON.stringify(plan, null, 2)}\n\n` +
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
-    `run the project's full relevant test suite. Match existing code style exactly. ` +
+    `run the project's full relevant test suite. Match existing code style exactly. ` + knownRedNote +
     `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
     `Commit with a clear message before finishing. INTEGRATION BOUNDARY: commit to your feature branch only — ` +
     `do NOT git push, do NOT create or edit pull requests, do NOT merge. The orchestrator owns all integration ` +
@@ -261,7 +285,7 @@ const results = await pipeline(
       `INTEGRATION BOUNDARY: return the PR title/body as DATA — do NOT git push, do NOT run gh, do NOT open a PR ` +
       `or merge yourself; the orchestrator creates the PR from what you return.\n\n` +
       `The brief's done-criteria and pitfalls below are your spec — verify against them; you need not re-open ` +
-      `the full spec or architecture.\n` +
+      `the full spec or architecture.\n` + knownRedNote +
       `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
       `PITFALLS TO PROBE:\n${JSON.stringify(r.plan.pitfalls || [])}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`
 
@@ -276,7 +300,7 @@ const results = await pipeline(
         `the worktree afterwards (git worktree remove --force <path>), also on failure. Fail ONLY on a real ` +
         `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
         `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
-        `YOU produced), and the evidence summary.\n\n` +
+        `YOU produced), and the evidence summary.\n` + knownRedNote + `\n` +
         `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
         { label: `smoke:${i + 1}`, phase: 'Verify', model: 'sonnet', effort: 'medium', schema: CHECK },
       ).then(c => ({ feature: f.feature, tier: f.tier, ...r, check: c }))

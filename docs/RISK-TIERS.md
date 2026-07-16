@@ -34,7 +34,7 @@ boundary calls below.)
 |---|---|---|---|
 | **Qualifies** | any capability signal: auth/session, payments/webhooks, permission checks, filter-dependent tenant/owner queries, untrusted external input, irreversible sends | side effects without a signal: business-logic API route handlers, own-record mutations, transactional/marketing email | render of the caller's own/already-owned data, UI components, page/server components, CRUD *scaffolding* |
 | **Plan** | `forge-blueprint`, failure paths in the done-criteria | inline or blueprint, tests-first for core behavior | fast: inline generate |
-| **Build** | `forge-hammer`, Opus/session, effort **xhigh**, tests-first | `forge-hammer`, Opus/session, effort **high** | **Sonnet**, effort **medium** |
+| **Build** | `forge-hammer`, **Opus** (pinned), effort **xhigh**, tests-first | `forge-hammer`, **Opus** (pinned), effort **high** | **Sonnet**, effort **medium** |
 | **Per-feature verify** | `forge-quench` (session model) **+ a parallel security/adversarial pass**; feature passes only if both pass | `forge-quench` (session model), **one** pass, medium effort | **smoke check only** (Haiku/Sonnet: builds / renders / one happy-path assertion). **No `forge-quench`.** |
 | **Tests** | full suite + explicit edge/failure cases | happy path + top failure path | a smoke test as the done-criteria's test |
 | **In `/forge` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |

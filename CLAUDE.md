@@ -35,7 +35,7 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 | `/debug-hard <symptom>` | Structured escalation to the hard-bug debugger (session model) |
 | `/status` | Ground-truth state report + session handoff into PROGRESS.md |
 | `/retro` | Harness retrospective: observed friction → approved fixes → commits |
-| `/understand [question]` | Workflow: parallel codebase mapping → architecture brief |
+| `/understand [question]` | Skill: parallel codebase mapping → architecture brief |
 | `/design-panel <brief>` | Workflow: 3 designs, 1 judge-synthesizer (wide opt-in: 4+3) |
 | `/feature-pipeline <features>` | Workflow: parallel build of independent features in worktrees |
 | `/deep-review [scope]` | Workflow: 3-lens review, findings adversarially verified |

@@ -131,5 +131,8 @@ chat context):
   re-reads all its inputs from disk.
 - **`/feature F1`** for a supervised first slice instead.
 
+Close the handoff with an explicit **Next →** line — `/forge` to build the backlog
+(default) or `/feature F1` for a supervised first slice — so the next move is one word.
+
 Only when the session did NOT start at the harness root (skills would be missing):
 recommend a fresh session from the harness root with the product as working target.

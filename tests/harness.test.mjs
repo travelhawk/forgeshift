@@ -157,9 +157,17 @@ suite('cross-references', () => {
 
   test('workflows referenced by skills exist as workflow files', () => {
     const wfNames = new Set(workflows.map(w => basename(w, '.js')))
-    for (const wf of ['understand', 'deep-review', 'feature-pipeline', 'release-gate', 'design-panel']) {
+    for (const wf of ['deep-review', 'feature-pipeline', 'release-gate', 'design-panel']) {
       assert.ok(wfNames.has(wf), `workflow ${wf} exists`)
     }
+  })
+
+  test('/understand is a skill, not a workflow (demoted — no gate to justify the runtime)', () => {
+    assert.ok(skills.includes('understand'), '/understand exists as a skill')
+    assert.ok(!workflows.includes('understand.js'), 'understand.js workflow removed')
+    const src = read('.claude', 'skills', 'understand', 'SKILL.md')
+    assert.match(src, /scratchpad/i, 'readers hand off maps via scratchpad files (context hygiene)')
+    assert.match(src, /Refuse to map the harness/i, 'keeps the target sanity check the preflight did')
   })
 })
 
@@ -190,6 +198,14 @@ suite('safety invariants', () => {
     const src = read('.claude', 'skills', 'forge', 'SKILL.md')
     assert.match(src, /force-push/i)
     assert.match(src, /never merges a feature that failed verification/i)
+  })
+
+  test('/forge finish includes a docs pass: forge-etcher writes the README, commands verified', () => {
+    const src = read('.claude', 'skills', 'forge', 'SKILL.md')
+    assert.match(src, /## 5c\. Documentation pass/, 'the docs pass is its own finish section')
+    assert.match(src, /forge-etcher/, 'the docs pass is delegated to forge-etcher')
+    assert.match(src, /README/, 'the docs pass owns the README')
+    assert.match(src, /Verify every command it documents by running it/i, 'documented commands are run, not claimed')
   })
 
   test('risk tiers wired: T1/T2/T3 handled by feature-pipeline, doc exists', () => {
@@ -280,7 +296,7 @@ suite('cost optimizations', () => {
   })
 
   test('workflow agents cd standalone — chained cd trips permission prompts', () => {
-    for (const wf of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate', 'understand']) {
+    for (const wf of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate']) {
       const src = readFileSync(join(workflowDir, `${wf}.js`), 'utf8')
       assert.match(src, /standalone cd into it/, `${wf}: AT preamble mandates a standalone cd`)
       assert.ok(!/cd there at the start of/.test(src), `${wf}: per-command cd instruction removed`)
@@ -293,5 +309,66 @@ suite('cost optimizations', () => {
     assert.match(src, /Release kit/, 'release-kit step present')
     assert.match(src, /RELEASE-KIT\.md/, 'wired to the template')
     assert.match(src, /incomplete kit blocks the\s+release/i, 'store products fail closed')
+  })
+})
+
+// --- boundary-audit optimizations (2026-07-14) — each locks its shape here ----
+suite('boundary-audit optimizations', () => {
+  // P9: the preflight block is duplicated across workflows; assert it stays uniform
+  // by structure (not text-diff), so a future fix to one copy can't silently diverge.
+  test('every workflow preflight is uniform (schema fields, haiku pin, refusal, standalone cd)', () => {
+    for (const f of workflows) {
+      const src = readFileSync(join(workflowDir, f), 'utf8')
+      assert.match(src, /required: \['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'\]/,
+        `${f}: preflight schema requires the six target-verification fields`)
+      assert.match(src, /label: 'preflight:target', model: 'haiku', effort: 'low'/,
+        `${f}: preflight agent pins haiku/low`)
+      assert.match(src, /it looks like a harness\/control-center repo, not a product/,
+        `${f}: refusal branch guards the control-center case`)
+      assert.match(src, /standalone cd into it/, `${f}: AT preamble mandates a standalone cd`)
+    }
+  })
+
+  // P1: T1/T2 builds pin Opus (building is Opus's tier) instead of riding a Fable session at 2x.
+  test('feature-pipeline pins Opus for T1/T2 builds; RISK-TIERS says so', () => {
+    const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(src, /t === 'T3' \? \{ model: 'sonnet', effort: 'medium' \} : \{ model: 'opus'/,
+      'T3 → sonnet, T1/T2 → opus (pinned, not inherit)')
+    assert.match(read('docs', 'RISK-TIERS.md'), /\*\*Opus\*\* \(pinned\)/, 'RISK-TIERS build row records the pin')
+    assert.match(read('docs', 'MODEL-ROUTING.md'), /build stages pin `model: 'opus'`/, 'routing policy records the pin')
+  })
+
+  // P7: PR title/body schema guides toward reviewable, value-named PRs.
+  test('feature-pipeline PR schema names the user-visible value and a How-to-review section', () => {
+    const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(src, /USER-VISIBLE VALUE/, 'pr_title guidance names the value, not the task id')
+    assert.match(src, /How to review/, 'pr_body carries a How-to-review section')
+  })
+
+  // P10: every skill closes with a Next-line so the next action is always one command away.
+  test('every skill closes with a **Next →** pointer', () => {
+    for (const s of skills) {
+      assert.match(read('.claude', 'skills', s, 'SKILL.md'), /Next →/, `skill ${s} names the next command`)
+    }
+  })
+
+  // Bug #1: a known-red baseline reaches every verifier as a first-class field, not via
+  // the distillable `context` — else a pre-existing failure is scored as a regression.
+  test('feature-pipeline threads a known-red baseline to builders/verifiers', () => {
+    const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(src, /knownRedNote/, 'known-red preamble is defined and appended to prompts')
+    assert.match(src, /BASELINE \(KNOWN-RED\)/, 'baseline note is surfaced to the agents')
+    assert.match(src, /known_failures/, 'known_failures is a first-class arg, not buried in context')
+    assert.match(read('.claude', 'skills', 'forge', 'SKILL.md'), /known_failures/, '/forge passes it as its own field')
+  })
+
+  // Bug #2: crit/high findings are the highest-stakes filter — they stand unless disproven,
+  // and a refuted ship-blocker is surfaced with reasoning, never reduced to a bare count.
+  test('deep-review: crit/high stand unless disproven; refuted blockers surfaced with reasoning', () => {
+    const src = readFileSync(join(workflowDir, 'deep-review.js'), 'utf8')
+    assert.match(src, /refuted=true ONLY when/, 'crit/high refuter does not default to refuted')
+    assert.match(src, /it STANDS/, 'unprovable crit/high scenario stands')
+    assert.match(src, /rejectedBlockers/, 'refuted crit/high returned with reasoning')
+    assert.match(read('.claude', 'skills', 'forge', 'SKILL.md'), /rejectedBlockers/, '/forge spot-checks the dismissals')
   })
 })

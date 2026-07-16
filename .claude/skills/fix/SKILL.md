@@ -46,3 +46,7 @@ it rides the next regular release; note it in CHANGELOG under Unreleased.
 PROGRESS.md session log: symptom → root cause → the test that now guards it. If the
 same class of bug happened before, say so — twice is a pattern worth an ADR or a
 `forge-quench` memory note.
+
+**Next →** `/ship` (patch, abbreviated manual checklist + full automated gate) if the fix
+must go out now; otherwise note it under CHANGELOG Unreleased and it rides the next
+release. If the bug resisted this lane, **Next →** `/debug-hard`.

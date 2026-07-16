@@ -12,8 +12,8 @@ rewrites code — adoption only ADDS the harness artifacts the lifecycle skills 
 
 ## 1. Map
 
-Run the `understand` workflow on the repo (from its root). It returns the architecture
-brief and subsystem maps. If the repo is small (< ~20 source files), skip the workflow
+Run `/understand` (skill) on the repo (from its root). It returns the architecture
+brief and subsystem maps. If the repo is small (< ~20 source files), skip the fan-out
 and read it directly.
 
 ## 2. Reverse-engineer the contract
@@ -59,3 +59,7 @@ baseline, and the recommended first move. The full lifecycle now works: `/featur
 review it. Present it for quick review without hunting through the editor: render
 `docs/SPEC.md` as an **artifact** (Artifact tool, minimal design; load `artifact-design`
 first) and/or drop a direct link to it in the handoff.
+
+**Next →** the recommended first move as a command: `/feature F0` when tests were missing
+(wire the runner first), else `/feature <highest-value F#>` — or `/harden` if the adopted
+app is already exposed. Name the one move.

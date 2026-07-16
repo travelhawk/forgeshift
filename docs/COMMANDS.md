@@ -96,7 +96,7 @@ by hand — it's the engine `/forge` and `/next` drive.
 | Before shipping manual work (`/forge` fires it automatically) | `/deep-review` | Workflow (review + refuters) |
 | Before first public deploy | `/harden` | Skill → security agent |
 | Release | `/ship v0.2.0` | Skill → release-gate workflow |
-| Understand a big/foreign codebase | `/understand [question]` | Workflow |
+| Understand a big/foreign codebase | `/understand [question]` | Skill (fans out readers) |
 | Hard architecture decision | `/design-panel <brief>` | Workflow (lean: 3 designers + 1 judge-synthesizer; `panel: "wide"` → 4+3) |
 | Session end / re-entry | `/status` | Skill |
 | After a milestone | `/retro` | Skill (improves the harness itself) |

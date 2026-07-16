@@ -79,3 +79,7 @@ Report: version, gate evidence summary, release-kit location (or why skipped),
 deploy URL/artifact, post-deploy check result. Add the release to PROGRESS.md session
 log. If anything was skipped or accepted as a gap, it's in the report — plainly, not
 in a footnote.
+
+**Next →** `/status` to record the release and set the next handoff; `/next` when the
+following version's scope is ready. On a NO-SHIP that was overridden into a partial
+release, name the gap-closing `/fix` instead.

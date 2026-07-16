@@ -46,3 +46,6 @@ Report: findings fixed (with the test that now guards each), risks accepted (by 
 second-look items and their resolution. Add a "hardened <date>, scope" line to
 PROGRESS.md. Recommend re-running /harden after the next auth/payment/data-model change
 — not on a timer.
+
+**Next →** `/ship` when hardening was the pre-exposure gate and findings are resolved;
+otherwise `/fix` the still-open items first. Name the one move.

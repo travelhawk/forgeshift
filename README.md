@@ -135,8 +135,8 @@ and when it pauses for you.
 |---|---|---|
 | Operating manual | `CLAUDE.md` | The rules every session runs under |
 | Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/next` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
-| Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
+| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/next` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` `/understand` |
+| Orchestration | `.claude/workflows/` | `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
 | Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |
 | Method docs | `docs/` | COMMANDS (guide + diagram), LIFECYCLE, ORCHESTRATION, MODEL-ROUTING |

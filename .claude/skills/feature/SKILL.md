@@ -108,6 +108,9 @@ direct push to main:
 - Commit(s) are already granular from the build; ensure the final state is committed and
   the branch pushed.
 - Report: what shipped, evidence, the PR link, deviations, and the natural next feature.
+- **Next →** name one command: `/feature <next F#>` for the next slice, `/deep-review`
+  then `/ship` if this was the last — and `/harden` before exposure after a T1 feature.
+  Never `/ship` while verification is red.
 
 ## Escalation
 

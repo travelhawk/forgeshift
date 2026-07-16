@@ -38,3 +38,5 @@ both directions. Expect it to take its time — that's the point.
   have shown itself.
 - Record the root cause in one plain-language line in PROGRESS.md session log
   (trigger → mechanism → symptom). If it revealed a design weakness, propose the ADR.
+- **Next →** back to the lane you came from: `/feature`/`/forge` to resume the build, or
+  `/ship` if this bug was the last blocker. Name the one move.
