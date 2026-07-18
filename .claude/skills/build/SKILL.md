@@ -1,11 +1,11 @@
 ---
-name: forge
-description: Build the whole feature backlog hands-off - one wave-plan approval, then waves of parallel feature-pipeline builds, one PR per feature, verified work merged in dependency order, finished by an automatic deep-review of the integrated result with confirmed critical/high findings auto-fixed. Use after /kickoff or /adopt when many features should be built without per-feature supervision.
+name: build
+description: Build the whole feature backlog hands-off - one wave-plan approval, then waves of parallel feature-pipeline builds, one PR per feature, verified work merged in dependency order, finished by an automatic deep-review of the integrated result with confirmed critical/high findings auto-fixed. Use after /forge:kickoff or /forge:adopt when many features should be built without per-feature supervision.
 argument-hint: "[F#-list / range / feature descriptions - empty = all unchecked features]"
 disable-model-invocation: true
 ---
 
-# /forge — approve the plan once, then the whole backlog builds
+# /forge:build — approve the plan once, then the whole backlog builds
 
 Build "$ARGUMENTS" (empty → every unchecked feature in PROGRESS.md) with exactly ONE
 approval gate. After the gate: no questions, no per-feature check-ins — failures are
@@ -16,6 +16,12 @@ interrupt.
 
 - Establish the target product (cd into it; ambiguous → ask — that happens before the
   gate, so it's allowed).
+- Harness assets and the workflow scripts ship with the plugin, not the product. Resolve
+  their home once and reuse it this run: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`.
+  Read harness docs as `$FORGE_HOME/docs/…`, and **fire every workflow by
+  `scriptPath: "$FORGE_HOME/.claude/workflows/<name>.js"`** with an absolute path (name-based
+  invocation is unreliable — see `$FORGE_HOME/CLAUDE.md`). Workflows do NOT follow the shell
+  `cd`; always pass the product as their `dir` arg.
 - The baseline must hold, else stop and report instead of building on sand: working
   tree clean, full test suite green — or the pre-existing red explicitly recorded in
   PROGRESS.md, in which case the recorded failing set IS the baseline: every later
@@ -42,7 +48,7 @@ Blueprint partitions the backlog:
   parallel: chain them into ONE pipeline entry (built sequentially inside it) or push
   the dependent one into a later wave.
 - **Carry each feature's risk tier** (the `T?` marker from PROGRESS.md; classify any
-  untagged feature by capability signal per `docs/RISK-TIERS.md`, ties upward). The tier
+  untagged feature by capability signal per `$FORGE_HOME/docs/RISK-TIERS.md`, ties upward). The tier
   sets its validation depth in the pipeline — it does not affect wave partitioning
   (that's footprint only).
 - Output: waves 1..N, each a list of pipeline entries with footprint, **tier +
@@ -55,7 +61,7 @@ Present in one message, then get one approval:
 
 - The wave table: feature → wave → **tier** → footprint → done-criteria. The tier
   column is your batch override point — bump any feature up or down here before you
-  approve (`docs/RISK-TIERS.md`); the approval covers the adjustment.
+  approve (`$FORGE_HOME/docs/RISK-TIERS.md`); the approval covers the adjustment.
 - The integration mode:
   - **auto-integrate** (default): every verified feature → branch pushed → PR with
     evidence → squash-merged → the next wave builds on the updated main. Hands-off
@@ -69,7 +75,7 @@ Present in one message, then get one approval:
     `git merge --no-ff` per verified feature, the merge commits are the audit trail,
     no PRs.
 - A rough cost expectation (a 3+-feature wave is a feature-pipeline run: 5–30x
-  session tokens; a 1–2-feature wave runs the direct `/feature` loop at roughly
+  session tokens; a 1–2-feature wave runs the direct `/forge:feature` loop at roughly
   half that; plus one deep-review for the finish).
 - The finish step (section 5) is included by default: automatic `deep-review` of the
   integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
@@ -86,7 +92,7 @@ and the finish step's fixes.
 **Small-wave shortcut (1–2 features):** the pipeline's value is parallel fan-out +
 context isolation; below 3 features its fixed overhead (preflight, per-feature plan
 agent, re-contexting) outweighs it. For such a wave, skip the workflow and run the
-`/feature` loop §2–§4 directly per feature — plan inline (forge-blueprint only if
+`/forge:feature` loop §2–§4 directly per feature — plan inline (forge-blueprint only if
 large), `forge-hammer` builds on a `feature/<slug>` branch, fresh-context verify per
 tier (T1: quench + warden, T2: quench, T3: smoke) — still hands-off under the gate
 approval, then continue at step 2 below (PR/merge machinery identical). Waves of 3+
@@ -94,7 +100,7 @@ fire the pipeline:
 
 Per wave, in order:
 
-1. Fire the `feature-pipeline` workflow with `{dir: <product path>, features: [wave
+1. Fire the `feature-pipeline` workflow (scriptPath per §0) with `{dir: <product path>, features: [wave
    entries], context, known_failures}`. Each wave entry is an object `{feature, tier,
    done_criteria}` — the tier drives the pipeline's build model/effort and verify depth
    (T1 verify + security pass, T2 one verify, T3 smoke-only on Sonnet). Context carries
@@ -104,7 +110,7 @@ Per wave, in order:
    feature's regression (a distilled `context` can drop it; a first-class field cannot).
    Write the same `{features, context, known_failures}` to `feature-pipeline.input.json`
    in the product root before invoking and delete it after the wave (args-mangling
-   fallback per CLAUDE.md). A workflow-level error return is a stop condition — report,
+   fallback per `$FORGE_HOME/CLAUDE.md`). A workflow-level error return is a stop condition — report,
    don't continue. The pipeline's verify stage returns `pr_title`, `pr_body`, and
    `evidence` per feature.
 2. Per PASSED feature: `git push -u origin <branch>`, then `gh pr create --head
@@ -129,7 +135,7 @@ Per wave, in order:
 
 After the last wave, ONE retry round: failed features whose issues read fixable go
 through a final pipeline wave with those issues in the context. Whatever fails twice
-is reported for `/fix` or `/debug-hard` — a third automatic attempt is banned
+is reported for `/forge:fix` or `/forge:debug-hard` — a third automatic attempt is banned
 (hard rule 3).
 
 ## 5. Finish (automatic — covered by the gate approval)
@@ -139,21 +145,21 @@ reports the stop instead. Unless opted out at the gate:
 
 **review-PRs mode has no integrated main** (nothing merged). There is no merged whole
 to review and no way to merge a fix PR, so the finish deep-review is skipped; the
-report instead recommends the user run `/deep-review` after merging the open PRs. The
+report instead recommends the user run `/forge:deep-review` after merging the open PRs. The
 steps below apply to auto-integrate and local modes.
 
-1. Fire the `deep-review` workflow on the integrated result:
+1. Fire the `deep-review` workflow (scriptPath per §0) on the integrated result:
    `{dir: <product path>, scope: "git diff <baseline commit>..HEAD — the merged output
-   of this /forge run", priority: "<T1 features + their paths>"}` (substitute the
+   of this /forge:build run", priority: "<T1 features + their paths>"}` (substitute the
    section-0 baseline SHA). The `priority` note names the T1 features so reviewers
    concentrate their effort on the high-risk paths — T3 boilerplate, already smoke-built,
    gets swept but not ground over. Pipeline verification saw each feature in isolation —
    this is the adversarial pass over the merged whole, and the one review T3 features get.
    A deep-review error return (a result with no `confirmed`/`unverified` — preflight
    flaked, target refused) is ship-blocking: report the error, never emit
-   ready-for-`/ship` without a completed review (same rule as a section-4 workflow
+   ready-for-`/forge:ship` without a completed review (same rule as a section-4 workflow
    error).
-2. CONFIRMED critical/high findings are fixed in `/fix` discipline: regression test
+2. CONFIRMED critical/high findings are fixed in `/forge:fix` discipline: regression test
    first, smallest fix, fresh `forge-quench` pass on the fix diff — the fixer never
    verifies itself. Suite stays green versus the baseline. Two failed fix attempts
    on a finding → stop fixing it, mark it ship-blocking (hard rule 3).
@@ -163,9 +169,9 @@ steps below apply to auto-integrate and local modes.
 4. Fail closed on the `unverified` bucket: deep-review returns findings whose refuters
    crashed as `unverified` ("treat as open, do not discard"). An unverified
    critical/high is NOT auto-fixed but IS ship-blocking — it counts against the
-   ready-for-`/ship` verdict exactly like a twice-failed fix.
+   ready-for-`/forge:ship` verdict exactly like a twice-failed fix.
 5. Medium/low findings (confirmed or unverified) are NOT auto-fixed — they are
-   judgment calls and go to the report for the user to triage at `/ship` time.
+   judgment calls and go to the report for the user to triage at `/forge:ship` time.
 6. Spot-check the `rejectedBlockers` bucket: deep-review returns each critical/high
    finding it dismissed together with the refutation reasoning. These are not
    ship-blocking, but a single refuter killed a would-be ship-blocker — skim the
@@ -176,7 +182,7 @@ steps below apply to auto-integrate and local modes.
 
 Runs on the completed, green integrated result (auto-integrate and local modes; skipped
 in review-PRs mode — nothing is merged to run). **UI products only**, and **never a stop
-condition**: any failure is a note in the report, never a block on ready-for-`/ship` —
+condition**: any failure is a note in the report, never a block on ready-for-`/forge:ship` —
 this is a deliverable, not a gate. Delegate to `forge-proof` with the product path, the
 dev-server command (product `CLAUDE.md`), and the core journey + shipped features from
 `docs/SPEC.md`:
@@ -207,7 +213,7 @@ Covered by the same finish opt-out at the gate.
 
 Runs on the completed, green integrated result (auto-integrate and local modes; skipped
 in review-PRs mode — nothing is merged). **Never a stop condition**: a docs failure is a
-report note, never a block on ready-for-`/ship`. `/forge` builds features from the spec
+report note, never a block on ready-for-`/forge:ship`. `/forge:build` builds features from the spec
 and reviews code — nothing in that loop owns the README, so a scaffolded product ships
 with boilerplate (`create-next-app`'s "bootstrapped with…" page, a bare `cargo`/`poetry`
 stub) unless this step replaces it. Delegate to `forge-etcher` with the product path,
@@ -224,9 +230,9 @@ stub) unless this step replaces it. Delegate to `forge-etcher` with the product 
 2. **Docs sync.** If the run changed commands, env vars, or setup that a committed doc
    (`README`, a `docs/` getting-started, `.env.example` prose) now contradicts, fix the
    drift in the same pass. Do NOT invent new docs beyond the README — CHANGELOG and
-   release/listing texts belong to `/ship`, not here.
+   release/listing texts belong to `/forge:ship`, not here.
 3. **Commit** the docs (small, review-friendly) directly on the integrated branch —
-   `docs: README + docs sync (/forge finish)` — like the walkthrough artifacts. In
+   `docs: README + docs sync (/forge:build finish)` — like the walkthrough artifacts. In
    auto-integrate mode a docs-only commit needs no PR; push it with the finish.
 
 Covered by the same finish opt-out at the gate.
@@ -242,23 +248,23 @@ Covered by the same finish opt-out at the gate.
   ship blocker.
 - Documentation pass (§5c): README written/refreshed with the commands verified, or the
   reason it was skipped/failed. Never a ship blocker.
-- What needs the user: open PRs (review-PRs mode) with the run-`/deep-review`-after-
+- What needs the user: open PRs (review-PRs mode) with the run-`/forge:deep-review`-after-
   merge recommendation, skipped dependents, twice-failed features, medium/low triage.
-- Closing verdict: **ready for `/ship`** — or NOT ship-ready, with the reasons
+- Closing verdict: **ready for `/forge:ship`** — or NOT ship-ready, with the reasons
   (ship-blocking confirmed OR unverified crit/high, a deep-review error return, failed
   features, new suite failures). Never soften this. Two cases are never a bare "ready
-  for `/ship`": review-PRs mode is "PRs ready for your review"; a finish opt-out is
-  "ship-ready pending the deep-review you skipped — run `/deep-review` before `/ship`".
-- **Next →** the line that matches the verdict: ready-for-ship → `**Next →** /ship`;
-  NOT ship-ready → `**Next →** /fix <feature>` (or `/debug-hard` if it resisted a retry)
-  for each blocker; review-PRs → `**Next →** merge the PRs, then /deep-review`; finish
-  opt-out → `**Next →** /deep-review, then /ship`. Never point at `/ship` under a
+  for `/forge:ship`": review-PRs mode is "PRs ready for your review"; a finish opt-out is
+  "ship-ready pending the deep-review you skipped — run `/forge:deep-review` before `/forge:ship`".
+- **Next →** the line that matches the verdict: ready-for-ship → `**Next →** /forge:ship`;
+  NOT ship-ready → `**Next →** /forge:fix <feature>` (or `/forge:debug-hard` if it resisted a retry)
+  for each blocker; review-PRs → `**Next →** merge the PRs, then /forge:deep-review`; finish
+  opt-out → `**Next →** /forge:deep-review, then /forge:ship`. Never point at `/forge:ship` under a
   blocking verdict.
 
 ## Stop conditions (report, never push through)
 
 Unrecorded red baseline at start · more than half a wave fails verification · NEW
 suite failures on integrated main after a merge · a workflow-level pipeline error ·
-an unmergeable PR that later waves depend on. /forge never
+an unmergeable PR that later waves depend on. /forge:build never
 force-pushes, never merges a feature that failed verification, and never weakens a
 test to get green.

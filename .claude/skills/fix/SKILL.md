@@ -1,10 +1,10 @@
 ---
 name: fix
-description: Bugfix lane - reproduce, regression test, fix, review, optional patch release. Lighter than /feature (no spec ceremony), earlier than /debug-hard (which needs two failed attempts). Use for reported bugs, production issues, and broken behavior.
+description: Bugfix lane - reproduce, regression test, fix, review, optional patch release. Lighter than /forge:feature (no spec ceremony), earlier than /forge:debug-hard (which needs two failed attempts). Use for reported bugs, production issues, and broken behavior.
 argument-hint: "[bug description or error message]"
 ---
 
-# /fix — Bug → regression test → fix → reviewed
+# /forge:fix — Bug → regression test → fix → reviewed
 
 Fix "$ARGUMENTS". Bugs don't get feature ceremony — they get the reproduce-test-fix
 discipline, and nothing else.
@@ -14,7 +14,7 @@ discipline, and nothing else.
 Locate the product (cd into it), then reproduce the bug: exact command/steps, observed
 vs expected. Can't reproduce from the report → gather what's missing from the user
 before touching code. Intermittent or already survived two fix attempts → this is
-`/debug-hard`, hand over now instead of burning attempts.
+`/forge:debug-hard`, hand over now instead of burning attempts.
 
 ## 2. Regression test first
 
@@ -36,7 +36,7 @@ one-liners with an obvious regression test may skip (say so when you do).
 
 ## 5. Release the fix (when it needs to go out now)
 
-Patch releases use `/ship` with the ABBREVIATED manual checklist: walk only the broken
+Patch releases use `/forge:ship` with the ABBREVIATED manual checklist: walk only the broken
 journey (not all of them), confirm migrations/env unchanged, rollback command known.
 The automated release-gate runs in full — that part never abbreviates. Not urgent →
 it rides the next regular release; note it in CHANGELOG under Unreleased.
@@ -47,6 +47,6 @@ PROGRESS.md session log: symptom → root cause → the test that now guards it.
 same class of bug happened before, say so — twice is a pattern worth an ADR or a
 `forge-quench` memory note.
 
-**Next →** `/ship` (patch, abbreviated manual checklist + full automated gate) if the fix
+**Next →** `/forge:ship` (patch, abbreviated manual checklist + full automated gate) if the fix
 must go out now; otherwise note it under CHANGELOG Unreleased and it rides the next
-release. If the bug resisted this lane, **Next →** `/debug-hard`.
+release. If the bug resisted this lane, **Next →** `/forge:debug-hard`.

@@ -1,1 +1,2 @@
 .claude/workflows/*.js text eol=lf
+bin/* text eol=lf

@@ -1,6 +1,6 @@
 # Feature: <name> (F<#> from SPEC.md)
 
-> Working document for one feature. /feature instantiates it at docs/features/F<#>.md
+> Working document for one feature. /forge:feature instantiates it at docs/features/F<#>.md
 > for LARGE features only; small and medium features keep the plan in the conversation.
 > Archive or delete after merge.
 

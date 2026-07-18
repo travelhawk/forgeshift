@@ -4,7 +4,7 @@ description: Map an unfamiliar or large codebase with parallel read-only subagen
 argument-hint: "[optional focus question, e.g. 'how does auth work']"
 ---
 
-# /understand — Parallel mapping → one architecture brief
+# /forge:understand — Parallel mapping → one architecture brief
 
 Map "$ARGUMENTS" (a focus question, or empty for a whole-repo map). This was a workflow;
 it is a skill because it carries no fail-closed gate and no code-only aggregation — just a
@@ -16,11 +16,11 @@ transit the main session context.
 
 ## 1. Anchor (inline — the target sanity check the workflow's preflight did)
 
-Establish the target product: cd into it (`projects/<name>/` from the harness root;
-ambiguous → ask). **Refuse to map the harness/control-center repo itself** — if the target
-holds `.claude/workflows/` or a `projects/` container, that's this harness, not a product;
-stop and ask which product. Confirm it holds real code (a manifest/source); an empty or
-nonexistent dir → stop and report.
+Establish the target product: normally the folder you launched `claude` in (cd into it if
+needed; ambiguous → ask). **Refuse to map the forge plugin repo itself** — if the target
+holds a `.claude-plugin/plugin.json` or a `.claude/workflows/` directory, that's the forge
+harness source, not a product; stop and ask which product. Confirm it holds real code (a
+manifest/source); an empty or nonexistent dir → stop and report.
 
 ## 2. Scout — the subsystem layout
 
@@ -34,8 +34,9 @@ A focus question → make sure the subsystems relevant to it are separated out.
 
 Fan out one **Sonnet** read-only mapper per subsystem (spawn them in parallel). Each is
 **scope-boxed** to its own paths — this is the deliberate mapper exception to the
-scope-box rule (`docs/ORCHESTRATION.md`): a mapper's job *is* the broad read, but only of
-*its* subsystem, not the whole tree. Give each mapper:
+scope-box rule (`$FORGE_HOME/docs/ORCHESTRATION.md`, where
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`): a mapper's job *is* the broad read,
+but only of *its* subsystem, not the whole tree. Give each mapper:
 
 - Its subsystem name, paths, and hypothesis; the focus question if any.
 - The instruction to read the actual code and report — key files + roles, entry points,
@@ -67,6 +68,6 @@ Present the brief (or link the scratchpad brief file if long). Note any subsyste
 failed or was empty — the brief is partial, say so plainly. Interrupted mid-run? The
 per-subsystem map files already on disk are the salvage; re-run only the missing ones.
 
-**Next →** `/adopt` if this was reconnaissance for bringing the repo under the harness;
-otherwise `/feature`/`/fix` on the subsystem the brief flagged, or `/design-panel` if it
+**Next →** `/forge:adopt` if this was reconnaissance for bringing the repo under the harness;
+otherwise `/forge:feature`/`/forge:fix` on the subsystem the brief flagged, or `/forge:design-panel` if it
 surfaced a hard architecture decision. Name the one move.

@@ -1,15 +1,24 @@
 # F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering
 
-This repo is a **control center for building products**, not a product itself. Products
-live in `projects/<name>/` (each its own git repo, gitignored here). Everything in this
-file governs how work happens anywhere under this root.
+F.O.R.G.E. is a **Claude Code plugin** for building software products from idea to shipped,
+with quality gates that gate. This repo is the plugin's source; installed once (globally),
+its `/forge:*` commands drive products that live in **any folder** — you run `claude` inside
+your product, not inside this repo. This file is the operating manual those commands run
+under; it ships with the plugin, and when you develop the plugin itself it also auto-loads
+as this repo's own `CLAUDE.md`.
+
+**Harness assets** (templates, playbooks, references, workflow scripts) ship with the
+plugin, not the product. A skill running from some other product resolves their home with
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` and reads `$FORGE_HOME/<path>`; product
+files (`docs/SPEC.md`, `PROGRESS.md`, the product's own `CLAUDE.md`) always stay relative to
+the product. `forge-home` is on the Bash `PATH` whenever the plugin is enabled.
 
 ## The loop
 
-Idea → `/kickoff` → spec + scaffold → `/feature` loop + `/deep-review` gate — or
-`/forge` for the whole backlog hands-off (one wave-plan approval → parallel waves →
-PR per feature → automatic deep-review finish) → `/harden` before exposure → `/ship`.
-For the **next version** of a product that already exists, `/next` is kickoff's iteration
+Idea → `/forge:kickoff` → spec + scaffold → `/forge:feature` loop + `/forge:deep-review` gate — or
+`/forge:build` for the whole backlog hands-off (one wave-plan approval → parallel waves →
+PR per feature → automatic deep-review finish) → `/forge:harden` before exposure → `/forge:ship`.
+For the **next version** of a product that already exists, `/forge:next` is kickoff's iteration
 sibling: it clarifies new ideas into tiered features and hands them to the forge flow in
 one command. Details on demand: `docs/LIFECYCLE.md`
 
@@ -24,22 +33,22 @@ Full guide with mechanics and worked examples on demand: `docs/COMMANDS.md`
 
 | Command | What it does |
 |---|---|
-| `/kickoff <idea>` | New product: interview → SPEC.md → stack from playbook → verified scaffold |
-| `/adopt <path>` | Existing codebase → as-built spec + PROGRESS + project CLAUDE.md |
-| `/next <ideas>` | Next version of an existing product: clarify ideas → tiered features → forge builds them |
-| `/feature <F# or description>` | One feature: plan → failing test → build → fresh-context verify |
-| `/forge [scope]` | Whole backlog: one approval → parallel waves → PR each → merge → review finish |
-| `/fix <bug>` | Bug lane: reproduce → regression test → fix → review |
-| `/harden [scope]` | Security audit + robustness sweep + gated fixes |
-| `/ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
-| `/debug-hard <symptom>` | Structured escalation to the hard-bug debugger (session model) |
-| `/status` | Ground-truth state report + session handoff into PROGRESS.md |
-| `/retro` | Harness retrospective: observed friction → approved fixes → commits |
-| `/understand [question]` | Skill: parallel codebase mapping → architecture brief |
-| `/design-panel <brief>` | Workflow: 3 designs, 1 judge-synthesizer (wide opt-in: 4+3) |
-| `/feature-pipeline <features>` | Workflow: parallel build of independent features in worktrees |
-| `/deep-review [scope]` | Workflow: 3-lens review, findings adversarially verified |
-| `/release-gate [context]` | Workflow: 6 ship gates in 3 agents, fail-closed verdict |
+| `/forge:kickoff <idea>` | New product: interview → SPEC.md → stack from playbook → verified scaffold |
+| `/forge:adopt <path>` | Existing codebase → as-built spec + PROGRESS + project CLAUDE.md |
+| `/forge:next <ideas>` | Next version of an existing product: clarify ideas → tiered features → forge builds them |
+| `/forge:feature <F# or description>` | One feature: plan → failing test → build → fresh-context verify |
+| `/forge:build [scope]` | Whole backlog: one approval → parallel waves → PR each → merge → review finish |
+| `/forge:fix <bug>` | Bug lane: reproduce → regression test → fix → review |
+| `/forge:harden [scope]` | Security audit + robustness sweep + gated fixes |
+| `/forge:ship [version]` | Release commit → release-gate workflow → checklist → tag → deploy |
+| `/forge:debug-hard <symptom>` | Structured escalation to the hard-bug debugger (session model) |
+| `/forge:status` | Ground-truth state report + session handoff into PROGRESS.md |
+| `/forge:retro` | Harness retrospective: observed friction → approved fixes → commits |
+| `/forge:understand [question]` | Skill: parallel codebase mapping → architecture brief |
+| `/forge:design-panel <brief>` | Workflow: 3 designs, 1 judge-synthesizer (wide opt-in: 4+3) |
+| `/forge:feature-pipeline <features>` | Workflow: parallel build of independent features in worktrees |
+| `/forge:deep-review [scope]` | Workflow: 3-lens review, findings adversarially verified |
+| `/forge:release-gate [context]` | Workflow: 6 ship gates in 3 agents, fail-closed verdict |
 
 ## Model routing (short form — full policy on demand: `docs/MODEL-ROUTING.md`)
 
@@ -68,7 +77,7 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 - The agent that built something never verifies it — fresh context reviews.
 - Demand evidence (test output, command results), never accept "looks done".
 
-## Hard rules (apply to every session under this root)
+## Hard rules (apply to every `/forge:*` command, in whatever repo it runs)
 
 1. **Tests are load-bearing — and budgeted.** Never delete, weaken, or skip a test to get
    green; a newly failing test is a finding to report, not an obstacle to remove. But
@@ -78,7 +87,7 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
 2. **Evidence before claims.** Progress reports cite tool results from this session.
    Unverified work is reported as unverified.
 3. **Two strikes → change approach.** Third identical attempt at a failed fix/design is
-   banned — escalate (`/debug-hard`, `design-panel`, or ask).
+   banned — escalate (`/forge:debug-hard`, `design-panel`, or ask).
 4. **Spec sync.** Legitimate deviation from `docs/SPEC.md` updates the spec in the same
    change. PROGRESS.md checkboxes only turn `[x]` with pasted evidence.
 5. **Secrets never in code or commits.** `.env` + committed `.env.example` everywhere.
@@ -88,35 +97,33 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
    prose restating inputs; session-log lines ≤ 2; subagent returns carry data, not
    narration; generated docs say each thing once. Context (evidence, paths, criteria)
    is never cut — only words about words.
-8. **Harness changes run the regression suite.** `npm test` (harness root) green before
+8. **Harness changes run the regression suite.** `npm test` in the plugin repo green before
    any commit that touches skills/agents/workflows/docs; new invariants get a test.
 
-## Working in a product (`projects/<name>/`)
+## Working in a product (any folder)
 
-Products don't have to live in `projects/` — `/adopt <absolute path>` brings any repo
-on disk under the harness; skills take the product by path, workflows by `dir` arg.
-`projects/` is the default home, not a requirement.
+Because forge is installed as a plugin, its skills, agents, and `/forge:*` commands are
+available in **every** session, whatever directory you launched `claude` in. Start the
+session **in your product** and make it the working target — the product's own `CLAUDE.md`
+auto-loads once you read its files. Products are their own git repos; `/forge:adopt <path>`
+brings any existing repo under the lifecycle. There is no `projects/` container and no
+"start from the harness root" rule any more — that was the pre-plugin workspace model.
 
-**Always launch sessions from the harness root** — skills, forge-agents, workflows, and
-permission rules load from here and are NOT visible when Claude Code starts inside
-`projects/<name>/`. In the session, make the product the working target (`cd` in the
-shell); its own `CLAUDE.md` loads automatically once you read its files.
+**Workflows do NOT follow your shell `cd`** — their agents run in the session's start
+directory. Always pass the product explicitly: `args: {dir: "<absolute product path>",
+...}`. Every workflow preflight-verifies the target and refuses a directory that doesn't
+look like the product (e.g. the forge plugin repo itself). If args arrive mangled (known
+runtime bug), `feature-pipeline` and `design-panel` fall back to
+`feature-pipeline.input.json` / `design-panel.input.md` in the product root — write the file
+before invoking, delete it after.
 
-**Workflows do NOT follow your shell `cd`** — their agents run in the directory the
-session was started from. Always pass the product explicitly:
-`args: {dir: "<absolute product path>", ...}`. Every workflow preflight-verifies the
-target and refuses a directory that doesn't look like the product (e.g. this harness
-root). If args arrive mangled (known runtime bug), `feature-pipeline` and
-`design-panel` fall back to `feature-pipeline.input.json` / `design-panel.input.md`
-in the product root — write the file before invoking, delete it after.
-
-**Invoke workflows by `scriptPath`, not `name`.** On this machine, `Workflow({name:
-"feature-pipeline"})` fails the permission check with "script contains control
-characters" whenever the checked-out `.claude/workflows/*.js` has CRLF line endings
-(git's `core.autocrlf` on Windows). `.gitattributes` now pins those files to `eol=lf`,
-but the reliable call is `Workflow({scriptPath: "<abs>/.claude/workflows/<wf>.js",
-args: {...}})` — it bypasses the name→script resolution that trips the check. The
-input-file fallback still applies for mangled args.
+**Invoke workflows by `scriptPath`, not `name`.** Build the path from the plugin home:
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then `Workflow({scriptPath:
+"$FORGE_HOME/.claude/workflows/<wf>.js", args: {dir, ...}})`. Name-based invocation is
+unreliable — a `Workflow({name: ...})` call can fail the permission check on "script
+contains control characters" when the resolved script has CRLF endings, and the approval
+dialog can corrupt the args; scriptPath bypasses that resolution. `.gitattributes` pins the
+workflow files to `eol=lf`. The input-file fallback still applies for mangled args.
 
 Each product has: `CLAUDE.md` (commands/conventions — trust it over guesses),
 `docs/SPEC.md` (intent), `PROGRESS.md` (state + session log), `docs/adr/` (decisions).
@@ -127,8 +134,10 @@ guessing.
 ## Coexistence with the global setup
 
 The user's global `~/.claude` has its own agent team (architect, builder, tester, ...)
-and hooks — that's a separate framework. In this workspace prefer the `forge-*` agents;
-never define project agents/hooks that shadow or double the global ones.
+and hooks — a separate framework. Forge is namespaced: its commands are `/forge:*` and its
+agents `forge-*`, so the plugin coexists with that setup without shadowing it. Prefer the
+`forge-*` agents inside forge commands; never add project agents/hooks that double the
+global ones.
 
 ## Playbooks
 
@@ -138,13 +147,14 @@ Verify major versions against the live ecosystem at kickoff; playbooks age.
 
 ## References (private, opt-in)
 
-`references/` (harness root, **gitignored** — content stays local for now) holds your own
-reusable, product-type reference playbooks: checklists and conventions too specific or
+`references/` (in the plugin repo, **gitignored** — content stays local for now) holds your
+own reusable, product-type reference playbooks: checklists and conventions too specific or
 private for the shared `docs/playbooks/` (e.g. a landing-page must-have list — Impressum,
 Datenschutzerklärung, i18n, your layout). Playbooks are shared generic stack defaults;
 references are your private domain knowledge. Consumed **selectively, at intake only**
-(`/kickoff`, `/next`, `/adopt`): the skill reads `references/INDEX.md` (one line per
-reference), pulls in the *single* matching file, and folds it into the spec. It is never
+(`/forge:kickoff`, `/forge:next`, `/forge:adopt`): the skill reads `$FORGE_HOME/references/INDEX.md`
+(one line per reference), pulls in the *single* matching file, and folds it into the spec.
+It is never
 loaded into every agent — build/verify agents get the relevant bits from the spec and the
 per-feature brief, not from `references/`. Absent or no match → skipped silently. The
 mechanism is tracked here; the reference files are not.

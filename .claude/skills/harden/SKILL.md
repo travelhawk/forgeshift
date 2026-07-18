@@ -4,7 +4,7 @@ description: Security and robustness pass - full audit by the security specialis
 argument-hint: "[optional scope, e.g. auth flow only]"
 ---
 
-# /harden — Security + robustness pass
+# /forge:harden — Security + robustness pass
 
 Scope: $ARGUMENTS (default: the whole project, prioritized by exposure).
 
@@ -44,8 +44,8 @@ the security-relevant diffs. Security fixes get review without exception.
 
 Report: findings fixed (with the test that now guards each), risks accepted (by whom),
 second-look items and their resolution. Add a "hardened <date>, scope" line to
-PROGRESS.md. Recommend re-running /harden after the next auth/payment/data-model change
+PROGRESS.md. Recommend re-running /forge:harden after the next auth/payment/data-model change
 — not on a timer.
 
-**Next →** `/ship` when hardening was the pre-exposure gate and findings are resolved;
-otherwise `/fix` the still-open items first. Name the one move.
+**Next →** `/forge:ship` when hardening was the pre-exposure gate and findings are resolved;
+otherwise `/forge:fix` the still-open items first. Name the one move.

@@ -1,8 +1,8 @@
 # Progress: <product name>
 
 > The single source of build-state truth. Checkboxes turn [x] only with pasted evidence
-> (test names + output) in the session log. /status audits this file against git and
-> the test suite — where it lies, /status fixes it.
+> (test names + output) in the session log. /forge:status audits this file against git and
+> the test suite — where it lies, /forge:status fixes it.
 
 ## Features (from docs/SPEC.md)
 
