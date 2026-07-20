@@ -5,7 +5,7 @@ export const meta = {
   phases: [
     { title: 'Plan', detail: 'per-feature self-contained brief (T1/T2 only — T3 builds direct, no plan agent)' },
     { title: 'Build', detail: 'implement in isolated git worktree' },
-    { title: 'Verify', detail: 'fresh-context check against the plan, tests run' },
+    { title: 'Verify', detail: 'diff re-check may escalate T2/T3 to a security pass, then fresh-context check against the plan, tests run' },
   ],
 }
 
@@ -252,6 +252,38 @@ const combineT1 = (fn, sec) => {
   }
 }
 
+// Post-build security re-check. The tier is seeded from the feature DESCRIPTION at plan
+// time; the actual built diff can touch a security-sensitive surface the seed under-
+// budgeted (a "T2 add profile page" that quietly added a tenant query, a T3 that parsed a
+// webhook). A cheap Haiku pass over the real diff catches that and raises verify depth to
+// include the adversarial security pass — it NEVER lowers depth. T1 already runs security,
+// so it is skipped there.
+const RECHECK = {
+  type: 'object', additionalProperties: false,
+  required: ['sensitive', 'surfaces', 'rationale'],
+  properties: {
+    sensitive: { type: 'boolean', description: 'true ONLY if the built diff touches a real, reachable security-sensitive surface the seeded tier did not budget a security pass for — not for ordinary UI/CRUD/formatting' },
+    surfaces: { type: 'array', items: { type: 'string' }, description: 'the concrete sensitive surface(s) found in the diff (empty when sensitive is false)' },
+    rationale: { type: 'string', description: 'one line: why this does or does not warrant a security pass' },
+  },
+}
+
+// The adversarial security pass — used by T1 always, and by any T2/T3 the re-check escalated.
+const securityCheck = (i, branch, feature, doneCriteria, pitfalls, escalatedFrom) => agent(
+  `Adversarial SECURITY verification` +
+  (escalatedFrom
+    ? ` — this ${escalatedFrom} feature was ESCALATED to a security pass because its built diff touches a security-sensitive surface its seeded tier did not budget for. `
+    : ` of a HIGH-RISK (T1) feature. `) +
+  `${detachedWorktree('sec', i, branch)} Hunt ONLY for real, reachable ` +
+  `vulnerabilities in the diff and the code it touches: broken or missing authz/authn, tenant/user-boundary ` +
+  `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
+  `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +
+  `handling flaws. Verdict 'fail' with the concrete attack path if you find one; 'pass' only after an honest ` +
+  `look that found none.\n\nFEATURE: ${feature}\nDONE CRITERIA:\n${JSON.stringify(doneCriteria)}\n` +
+  `KNOWN PITFALLS FROM THE BRIEF (probe these first):\n${JSON.stringify(pitfalls || [])}`,
+  { label: `security:${i + 1}`, phase: 'Verify', effort: 'high', schema: SECCHECK },
+)
+
 const results = await pipeline(
   features,
   // 1. Plan — T1/T2 get a plan agent that distills the brief. T3 boilerplate gets a
@@ -301,14 +333,42 @@ const results = await pipeline(
     `(push → evidence-verified PR → merge) so the audit trail stays single-sourced.`,
     { label: `build:${i + 1}`, phase: 'Build', schema: BUILD, ...buildOpts(f.tier), ...(runtimeIsolation ? { isolation: 'worktree' } : {}) },
   ).then(b => b && { plan, build: b }),
-  // 3. Verify — depth follows the tier: T1 functional + parallel security (both must
-  //    pass), T2 one functional pass, T3 smoke-only on Sonnet. See docs/RISK-TIERS.md.
+  // 3. Security re-check — cheap Haiku pass over the BUILT diff, for T2/T3 only (T1
+  //    already runs security). Catches a seeded tier that under-budgeted a sensitive
+  //    surface the description didn't reveal; sets r.secEscalated so verify adds a
+  //    security pass. Raises depth only, never lowers it. Fail-open on a dead re-check
+  //    (keep the seeded tier) — this is a safety NET over the tier, not the primary gate.
   (r, f, i) => {
     if (!r) return null
+    if (f.tier === 'T1') return { ...r, secEscalated: false, recheckSurfaces: [] }
+    return agent(
+      `Security tier re-check, READ-ONLY — do not check out, modify, or run anything. Inspect only the diff this ` +
+      `feature added: from the target repo run \`git diff --merge-base HEAD ${r.build.branch}\`. This feature was ` +
+      `seeded ${f.tier}, which gets NO security pass. Decide whether the diff touches a real, reachable security-` +
+      `sensitive surface that warrants one: authn/authz, a tenant/user data boundary, raw SQL or shell/eval, secret ` +
+      `or token handling, a webhook or external-input parser, file-path/URL handling from user input, or crypto. ` +
+      `Return sensitive=true ONLY for such a surface actually present in the diff — never for ordinary UI/CRUD/` +
+      `formatting/styling. Name the concrete surface(s).\n\nFEATURE: ${f.feature}`,
+      { label: `tier-recheck:${i + 1}`, phase: 'Verify', model: 'haiku', effort: 'low', schema: RECHECK },
+    ).then(rc => ({ ...r, secEscalated: !!(rc && rc.sensitive), recheckSurfaces: rc && rc.sensitive ? (rc.surfaces || []) : [] }))
+  },
+  // 4. Verify — depth follows the (possibly escalated) tier: T1 functional + parallel
+  //    security; T2 one functional pass; T3 smoke-only on Sonnet. A T2/T3 the step-3
+  //    re-check flagged (r.secEscalated) additionally gets the security pass, combined
+  //    fail-closed exactly like T1. See docs/RISK-TIERS.md.
+  (r, f, i) => {
+    if (!r) return null
+    const branch = r.build.branch
+    const done = r.plan.done_criteria
+    // Attach the escalation trail to every result so the orchestrator can surface it.
+    const tag = check => ({ feature: f.feature, tier: f.tier, escalated: !!r.secEscalated, surfaces: r.recheckSurfaces || [], ...r, check })
+
     const funcPrompt =
-      `Fresh-context verification. ${detachedWorktree('verify', i, r.build.branch)} ` +
+      `Fresh-context verification. ${detachedWorktree('verify', i, branch)} ` +
       `Verify the feature against its done-criteria in that worktree. ` +
       `Run the tests yourself — do not trust the builder's report. ` +
+      `If a test fails, re-run just that test once before concluding — a failure that clears on the re-run is flaky: ` +
+      `note it in the evidence, do NOT fail the feature on it. ` +
       (f.tier === 'T1'
         ? `This is a HIGH-RISK (T1) feature: exercise the failure and edge paths, not just the happy one. `
         : `Cover the happy path and the top failure path; skip exhaustive edge-case grinding (T2). `) +
@@ -320,45 +380,38 @@ const results = await pipeline(
       `or merge yourself; the orchestrator creates the PR from what you return.\n\n` +
       `The brief's done-criteria and pitfalls below are your spec — verify against them; you need not re-open ` +
       `the full spec or architecture.\n` + knownRedNote +
-      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
+      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(done)}\n` +
       `PITFALLS TO PROBE:\n${JSON.stringify(r.plan.pitfalls || [])}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`
 
-    if (f.tier === 'T3') {
-      // Smoke-only: builds, renders/boots, one happy path. No deep review — the
-      // integrated deep-review (in /forge, or /deep-review before ship) is T3's net.
-      return agent(
-        `Smoke check ONLY — low-risk (T3) feature; do NOT do a deep or security review. ` +
-        `${detachedWorktree('smoke', i, r.build.branch)} Confirm exactly three things: (1) it builds/compiles, (2) it ` +
-        `renders/boots without error, (3) the happy path works (run the smoke test the builder wrote). Fail ONLY on a real ` +
-        `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
-        `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
-        `YOU produced), and the evidence summary.\n` + knownRedNote + `\n` +
-        `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
-        { label: `smoke:${i + 1}`, phase: 'Verify', model: 'sonnet', effort: 'medium', schema: CHECK },
-      ).then(c => ({ feature: f.feature, tier: f.tier, ...r, check: c }))
-    }
+    const funcThunk = eff => () => agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: eff, schema: CHECK })
+    const smokeThunk = () => agent(
+      `Smoke check ONLY — low-risk (T3) feature; do NOT do a deep or security review. ` +
+      `${detachedWorktree('smoke', i, branch)} Confirm exactly three things: (1) it builds/compiles, (2) it ` +
+      `renders/boots without error, (3) the happy path works (run the smoke test the builder wrote). Fail ONLY on a real ` +
+      `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
+      `If a check fails, re-run it once before concluding — a failure that clears on the re-run is flaky: note it, do not fail on it. ` +
+      `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
+      `YOU produced), and the evidence summary.\n` + knownRedNote + `\n` +
+      `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(done)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
+      { label: `smoke:${i + 1}`, phase: 'Verify', model: 'sonnet', effort: 'medium', schema: CHECK },
+    )
 
+    // T1 — functional + adversarial security in parallel; both must pass.
     if (f.tier === 'T1') {
-      // Functional verify AND an adversarial security pass, in parallel; both must pass.
-      return parallel([
-        () => agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: 'high', schema: CHECK }),
-        () => agent(
-          `Adversarial SECURITY verification of a HIGH-RISK (T1) feature. ` +
-          `${detachedWorktree('sec', i, r.build.branch)} Hunt ONLY for real, reachable ` +
-          `vulnerabilities in the diff and the code it touches: broken or missing authz/authn, tenant/user-boundary ` +
-          `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
-          `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +
-          `handling flaws. Verdict 'fail' with the concrete attack path if you find one; 'pass' only after an honest ` +
-          `look that found none.\n\nFEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(r.plan.done_criteria)}\n` +
-          `KNOWN PITFALLS FROM THE BRIEF (probe these first):\n${JSON.stringify(r.plan.pitfalls || [])}`,
-          { label: `security:${i + 1}`, phase: 'Verify', effort: 'high', schema: SECCHECK },
-        ),
-      ]).then(([fn, sec]) => ({ feature: f.feature, tier: f.tier, ...r, check: combineT1(fn, sec) }))
+      return parallel([funcThunk('high'), () => securityCheck(i, branch, f.feature, done, r.plan.pitfalls, null)])
+        .then(([fn, sec]) => tag(combineT1(fn, sec)))
     }
 
-    // T2 — one functional fresh-context pass.
-    return agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: 'medium', schema: CHECK })
-      .then(c => ({ feature: f.feature, tier: f.tier, ...r, check: c }))
+    // Escalated T2/T3 — the tier's own check AND a security pass, combined fail-closed.
+    if (r.secEscalated) {
+      const own = f.tier === 'T3' ? smokeThunk : funcThunk('medium')
+      return parallel([own, () => securityCheck(i, branch, f.feature, done, r.plan.pitfalls, f.tier)])
+        .then(([fn, sec]) => tag(combineT1(fn, sec)))
+    }
+
+    // Un-escalated: the tier's normal single pass.
+    if (f.tier === 'T3') return smokeThunk().then(tag)
+    return funcThunk('medium')().then(tag)
   },
 )
 
@@ -369,14 +422,25 @@ const lost = features
 
 const done = results.filter(Boolean)
 const passed = done.filter(r => r.check && r.check.verdict === 'pass')
-log(`${passed.length}/${features.length} features passed verification` + (lost.length ? `; ${lost.length} lost before verification` : ''))
+const escalated = done.filter(r => r.escalated)
+log(`${passed.length}/${features.length} features passed verification` +
+  (escalated.length ? `; ${escalated.length} auto-escalated to a security pass by the diff re-check` : '') +
+  (lost.length ? `; ${lost.length} lost before verification` : ''))
+
+// Actual output-token spend this run (Workflow budget API), so the orchestrator can report
+// real cost against the gate's "5–30x" estimate instead of leaving it a guess.
+const spend = (typeof budget !== 'undefined' && budget && typeof budget.spent === 'function')
+  ? { output_tokens: budget.spent(), target: budget.total ?? null }
+  : null
+if (spend) log(`spend: ${Math.round(spend.output_tokens / 1000)}k output tokens` + (spend.target ? ` of a ${Math.round(spend.target / 1000)}k target` : ''))
 
 return {
   target: TARGET,
-  passed: passed.map(r => ({ feature: r.feature, tier: r.tier, branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
+  spend,
+  passed: passed.map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
   failed: [
     ...done.filter(r => !r.check || r.check.verdict === 'fail')
-      .map(r => ({ feature: r.feature, tier: r.tier, branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
+      .map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
     ...lost,
   ],
   note: 'Branches are unmerged. Review and merge in the main session: git merge --no-ff <branch> per feature, resolving conflicts in merge order of least → most files touched, then RUN THE FULL SUITE ON THE MERGED RESULT — each branch was verified in isolation; the merged whole has not been tested by any agent. When driven by /forge, the skill handles push → PR → merge per its approved integration mode instead. Delete feature-pipeline.input.json if it was used. If the run was interrupted: git worktree prune, then inspect feature/wf-* branches for committed work before deleting any.',

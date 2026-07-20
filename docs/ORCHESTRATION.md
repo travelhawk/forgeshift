@@ -61,6 +61,9 @@ workflows:
 Also: `feature-pipeline` branches are verified **in isolation** — after merging, run
 the full suite on the merged result in the main session before calling the batch done
 (the merged whole has not been tested by any agent; integration breaks surface here).
+A NEW failure there is **re-run once, targeted**, before it counts as a regression: an
+intermittent (flaky) test must not halt an unattended run — a failure that reproduces stops
+the run, one that clears on the re-run is logged as flaky and the run continues.
 
 ## Subagent contract (applies to every delegation)
 

@@ -499,3 +499,71 @@ suite('plugin packaging', () => {
     assert.match(out, /Validation passed/, 'plugin + marketplace manifests validate')
   })
 })
+
+// --- review improvements (2026-07-21) — each fix locks its shape here ----------
+suite('review improvements', () => {
+  const build = () => read('.claude', 'skills', 'build', 'SKILL.md')
+  const fp = () => readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+
+  // #1 Flaky tests must not halt an unattended run — a NEW failure is re-run once and
+  // only a reproducing failure stops the build; the isolation verifiers retry too.
+  test('flaky-test resilience: targeted re-run before a NEW failure counts as a regression', () => {
+    assert.match(build(), /re-run only those failing tests once/i, '/forge:build re-runs before declaring a regression')
+    assert.match(build(), /reproduce[s]? on (?:a|the) targeted re-run/i, 'stop condition requires reproduction on re-run')
+    assert.match(build(), /flaky/i, 'flakes are logged, not silently swallowed')
+    assert.match(fp(), /re-run just that test once/i, 'isolation verifier retries a failing test')
+    assert.match(fp(), /re-run it once/i, 'smoke check retries a failing check')
+  })
+
+  // #2 The seeded tier is re-checked against the BUILT diff; a T2/T3 that touched a
+  // security surface is escalated to a security pass (raises depth, never lowers it).
+  test('diff re-check escalates under-tiered features to a security pass', () => {
+    assert.match(fp(), /const RECHECK = \{/, 'the re-check schema exists')
+    assert.match(fp(), /label: `tier-recheck:\$\{i \+ 1\}`/, 'the re-check runs as its own labelled Haiku agent')
+    assert.match(fp(), /model: 'haiku', effort: 'low', schema: RECHECK/, 'the re-check is a cheap Haiku pass')
+    assert.match(fp(), /git diff --merge-base HEAD/, 're-check inspects the feature diff, read-only')
+    assert.match(fp(), /secEscalated/, 'escalation flag threads to verify')
+    assert.match(fp(), /if \(r\.secEscalated\)/, 'verify adds a security pass when escalated')
+    assert.match(build(), /tier escalation/i, '/forge:build report surfaces escalations')
+  })
+
+  // #3 The no-questions build phase needs a Decision policy; an adopted spec may lack one.
+  test('a missing Decision policy is synthesized and shown at the gate', () => {
+    assert.match(build(), /no Decision policy section/i, 'build detects the missing policy')
+    assert.match(build(), /synthesize/i, 'build synthesizes a default and shows it at the gate')
+    assert.match(build(), /Never run the hands-off phase without a Decision policy/i, 'no autonomy without a policy in force')
+  })
+
+  // #4 A wave's PRs are batched — one push for all branches, PRs created concurrently.
+  test('forge-pr.sh open-all batches the push and fans out PR creation', () => {
+    const pr = read('scripts', 'forge-pr.sh')
+    assert.match(pr, /open-all\)/, 'open-all subcommand exists')
+    assert.match(pr, /git push -u origin "\$\{branches\[@\]\}"/, 'one push for every branch in the wave')
+    assert.match(pr, /gh pr create .*&\n\s*pids\+=/s, 'PRs are created concurrently and awaited')
+    assert.match(build(), /open-all/, '/forge:build drives the wave through open-all')
+  })
+
+  // #5 Merges wait only on required checks, watched across the wave concurrently.
+  test('check-watching is concurrent and required-only', () => {
+    assert.match(build(), /concurrently, not one at a time/i, 'wave checks are watched together')
+    assert.match(build(), /--watch --required/, 'only required checks block a merge')
+  })
+
+  // #6 The finish walkthrough/docs detail lives in docs/FINISH.md; the skill points to it.
+  test('finish detail is extracted to docs/FINISH.md (leaner skill hot path)', () => {
+    assert.ok(existsSync(p('docs', 'FINISH.md')), 'docs/FINISH.md exists')
+    const finish = read('docs', 'FINISH.md')
+    assert.match(finish, /Visual walkthrough/i, 'walkthrough procedure moved here')
+    assert.match(finish, /Documentation pass/i, 'docs-pass procedure moved here')
+    assert.match(finish, /forge-proof/, 'walkthrough still delegates to forge-proof')
+    assert.match(finish, /forge-etcher/, 'docs pass still delegates to forge-etcher')
+    assert.match(build(), /\$FORGE_HOME\/docs\/FINISH\.md/, 'the skill anchors the pointer to $FORGE_HOME')
+  })
+
+  // #7 The pipeline reports actual output-token spend so cost can be checked vs the estimate.
+  test('feature-pipeline reports actual spend against the gate estimate', () => {
+    assert.match(fp(), /budget\.spent\(\)/, 'spend read from the Workflow budget API')
+    assert.match(fp(), /spend,/, 'spend returned to the orchestrator')
+    assert.match(build(), /Actual spend vs\. the gate estimate/i, '/forge:build report compares real spend to the estimate')
+  })
+})

@@ -39,6 +39,14 @@ boundary calls below.)
 | **Tests** | full suite + explicit edge/failure cases | happy path + top failure path | a smoke test as the done-criteria's test |
 | **In `/forge:build` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
 
+**The seeded tier is a pre-build guess — the built diff gets a second look.** In
+`feature-pipeline`, after a T2/T3 feature is built, a cheap Haiku pass reads its actual diff
+(`git diff --merge-base`) and, if it touched a security-sensitive surface the seed under-
+budgeted (a tenant query, a webhook parser, token handling), **escalates** that feature to
+the adversarial security pass — combined fail-closed like a T1. This only ever *raises*
+depth, closing the gap where a feature was seeded low but the code turned out sensitive. T1
+already runs security, so it is skipped there.
+
 `build → Sonnet` for T3 is the existing routing policy, not a new rule: well-defined
 boilerplate execution is exactly Sonnet's tier ([MODEL-ROUTING.md](MODEL-ROUTING.md)).
 Risk tier and `/forge:feature`'s small/medium/large **sizing** are orthogonal: sizing controls
