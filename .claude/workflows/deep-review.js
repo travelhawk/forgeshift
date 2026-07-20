@@ -166,11 +166,13 @@ const toVerdict = (f, v) => ({ ...f, verdict: v ? (v.refuted ? 'REFUTED' : 'CONF
 
 const tasks = blockerF.map(f => () =>
   agent(
-    `Adversarially verify this code-review finding. Your job is to REFUTE the FAILURE SCENARIO, not the ` +
-    `line number: read ${f.file} (line ${f.line ?? 'unspecified — file-level finding'} is a hint, not the claim) ` +
-    `plus its callers, and prove the scenario cannot happen (guarded elsewhere, unreachable input, intentional ` +
-    `behavior, misread code). If after honest effort you cannot refute it, it stands. ` +
-    `Default to refuted=true when the scenario is speculative.\n\nFINDING: ${JSON.stringify(f)}`,
+    `Adversarially verify this HIGH-STAKES (critical/high) code-review finding. Your job is to test the FAILURE ` +
+    `SCENARIO, not the line number: read ${f.file} (line ${f.line ?? 'unspecified — file-level finding'} is a hint, ` +
+    `not the claim) plus its callers, and try to prove the scenario cannot happen (guarded elsewhere, unreachable ` +
+    `input, intentional behavior, misread code). Because this is a ship-blocker, the bar to dismiss it is HIGH: ` +
+    `refuted=true ONLY when you can affirmatively show the scenario is impossible or already guarded. Do NOT default ` +
+    `to refuted on a merely speculative or hard-to-reach scenario — when you cannot prove it safe, it STANDS ` +
+    `(refuted=false). A wrongly-dismissed critical is worse than a false alarm the human triages.\n\nFINDING: ${JSON.stringify(f)}`,
     { label: `verify:${f.file.split(/[\\/]/).pop()}:${f.line ?? 'file'}`, phase: 'Verify', effort: 'high', schema: VERDICT },
   ).then(v => toVerdict(f, v)),
 )
@@ -200,7 +202,15 @@ const order = { critical: 0, high: 1, medium: 2, low: 3 }
 const bySeverity = (a, b) => order[a.severity] - order[b.severity]
 const confirmed = done.filter(f => f.verdict === 'CONFIRMED').sort(bySeverity)
 const unverified = done.filter(f => f.verdict === 'UNVERIFIED').sort(bySeverity)
+// A refuted critical/high was a ship-blocker killed by a single refuter — surface it
+// with the refutation reasoning (not just a count) so the human can spot-check the
+// dismissal. Medium/low refutations stay a bare count (low stakes, high volume).
+const rejectedBlockers = done
+  .filter(f => f.verdict === 'REFUTED' && (f.severity === 'critical' || f.severity === 'high'))
+  .sort(bySeverity)
+  .map(f => ({ file: f.file, line: f.line, severity: f.severity, summary: f.summary, failure_scenario: f.failure_scenario, refutation: (f.refutations || [])[0] || '' }))
 log(`${confirmed.length}/${findings.length} findings confirmed after adversarial verification` +
-  (unverified.length ? `; ${unverified.length} unverified (verifier agents failed — treat as open, do not discard)` : ''))
+  (unverified.length ? `; ${unverified.length} unverified (verifier agents failed — treat as open, do not discard)` : '') +
+  (rejectedBlockers.length ? `; ${rejectedBlockers.length} crit/high refuted — spot-check the dismissals` : ''))
 
-return { target: TARGET, confirmed, unverified, rejected: done.filter(f => f.verdict === 'REFUTED').length }
+return { target: TARGET, confirmed, unverified, rejectedBlockers, rejected: done.filter(f => f.verdict === 'REFUTED').length }

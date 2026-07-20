@@ -20,6 +20,11 @@
       "Bash(git push origin feature/*)", "Bash(git push -u origin feature/*)",
       "Bash(gh pr create *)", "Bash(gh pr view *)", "Bash(gh pr list *)",
       "Bash(gh pr checks *)", "Bash(gh pr merge *)",
+      "Bash(gh auth status)",
+      "Bash(git remote)", "Bash(git remote -v)", "Bash(git remote get-url *)",
+      "Bash(git switch *)",        // safe branch changes (can't discard files)
+      "Bash(git checkout *)",      // convenient but permits `git checkout -- <file>` discards — your call
+      "Bash(yarn *)",              // playbook parity with bun/npx
       "Bash(pnpm create *)",
       "Bash(taskkill *)",
       "Bash(curl http://localhost*)",
@@ -52,7 +57,6 @@
     ],
     "ask": [
       "Bash(git push *)",
-      "Bash(gh *)",
       "Bash(vercel *)",
       "Bash(wrangler *)",
       "Bash(fly *)",
@@ -73,7 +77,11 @@
       "Bash(git push -f *)",
       "Bash(git push * --force*)",
       "Bash(git push * -f)",
-      "Bash(rm -rf /*)"
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ..)",
+      "Bash(rm -rf ../*)",
+      "Bash(rm -rf .)",
+      "Bash(rm -rf ./)"
     ]
   }
 }

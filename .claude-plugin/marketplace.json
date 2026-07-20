@@ -1,0 +1,14 @@
+{
+  "name": "forge",
+  "description": "F.O.R.G.E. — a control center for building software products from idea to shipped, packaged as one installable plugin.",
+  "owner": {
+    "name": "Michael Falk"
+  },
+  "plugins": [
+    {
+      "name": "forge",
+      "source": ".",
+      "description": "F.O.R.G.E. lifecycle skills, specialist agents, and orchestration workflows — install once, drive whole products from any folder with /forge:* commands."
+    }
+  ]
+}

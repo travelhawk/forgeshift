@@ -4,7 +4,7 @@ description: Escalate a stubborn bug to the hard-bug debugging specialist with a
 argument-hint: "[symptom in one line]"
 ---
 
-# /debug-hard — Escalate, don't grind
+# /forge:debug-hard — Escalate, don't grind
 
 The bug: "$ARGUMENTS". A third attempt with the same approach would fail like the first
 two — this skill changes the approach: full context, fresh eyes, the session's strongest
@@ -38,3 +38,5 @@ both directions. Expect it to take its time — that's the point.
   have shown itself.
 - Record the root cause in one plain-language line in PROGRESS.md session log
   (trigger → mechanism → symptom). If it revealed a design weakness, propose the ADR.
+- **Next →** back to the lane you came from: `/forge:feature`/`/forge:build` to resume the build, or
+  `/forge:ship` if this bug was the last blocker. Name the one move.

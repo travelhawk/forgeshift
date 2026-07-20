@@ -10,9 +10,9 @@
    Fable-Orchestrated, Review-Gated Engineering
 ```
 
-**Where products get hammered into shape.** A Claude Code control center for building
-any software product — web app, SaaS, API, CLI, mobile, desktop, extension, or library —
-from idea to shipped, with quality gates that actually gate.
+**Where products get hammered into shape.** A Claude Code plugin for building any software
+product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from idea to
+shipped, with quality gates that actually gate. Install once; use in any folder.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
@@ -20,31 +20,33 @@ from idea to shipped, with quality gates that actually gate.
 
 ## What this is (and isn't)
 
-F.O.R.G.E. is **not a library you install** — it's a **workspace you clone and work
-inside of.** You start Claude Code from its root and drive whole products through a set
-of `/commands`: `/kickoff` to spec-and-scaffold, `/forge` to build a backlog hands-off,
-`/ship` to release. The workspace ships the parts that make that reliable:
+F.O.R.G.E. is **not a library you import** — it's a **Claude Code plugin you install once
+and use everywhere.** Install it globally, then run `claude` inside any product folder and
+drive whole products through a set of `/forge:*` commands: `/forge:kickoff` to
+spec-and-scaffold, `/forge:build` to build a backlog hands-off, `/forge:ship` to release.
+The plugin ships the parts that make that reliable:
 
-- **11 lifecycle skills** — `/kickoff`, `/next`, `/feature`, `/forge`, `/fix`, `/harden`,
-  `/ship`, and more — playbooks that run *with you* in the session and pause at real
-  decision points.
-- **5 orchestration workflows** — parallel agent fleets for review, release gates, feature
-  batches, codebase mapping, and design panels — that run *without you*, in breadth.
+- **12 lifecycle skills** — `/forge:kickoff`, `/forge:next`, `/forge:feature`, `/forge:build`,
+  `/forge:fix`, `/forge:harden`, `/forge:ship`, and more — playbooks that run *with you* in
+  the session and pause at real decision points.
+- **4 orchestration workflows** — `/forge:deep-review`, `/forge:design-panel`,
+  `/forge:feature-pipeline`, `/forge:release-gate` — parallel agent fleets for review, release
+  gates, feature batches, and design panels that run *without you*, in breadth.
 - **8 specialist agents** — planner, implementer, reviewer, debugger, tester, security,
   scout, scribe — each fresh-context and model-routed, so the builder never grades its own work.
-- **An operating manual** (`CLAUDE.md`) + method docs + 8 stack playbooks that every
-  session runs under.
+- **An operating manual** (`CLAUDE.md`) + method docs + 8 stack playbooks that every command
+  runs under.
 
-The bet: **the bottleneck in AI-built software isn't generation, it's trust.** So the
-harness spends its structure on verification — tests-first, fresh-context review,
-adversarial refutation, fail-closed release gates — and on *not making you babysit it*.
+The bet: **the bottleneck in AI-built software isn't generation, it's trust.** So the plugin
+spends its structure on verification — tests-first, fresh-context review, adversarial
+refutation, fail-closed release gates — and on *not making you babysit it*.
 
 ## Why an AI builder would want it
 
-- **No babysitting.** `/forge` takes a whole backlog, gets one wave-plan approval from
+- **No babysitting.** `/forge:build` takes a whole backlog, gets one wave-plan approval from
   you, then builds feature after feature in parallel waves — a PR each, auto-merged in
   dependency order, finished with an automatic deep-review. Your touchpoints for a whole
-  product drop to roughly three: approve the spec, approve the wave plan, run `/ship`.
+  product drop to roughly three: approve the spec, approve the wave plan, run `/forge:ship`.
 - **Gates that gate.** No feature merges with failing or missing tests. Reviews only
   trust a finding after independent refuters fail to kill it. Release gates fail *closed* —
   a gate that doesn't report blocks the ship. None of this is optional "if you remember to."
@@ -62,81 +64,98 @@ adversarial refutation, fail-closed release gates — and on *not making you bab
 
 ## Requirements
 
-- **Claude Code**, current version, with the **Workflow tool** (dynamic workflows) — the
-  five `/workflow` commands depend on it; skills and agents work on any recent version.
+- **Claude Code**, current version (plugin support + the **Workflow tool** for dynamic
+  workflows — the four orchestration commands depend on it; skills and agents work on any
+  recent version).
 - **git**, and **Node 22+ with pnpm** (`corepack enable`) for the default playbooks.
   Per-type extras (Go, Rust for Tauri, Expo/EAS, Apple Developer) are listed in each
   playbook and only needed when you build that type.
-- **`gh` CLI** (authenticated) — only for `/forge`'s PR flow and `/ship`. Everything else
-  works without a remote.
+- **`gh` CLI** (authenticated) — only for `/forge:build`'s PR flow and `/forge:ship`.
+  Everything else works without a remote.
+
+## Installation
+
+F.O.R.G.E. installs as a Claude Code plugin from the marketplace bundled in this repo —
+once, globally, so its commands are available in every folder.
+
+```bash
+# 1. Get the plugin source
+git clone https://github.com/travelhawk/forge-harness.git
+
+# 2. Register the marketplace and install the plugin (global by default)
+claude plugin marketplace add ./forge-harness
+claude plugin install forge@forge
+```
+
+Or from inside Claude Code: `/plugin marketplace add ./forge-harness` then `/plugin install
+forge@forge`. One convenience wrapper does both against the current repo — run
+`npm run install-forge` from the clone.
+
+- **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is
+  enabled only for the repo you run it in.
+- **Developing the plugin itself?** Skip install and launch with `claude --plugin-dir
+  /path/to/forge-harness` to load your working copy live (`/reload-plugins` picks up edits).
+- **Update / remove:** `claude plugin update forge` · `claude plugin uninstall forge`.
 
 ## Getting started
 
-**1. Clone the workspace and enter it.**
+Once installed, **run `claude` inside your product folder** (or an empty folder for a brand
+new one) — the `/forge:*` commands are available everywhere; there is no harness directory to
+sit inside.
 
-```bash
-git clone https://github.com/travelhawk/forge-harness.git
-cd forge-harness
-```
-
-**2. Start Claude Code from the harness root.** This is non-negotiable: skills, agents,
-and workflows load *only* from the root. Starting Claude Code inside a product folder
-won't see them.
-
-```bash
-claude          # run on Opus 4.8; switch to Fable 5 for architecture-heavy days
-```
-
-**3. Kick off your first product.**
+**1. Kick off your first product.**
 
 ```
-> /kickoff a habit tracker that guilt-trips me with charts
+> /forge:kickoff a habit tracker that guilt-trips me with charts
 ```
 
-`/kickoff` interviews you, writes `docs/SPEC.md`, picks a stack from a playbook, and
-scaffolds a **new product under `projects/<name>/`** — its own git repo, its own
-`CLAUDE.md`, a runnable test setup — then verifies the scaffold actually boots.
-Already have a codebase? Use `/adopt <path>` instead, which reverse-engineers a spec and
-progress file from what's there.
+`/forge:kickoff` interviews you, writes `docs/SPEC.md`, picks a stack from a playbook, and
+scaffolds a **new product in the current folder** — its own git repo, its own `CLAUDE.md`, a
+runnable test setup — then verifies the scaffold actually boots. Already have a codebase? Use
+`/forge:adopt <path>` instead, which reverse-engineers a spec and progress file from what's
+there.
 
-**4. Build it.** In a fresh session (again from the harness root):
-
-```
-> /forge             # hands-off: approve the wave plan once → all features build in
->                    #   parallel waves, a PR each, then an automatic deep-review
-> /feature F3        # or one feature at a time: plan → failing test → build → review
-> /fix <bug>         # bug lane: reproduce → regression test → fix → review
-> /harden            # security + robustness sweep before first public exposure
-> /ship v0.1.0       # release commit → automated gates + checklist → tag → deploy
-```
-
-**5. Ship the next version.** Once v1 is out and you have new ideas:
+**2. Build it.**
 
 ```
-> /next add teams, usage-based billing, and a dark mode
+> /forge:build             # hands-off: approve the wave plan once → all features build in
+>                          #   parallel waves, a PR each, then an automatic deep-review
+> /forge:feature F3        # or one feature at a time: plan → failing test → build → review
+> /forge:fix <bug>         # bug lane: reproduce → regression test → fix → review
+> /forge:harden            # security + robustness sweep before first public exposure
+> /forge:ship v0.1.0       # release commit → automated gates + checklist → tag → deploy
 ```
 
-`/next` is kickoff's iteration sibling — it clarifies the ideas (a lighter, spec-aware
+**3. Ship the next version.** Once v1 is out and you have new ideas:
+
+```
+> /forge:next add teams, usage-based billing, and a dark mode
+```
+
+`/forge:next` is kickoff's iteration sibling — it clarifies the ideas (a lighter, spec-aware
 interview), appends them to the spec as the next version's risk-tiered features, and hands
-the whole slice to the forge flow under **one approval**. `/kickoff` births a product,
-`/next` grows it, `/forge` is the builder both hand off to.
+the whole slice to the forge flow under **one approval**. `/forge:kickoff` births a product,
+`/forge:next` grows it, `/forge:build` is the builder both hand off to.
 
 That's the loop. New to it? Read [docs/LIFECYCLE.md](docs/LIFECYCLE.md) for the full
 idea-to-ship path, and [docs/COMMANDS.md](docs/COMMANDS.md) for what each command costs
 and when it pauses for you.
 
-> **The one rule that pays rent:** always start sessions from the **harness root**, then
-> make the product your working target *inside* the session (`cd` in the shell). The
-> harness lives at the root; the product lives under `projects/<name>/`.
+> **The one rule that pays rent:** run `claude` **inside your product** and let the plugin
+> do the rest — its commands, agents, and workflows are available in every folder. Products
+> live wherever you keep them; the plugin lives in your Claude Code config, not in a
+> workspace you build inside of.
 
 ## What's inside
 
 | Layer | Where | What |
 |---|---|---|
-| Operating manual | `CLAUDE.md` | The rules every session runs under |
+| Plugin manifest | `.claude-plugin/` | `plugin.json` + `marketplace.json` — what makes it installable and namespaces the `/forge:*` commands |
+| Asset anchor | `bin/forge-home` | Resolves the plugin's install dir so skills read bundled templates/docs/workflows from any product folder |
+| Operating manual | `CLAUDE.md` | The rules every command runs under |
 | Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/kickoff` `/adopt` `/next` `/feature` `/forge` `/fix` `/harden` `/ship` `/debug-hard` `/status` `/retro` |
-| Orchestration | `.claude/workflows/` | `/understand` `/design-panel` `/feature-pipeline` `/deep-review` `/release-gate` |
+| Lifecycle skills | `.claude/skills/` | `/forge:kickoff` `/forge:adopt` `/forge:next` `/forge:feature` `/forge:build` `/forge:fix` `/forge:harden` `/forge:ship` `/forge:debug-hard` `/forge:status` `/forge:retro` `/forge:understand` |
+| Orchestration | `.claude/workflows/` | `/forge:design-panel` `/forge:feature-pipeline` `/forge:deep-review` `/forge:release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
 | Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |
 | Method docs | `docs/` | COMMANDS (guide + diagram), LIFECYCLE, ORCHESTRATION, MODEL-ROUTING |
@@ -180,7 +199,7 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 - At each kickoff: verify the playbook's major versions against the live ecosystem.
 - When a session teaches you something durable about how you want to build: it goes in
   `CLAUDE.md` (tersely), and something stale comes out — commit both.
-- After each milestone: `/retro` — mines the build for friction and turns it into
+- After each milestone: `/forge:retro` — mines the build for friction and turns it into
   committed harness improvements. This loop is what keeps "best" true over time.
 
 ## Credits & license

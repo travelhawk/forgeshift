@@ -5,7 +5,7 @@ argument-hint: "[optional: what felt wrong, in your words]"
 disable-model-invocation: true
 ---
 
-# /retro — The harness improves from evidence, not theory
+# /forge:retro — The harness improves from evidence, not theory
 
 User's observation, if any: "$ARGUMENTS"
 
@@ -49,3 +49,6 @@ commit body of the retro's closing commit so the next retro doesn't re-propose t
 Report: changes applied, expected effect, rejected-with-reason. If a friction item
 needs real redesign (not a tweak), don't botch it inline — record it and recommend a
 dedicated session.
+
+**Next →** back to product work — resume `/forge:build`/`/forge:feature`, or a dedicated session for
+any redesign item this retro recorded but didn't fix.

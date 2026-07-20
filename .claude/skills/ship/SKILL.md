@@ -5,15 +5,20 @@ argument-hint: "[version or release note, e.g. v0.2.0 first public beta]"
 disable-model-invocation: true
 ---
 
-# /ship — Prepare, gate, release
+# /forge:ship — Prepare, gate, release
 
 Ship "$ARGUMENTS" (or infer the next semver from the changes if not given).
 
 ## 0. Locate
 
 Ensure the shell working directory is the PRODUCT root (the directory with the
-manifest/package.json), typically `projects/<name>/` — the gates run real commands
-there. Ambiguous which product? Ask.
+manifest/package.json) — normally the folder you launched `claude` in; the gates run
+real commands there. Ambiguous which product? Ask.
+
+Harness assets (templates, playbooks) and the workflow scripts ship with the plugin, not
+the product. Resolve their home once and reuse it this session:
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — then read e.g.
+`$FORGE_HOME/templates/RELEASE-CHECKLIST.md`.
 
 ## 1. Prepare the release commit (before any gate — the gate checks these)
 
@@ -25,10 +30,13 @@ there. Ambiguous which product? Ask.
 
 ## 2. Automated gate
 
-Run the `release-gate` workflow (Workflow tool, `{name: "release-gate", args: "<version
-+ change summary>"}`). It runs static/security/docs checks in parallel, then
+Run the `release-gate` workflow — Workflow tool with
+`scriptPath: "$FORGE_HOME/.claude/workflows/release-gate.js"` (resolve `$FORGE_HOME` as
+above and pass the absolute path), `args: {dir: "<absolute product root>", context:
+"<version + change summary>"}`. It runs static/security/docs checks in parallel, then
 tests → build → runtime smoke sequentially, each returning evidence, and fails closed
-(a gate that doesn't report blocks).
+(a gate that doesn't report blocks). The `dir` arg is required — workflows do NOT follow
+the shell `cd`; their agents run against `dir`.
 
 **NO-SHIP verdict blocks the release. Fix the blockers and re-run; never override.**
 If a gate was `skipped` because the project lacks the tooling (no linter configured),
@@ -38,8 +46,8 @@ test setup; fix it.
 
 ## 3. Manual gate
 
-Walk the user through the manual half of `templates/RELEASE-CHECKLIST.md` (harness
-root) — core journey walked by a human, ugly paths, migrations reversible, rollback
+Walk the user through the manual half of `$FORGE_HOME/templates/RELEASE-CHECKLIST.md`
+— core journey walked by a human, ugly paths, migrations reversible, rollback
 command known. These need human eyes; don't self-certify them.
 
 Env vars in the deploy target: compare **key names only** — read the committed
@@ -49,15 +57,16 @@ so). Copy the filled checklist to `docs/releases/<version>.md`.
 
 ## 3b. Release kit (user-facing products — apps, SaaS, sites)
 
-Store/listing assets into `docs/release-kit/<version>/` per `templates/RELEASE-KIT.md`
-(harness root). Libraries/CLIs/APIs: skip, say so. Unchanged since last release →
-copy forward, refresh "What's new" + changed screens only. Run both in parallel:
+Store/listing assets into `docs/release-kit/<version>/` per
+`$FORGE_HOME/templates/RELEASE-KIT.md`. Libraries/CLIs/APIs: skip, say so. Unchanged
+since last release → copy forward, refresh "What's new" + changed screens only. Run both
+in parallel:
 
 - **Texts** — `forge-etcher` from `docs/SPEC.md` + CHANGELOG: name, subtitle/short
   description, long description, keywords, what's-new — within store char limits,
   one set per shipped language. Web: OG title/description + landing copy.
 - **Images** — `forge-proof` from the RUNNING app (reuse the walkthrough machinery
-  from `/forge` §5b where present): screenshots at store sizes, feature graphic /
+  from `/forge:build` §5b where present): screenshots at store sizes, feature graphic /
   OG image. Real data on screen, never lorem.
 
 **Store-distributed products (mobile/desktop stores): an incomplete kit blocks the
@@ -67,9 +76,10 @@ gaps are report notes, not blockers.
 ## 4. Release
 
 1. Tag `v<version>`.
-2. Deploy per the deploy section of the matching playbook (`docs/playbooks/<type>.md`,
-   harness root) or the project CLAUDE.md deploy command. First deploy ever → follow
-   the playbook's first-deploy setup and record every manual step in the project docs.
+2. Deploy per the deploy section of the matching playbook
+   (`$FORGE_HOME/docs/playbooks/<type>.md`) or the project CLAUDE.md deploy command.
+   First deploy ever → follow the playbook's first-deploy setup and record every manual
+   step in the project docs.
 3. Post-deploy smoke test against the LIVE deployment (the release-gate smoke was
    local): primary route/command responds, no error storm in logs.
 
@@ -79,3 +89,7 @@ Report: version, gate evidence summary, release-kit location (or why skipped),
 deploy URL/artifact, post-deploy check result. Add the release to PROGRESS.md session
 log. If anything was skipped or accepted as a gap, it's in the report — plainly, not
 in a footnote.
+
+**Next →** `/forge:status` to record the release and set the next handoff; `/forge:next`
+when the following version's scope is ready. On a NO-SHIP that was overridden into a
+partial release, name the gap-closing `/forge:fix` instead.

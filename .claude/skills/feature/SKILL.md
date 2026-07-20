@@ -4,25 +4,27 @@ description: Build one feature through the full quality loop - plan, failing tes
 argument-hint: "[feature description or F# from the spec]"
 ---
 
-# /feature — One feature through the loop
+# /forge:feature — One feature through the loop
 
 Build "$ARGUMENTS" tests-first with independent verification. One feature per
-invocation; a whole backlog belongs in `/forge` (one approval, waves of parallel
+invocation; a whole backlog belongs in `/forge:build` (one approval, waves of parallel
 builds, PR per feature) and a raw batch without PR ceremony in the `feature-pipeline`
 workflow — point the user there when they list several (4+) independent items (the
 threshold at which the pipeline's fan-out beats the direct loop; see `/forge` §4).
 
 ## 1. Anchor
 
-- Establish the target product first: cd into its directory (`projects/<name>/` when
-  run from the harness root). Multiple products and it's ambiguous → ask.
+- Establish the target product first: normally the directory you launched `claude` in
+  (its root holds the manifest / `docs/SPEC.md`). Several candidate products under the
+  cwd and it's ambiguous → ask; then `cd` into the right one.
 - Find the feature in `docs/SPEC.md` / `PROGRESS.md` if it exists there; use its
   done-criteria. Ad-hoc feature → write 2-5 checkable done-criteria now and get a nod.
 - **Read its risk tier** (the `T?` marker on the feature's row). Ad-hoc / untagged →
-  classify it now by capability signal (`docs/RISK-TIERS.md`; ties break upward). The
-  argument may override for this run — `/feature F3 as tier 1` wins over the recorded
-  tag; state the tier and why you're using it. The tier sets validation depth in the
-  steps below.
+  classify it now by capability signal (harness assets live at the plugin root — resolve
+  once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then see
+  `$FORGE_HOME/docs/RISK-TIERS.md`; ties break upward). The argument may override for this
+  run — `/forge:feature F3 as tier 1` wins over the recorded tag; state the tier and why
+  you're using it. The tier sets validation depth in the steps below.
 - Run the existing test suite first. Starting from red means fixing that first or
   explicitly recording that the red is pre-existing and unrelated.
 - Note remote status (`git remote get-url origin`); a GitHub remote with `gh auth
@@ -36,7 +38,7 @@ threshold at which the pipeline's fan-out beats the direct loop; see `/forge` §
   without waiting for approval; the user can interrupt.
 - **Large or judgment-heavy** (new subsystem, data-model change, security-relevant):
   delegate planning to `forge-blueprint`, record the plan as `docs/features/F<#>.md` from
-  `templates/FEATURE.md` (harness root), **present it for review as an artifact/link** so
+  `$FORGE_HOME/templates/FEATURE.md`, **present it for review as an artifact/link** so
   the user needn't open the file (Artifact tool, minimal design — load `artifact-design`
   first; or link the doc), and **block on user approval** before building.
 - **Integrates an external HTTP API** (a raw-`fetch` adapter behind an interface, no
@@ -67,7 +69,7 @@ threshold at which the pipeline's fan-out beats the direct loop; see `/forge` §
 
 The verifier always sees only the result, not the build reasoning. Fix CONFIRMED
 critical/high findings immediately; judge medium/low with the user if the fix isn't
-obvious. Branch by risk tier (`docs/RISK-TIERS.md`):
+obvious. Branch by risk tier (`$FORGE_HOME/docs/RISK-TIERS.md`):
 
 - **T1** — `forge-quench` on the diff **and** a parallel security/adversarial pass
   (`forge-warden`, or a `deep-review` scoped to this feature's diff). The feature is done
@@ -75,7 +77,7 @@ obvious. Branch by risk tier (`docs/RISK-TIERS.md`):
 - **T2** — one `forge-quench` fresh-context pass on the diff. Core coverage; skip
   exhaustive edge-case grinding.
 - **T3** — smoke check only: it builds, it renders/boots, the happy path works. No
-  `forge-quench` pass. The integrated `deep-review` (in `/forge`, or `/deep-review`
+  `forge-quench` pass. The integrated `deep-review` (in `/forge:build`, or `/forge:deep-review`
   before ship) is the safety net that still sweeps T3.
 
 **Tier overrides the cosmetic-skip allowance upward:** a T1 change never skips verify,
@@ -93,7 +95,7 @@ direct push to main:
   done-criteria as a checklist, and the step-4 verification evidence (test names +
   output, review verdict). `--head` is required; the session checkout stays on main,
   never on the feature branch.
-- Leave the PR open for you to review and merge — `/feature` is the supervised lane,
+- Leave the PR open for you to review and merge — `/forge:feature` is the supervised lane,
   so the merge call is yours. Ask and it squash-merges for you (`gh pr merge <n>
   --squash --delete-branch`); otherwise the report hands you the PR link.
 - **No GitHub remote:** offer `gh repo create --private --source .` once. Declined →
@@ -109,9 +111,12 @@ direct push to main:
 - Commit(s) are already granular from the build; ensure the final state is committed and
   the branch pushed.
 - Report: what shipped, evidence, the PR link, deviations, and the natural next feature.
+- **Next →** name one command: `/forge:feature <next F#>` for the next slice, `/forge:deep-review`
+  then `/forge:ship` if this was the last — and `/forge:harden` before exposure after a T1
+  feature. Never `/forge:ship` while verification is red.
 
 ## Escalation
 
-Two failed attempts at the same problem → stop grinding: `/debug-hard` for bugs,
+Two failed attempts at the same problem → stop grinding: `/forge:debug-hard` for bugs,
 `forge-blueprint` (or the `design-panel` workflow) for design dead-ends. A third identical
 attempt is banned.

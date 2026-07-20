@@ -56,7 +56,7 @@ Route by **decision density**, not by task size. A one-line change that requires
 
 1. **Escalate by raising the session model when work loops.** Two failed fix attempts on
    the same bug, or a review that keeps flip-flopping → switch the session to Fable 5 (if
-   you have the quota) and re-run; `/debug-hard` hands the full context to `forge-temper`
+   you have the quota) and re-run; `/forge:debug-hard` hands the full context to `forge-temper`
    on the session model. Don't burn a third attempt on the same tier.
 2. **De-escalate after the plan exists.** The session model writes the spec; Sonnet-tier
    subagents execute it. Paying top-tier rates for `npm install` and boilerplate is waste.
@@ -113,7 +113,9 @@ Route by **decision density**, not by task size. A one-line change that requires
   Prospector/Etcher (scout/docs) ride Sonnet.
 - **Workflows:** scripts in `.claude/workflows/` pass `model:`/`effort:` per `agent()`
   call — judgment stages (review dimensions, verifiers, judges, synthesis) omit `model:`
-  to inherit the session model at high/xhigh; well-defined execution (codebase maps,
-  command-running gates) pins `model: 'sonnet'` at medium; preflight/inventory sweeps pin
-  `model: 'haiku'` at low. Set effort explicitly; unset stages inherit the session's
-  global effort, which is usually too high for mechanical work.
+  to inherit the session model at high/xhigh; **build stages pin `model: 'opus'`** (T1/T2
+  in `feature-pipeline`) so building stays at its own tier and never rides a Fable-5
+  session at 2x for boilerplate; well-defined execution (codebase maps, command-running
+  gates) pins `model: 'sonnet'` at medium; preflight/inventory sweeps pin `model: 'haiku'`
+  at low. Set effort explicitly; unset stages inherit the session's global effort, which
+  is usually too high for mechanical work.

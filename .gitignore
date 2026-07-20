@@ -1,6 +1,7 @@
-# Products are their own git repos — not tracked by the harness
-projects/*
-!projects/README.md
+# Legacy local product scratch. Products now live wherever you run `claude` — the
+# forge plugin is installed globally, not a workspace you build inside of. Anything
+# left under projects/ is local-only and never tracked or shipped with the plugin.
+projects/
 
 # Local-only Claude Code state
 .claude/settings.local.json
@@ -30,3 +31,6 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Agent/workflow git worktrees (auto-created, ephemeral)
+.claude/worktrees/
