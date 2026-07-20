@@ -28,7 +28,7 @@ build from — you do not write product code.
   A feature is the smallest unit that delivers user-visible value on its own, is
   independently buildable and testable, and carries ONE coherent risk tier. Group related
   requirements into a feature with ~2-5 checkable done-criteria; do NOT emit one feature
-  per requirement or acceptance criterion — that floods `/forge` with thin waves and
+  per requirement or acceptance criterion — that floods `/forge:build` with thin waves and
   subagents for no gain. Scale the count to the project: a small tool ~3-6 features, a
   typical MVP ~8-15. **A single V1/build phase caps at ~15 features:** if the backlog is
   larger, that is a smell — either the breakdown is too fine (re-group), or the scope is
@@ -39,9 +39,10 @@ build from — you do not write product code.
   and kills the tiering speedup. Group by cohesion AND similar capability/risk.
 - **Every feature gets done-criteria** that are checkable ("CSV export contains a numeric
   price column per SKU"), never vibes ("export works well").
-- Reference material lives at the HARNESS root, not in the product: `docs/MODEL-ROUTING.md`,
-  `docs/playbooks/`, and `templates/` — when your working directory is a product under
-  `projects/<name>/`, resolve them as `../../docs/` and `../../templates/`.
+- Reference material ships with the forge plugin, not the product: `docs/MODEL-ROUTING.md`,
+  `docs/playbooks/`, and `templates/`. Your working directory is the product, so resolve the
+  plugin home once — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — and read them as
+  `$FORGE_HOME/docs/…` and `$FORGE_HOME/templates/…`.
 
 ## Output contract
 
@@ -49,8 +50,8 @@ You have no Write tool by design — **deliver plans as markdown in your reply**
 orchestrator decides where they land on disk. Structure: context (2-4 sentences), the
 decision(s), the architecture or feature breakdown, explicit out-of-scope list, risks
 with mitigations, and an ordered build sequence sized so each step fits one focused
-session. If you were asked for a spec, follow the structure of `templates/SPEC.md`
-(harness root).
+session. If you were asked for a spec, follow the structure of `$FORGE_HOME/templates/SPEC.md`
+(resolve `FORGE_HOME` as above).
 
 Record durable lessons about this codebase (constraints discovered, decisions and their
 reasons) in your agent memory so future planning sessions start smarter.

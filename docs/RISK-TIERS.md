@@ -37,11 +37,11 @@ boundary calls below.)
 | **Build** | `forge-hammer`, **Opus** (pinned), effort **xhigh**, tests-first | `forge-hammer`, **Opus** (pinned), effort **high** | **Sonnet**, effort **medium** |
 | **Per-feature verify** | `forge-quench` (session model) **+ a parallel security/adversarial pass**; feature passes only if both pass | `forge-quench` (session model), **one** pass, medium effort | **smoke check only** (Haiku/Sonnet: builds / renders / one happy-path assertion). **No `forge-quench`.** |
 | **Tests** | full suite + explicit edge/failure cases | happy path + top failure path | a smoke test as the done-criteria's test |
-| **In `/forge` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
+| **In `/forge:build` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
 
 `build → Sonnet` for T3 is the existing routing policy, not a new rule: well-defined
 boilerplate execution is exactly Sonnet's tier ([MODEL-ROUTING.md](MODEL-ROUTING.md)).
-Risk tier and `/feature`'s small/medium/large **sizing** are orthogonal: sizing controls
+Risk tier and `/forge:feature`'s small/medium/large **sizing** are orthogonal: sizing controls
 *planning ceremony*, tier controls *validation depth*. A 5-line auth-cookie change is
 *small* but **T1** — and tier overrides the "cosmetic changes may skip verify" allowance
 **upward** (a T1 change never skips verify, however tiny).
@@ -82,7 +82,7 @@ The tag lives in the feature row — the source of truth the skills already read
 - **docs/SPEC.md** V1 table: a **Risk** column holding `T? (<one-line justification>)`.
 - **docs/features/F<#>.md** (large features): a `## Risk tier` line.
 
-`/kickoff` (and `/adopt`) seed the tags via `forge-blueprint` at spec time, each with a
+`/forge:kickoff` (and `/forge:adopt`) seed the tags via `forge-blueprint` at spec time, each with a
 one-line justification naming the signal. Auto-classification only *seeds* — the file is
 authoritative.
 
@@ -92,9 +92,9 @@ Auto-classification will miss context you have. Three override points, coarsest 
 
 1. **Durable:** edit the `T?` marker (and its justification) in `PROGRESS.md` / `SPEC.md`.
    Whatever is written wins — state on disk, not in chat.
-2. **Per batch, at the gate:** the `/forge` wave-plan table shows every feature's tier +
+2. **Per batch, at the gate:** the `/forge:build` wave-plan table shows every feature's tier +
    justification. Adjust tiers there before you approve; the approval covers the change.
-3. **Per run:** `/feature F3 as tier 1` (or `as tier 3`) in the argument overrides the
+3. **Per run:** `/forge:feature F3 as tier 1` (or `as tier 3`) in the argument overrides the
    recorded tag for that single run.
 
 ## Guardrails (why this is right-sizing, not a hole in the gates)
@@ -106,9 +106,9 @@ guardrails keep that honest:
 
 1. **Ties classify up.** Doubt → higher tier. A feature that *might* touch a boundary is
    treated as if it does.
-2. **The final integrated `deep-review` in `/forge` sweeps all tiers.** T3 is "not
+2. **The final integrated `deep-review` in `/forge:build` sweeps all tiers.** T3 is "not
    *individually* pre-reviewed," never "unreviewed." A high-risk feature misclassified to
-   T3 is still caught at the finish gate before `/ship`.
+   T3 is still caught at the finish gate before `/forge:ship`.
 
 Without these two, tiering would be a hole in "gates that gate." With them, it is
 right-sizing.

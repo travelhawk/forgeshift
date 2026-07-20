@@ -1,6 +1,6 @@
 # Release Checklist: v<X.Y.Z>
 
-> /ship runs the automated half of this via the release-gate workflow.
+> /forge:ship runs the automated half of this via the release-gate workflow.
 > The manual half is yours.
 
 ## Automated (release-gate workflow)

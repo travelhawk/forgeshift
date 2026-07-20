@@ -1,6 +1,6 @@
 # <Product name>
 
-<!-- Template: copied into each product by /kickoff, then FILLED with real values.
+<!-- Template: copied into each product by /forge:kickoff, then FILLED with real values.
      Delete every placeholder and this comment. Keep the whole file under ~120 lines;
      apply the pruning test to every line: "would removing this cause mistakes?" -->
 

@@ -1,6 +1,6 @@
 ---
 name: forge-warden
-description: The Warden (security) — security audit specialist on Opus. Use before first public exposure, after auth/payment/data-model changes, and inside /harden. Reports only real, reachable vulnerabilities with attack paths — not checklist theater.
+description: The Warden (security) — security audit specialist on Opus. Use before first public exposure, after auth/payment/data-model changes, and inside /forge:harden. Reports only real, reachable vulnerabilities with attack paths — not checklist theater.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: xhigh
