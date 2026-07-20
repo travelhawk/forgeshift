@@ -59,8 +59,9 @@ const PREFLIGHT = {
     exists: { type: 'boolean' },
     isGitRepo: { type: 'boolean', description: 'target has a .git directory with at least one commit' },
     hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
-    isControlCenter: { type: 'boolean', description: 'target looks like an agent harness / control-center repo rather than a product: .claude/workflows/ or .claude/agents/ present, a projects/ container dir, or a CLAUDE.md describing a harness' },
+    isControlCenter: { type: 'boolean', description: 'target looks like an agent harness / control-center repo rather than a product: .claude/workflows/ or .claude/agents/ present, a .claude-plugin/plugin.json, or a CLAUDE.md describing a harness' },
     cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
+    scriptsDir: { type: 'string', description: 'Absolute path (in the shell\'s own path format, as `pwd` prints it) of a directory containing forge-worktree.sh, if reachable: resolve the forge plugin home with `forge-home` (on PATH when the plugin is enabled) or $CLAUDE_PLUGIN_ROOT and check for scripts/forge-worktree.sh there; failing that, under the current working directory. Its containing dir if found, else an empty string. Lets the build/verify agents call one deterministic script instead of hand-running git worktree plumbing.' },
     input: {
       type: 'object', additionalProperties: false,
       description: 'ONLY if feature-pipeline.input.json exists in the target root: its parsed content',
@@ -78,6 +79,9 @@ const pre = await globalThis.agent(
     : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
   `Report per the schema: absolute target path, whether it exists, is a git repo with at least one commit, ` +
   `holds a real project, and whether it looks like an agent-harness/control-center repo instead of a product. ` +
+  `Also locate the worktree helper: run \`forge-home\` (a plugin binary on PATH; fall back to $CLAUDE_PLUGIN_ROOT, ` +
+  `then to pwd) and check whether scripts/forge-worktree.sh exists under the directory it prints. If so return ` +
+  `its containing directory's absolute path (as pwd prints it) in scriptsDir, else an empty string. ` +
   `Additionally: if a file feature-pipeline.input.json exists in the target root, read it and return its ` +
   `{features, context, known_failures} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
   `in the JSON — if an entry is an object {feature, tier, done_criteria}, return the OBJECT unchanged; do NOT ` +
@@ -127,6 +131,46 @@ const knownRedNote = knownRed && String(knownRed).trim()
     `a regression — only a NEW failure (something green at baseline now failing) fails this feature. Do not touch ` +
     `unrelated red; do not report it as your break.\n`
   : ''
+// git worktree lifecycle + unique-suffix generation is deterministic shell work that
+// used to be handed to the build/verify agents as a git tutorial they ran by hand (a
+// failure source AND ~40% of each prompt). When the harness ships forge-worktree.sh and
+// the runtime is NOT isolating the build for us, agents call that one script instead; the
+// shell owns correctness and the entropy the workflow runtime cannot generate. WT is the
+// `bash "<path>"` prefix, or null → agents fall back to inline git (unchanged behavior).
+const SCRIPTS = pre.scriptsDir && typeof pre.scriptsDir === 'string' && pre.scriptsDir.trim() ? pre.scriptsDir.trim() : null
+const WT = SCRIPTS ? `bash "${SCRIPTS}/forge-worktree.sh"` : null
+
+const buildWorktree = i => runtimeIsolation
+  ? `You are in an ISOLATED git worktree — create and commit your work to a FRESH branch named ` +
+    `feature/wf-${i + 1}-<suffix>, where <suffix> is a short random alphanumeric string you generate ` +
+    `(collision-proof across runs). Never reuse an existing feature/wf-* branch. Report the exact branch name.`
+  : WT
+    ? `Create your ISOLATED worktree with ONE command from the target repo (the script owns the unique ` +
+      `branch + path, the prune, and the entropy — do NOT hand-roll git or invent a suffix):\n` +
+      `  ${WT} new-build ${i + 1}\n` +
+      `It prints BRANCH=<branch> and WORKTREE=<abs path>. cd into that WORKTREE path and do ALL work there ` +
+      `(install dependencies there first if the project needs them); report BRANCH as the exact branch name. ` +
+      `When done — always, also on failure — cd back to the target repo and run: ${WT} clean "<the WORKTREE path>" ` +
+      `(the branch survives). Only if that script is missing or errors, fall back to git worktree add ` +
+      `../wf-build-${i + 1}-<suffix> -b feature/wf-${i + 1}-<suffix> yourself.`
+    : `Work in an ISOLATED git worktree you create yourself: from the target repo run git worktree add ` +
+      `../wf-build-${i + 1}-<suffix> -b feature/wf-${i + 1}-<suffix> (sibling of the repo dir), where <suffix> is ` +
+      `a short random alphanumeric string you generate (collision-proof across runs). Never reuse an existing ` +
+      `feature/wf-* branch. Do ALL work inside that worktree (install dependencies there first if the project ` +
+      `needs them). Report the exact branch name. When done — always, also on failure — remove the worktree from ` +
+      `the main repo (git worktree remove --force <path>); the branch survives.`
+
+const detachedWorktree = (role, i, branch) => WT
+  ? `Check out the branch in a throwaway DETACHED worktree with ONE command (the script prunes, picks a ` +
+    `unique path, and checks it out): ${WT} new-detached ${role} ${i + 1} "${branch}". It prints ` +
+    `WORKTREE=<abs path>; cd there and work (install dependencies there first if the project needs them). When ` +
+    `done — always, even on failure — cd back to the target repo and run: ${WT} clean "<that WORKTREE path>". ` +
+    `Only if the script is missing or errors, fall back to: git worktree prune, then git worktree add --detach ` +
+    `../wf-${role}-${i + 1}-<suffix> "${branch}", removed afterwards with git worktree remove --force.`
+  : `In the target repo run "git worktree prune", then check out the branch DETACHED at a unique sibling path: ` +
+    `git worktree add --detach ../wf-${role}-${i + 1}-<random suffix> "${branch}" (install dependencies in the ` +
+    `worktree first if the project needs them). Afterwards ALWAYS remove the temp worktree, also on failure: ` +
+    `git worktree remove --force <path>.`
 
 // The PLAN is the per-feature BRIEF: produced once by the plan agent (which already
 // reads the code), it is the ONLY context the downstream builder + verifier get. One
@@ -239,15 +283,7 @@ const results = await pipeline(
   ),
   // 2. Build — isolated worktree; model/effort follow the tier (T3 → Sonnet/medium).
   (plan, f, i) => plan && agent(
-    (runtimeIsolation
-      ? `Implement this feature following the plan. You are in an ISOLATED git worktree — create and commit your work to a ` +
-        `FRESH branch named feature/wf-${i + 1}-<suffix>, where <suffix> is a short random alphanumeric string you generate ` +
-        `(collision-proof across runs). Never reuse an existing feature/wf-* branch. Report the exact branch name.\n`
-      : `Implement this feature following the plan, in an ISOLATED git worktree you create yourself: from the target repo run ` +
-        `git worktree add ../wf-build-${i + 1}-<suffix> -b feature/wf-${i + 1}-<suffix> (sibling of the repo dir), where <suffix> is a short ` +
-        `random alphanumeric string you generate (collision-proof across runs). Never reuse an existing feature/wf-* branch. ` +
-        `Do ALL work inside that worktree (install dependencies there first if the project needs them). Report the exact branch ` +
-        `name. When done — always, also on failure — remove the worktree from the main repo (git worktree remove --force <path>); the branch survives.\n`) +
+    `Implement this feature following the plan.\n` + buildWorktree(i) + `\n` +
     `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\n` +
     `BRIEF — your complete context. ` +
     (f.tier === 'T3'
@@ -270,15 +306,13 @@ const results = await pipeline(
   (r, f, i) => {
     if (!r) return null
     const funcPrompt =
-      `Fresh-context verification. In the target repository: first run "git worktree prune" ` +
-      `(clears stale worktree records from earlier runs), then check out the branch DETACHED in a temporary worktree at a ` +
-      `unique path: git worktree add --detach ../wf-verify-${i + 1}-<random suffix> ${r.build.branch}. ` +
-      `Verify the feature against its done-criteria there (install dependencies in the worktree first if the project needs them). ` +
+      `Fresh-context verification. ${detachedWorktree('verify', i, r.build.branch)} ` +
+      `Verify the feature against its done-criteria in that worktree. ` +
       `Run the tests yourself — do not trust the builder's report. ` +
       (f.tier === 'T1'
         ? `This is a HIGH-RISK (T1) feature: exercise the failure and edge paths, not just the happy one. `
         : `Cover the happy path and the top failure path; skip exhaustive edge-case grinding (T2). `) +
-      `Afterwards ALWAYS remove the temp worktree, also on failure: git worktree remove --force <path>.\n\n` +
+      `\n\n` +
       `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
       `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
       `plus the evidence summary itself. On a fail verdict the body states what is broken instead. ` +
@@ -293,11 +327,9 @@ const results = await pipeline(
       // Smoke-only: builds, renders/boots, one happy path. No deep review — the
       // integrated deep-review (in /forge, or /deep-review before ship) is T3's net.
       return agent(
-        `Smoke check ONLY — low-risk (T3) feature; do NOT do a deep or security review. In the target repo run ` +
-        `"git worktree prune", then git worktree add --detach ../wf-smoke-${i + 1}-<random suffix> ${r.build.branch} ` +
-        `(install deps in the worktree if needed). Confirm exactly three things: (1) it builds/compiles, (2) it ` +
-        `renders/boots without error, (3) the happy path works (run the smoke test the builder wrote). ALWAYS remove ` +
-        `the worktree afterwards (git worktree remove --force <path>), also on failure. Fail ONLY on a real ` +
+        `Smoke check ONLY — low-risk (T3) feature; do NOT do a deep or security review. ` +
+        `${detachedWorktree('smoke', i, r.build.branch)} Confirm exactly three things: (1) it builds/compiles, (2) it ` +
+        `renders/boots without error, (3) the happy path works (run the smoke test the builder wrote). Fail ONLY on a real ` +
         `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
         `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
         `YOU produced), and the evidence summary.\n` + knownRedNote + `\n` +
@@ -311,9 +343,8 @@ const results = await pipeline(
       return parallel([
         () => agent(funcPrompt, { label: `verify:${i + 1}`, phase: 'Verify', effort: 'high', schema: CHECK }),
         () => agent(
-          `Adversarial SECURITY verification of a HIGH-RISK (T1) feature. In the target repo run "git worktree prune", ` +
-          `then git worktree add --detach ../wf-sec-${i + 1}-<random suffix> ${r.build.branch} (install deps if needed); ` +
-          `remove it with git worktree remove --force <path> when done, always. Hunt ONLY for real, reachable ` +
+          `Adversarial SECURITY verification of a HIGH-RISK (T1) feature. ` +
+          `${detachedWorktree('sec', i, r.build.branch)} Hunt ONLY for real, reachable ` +
           `vulnerabilities in the diff and the code it touches: broken or missing authz/authn, tenant/user-boundary ` +
           `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
           `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +

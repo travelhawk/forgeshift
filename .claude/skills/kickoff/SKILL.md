@@ -73,22 +73,13 @@ rather than padded or crammed (see `forge-blueprint`'s granularity rule). Fewer,
 features mean fewer `/forge:build` waves and subagents.
 
 **Tag each V1 feature with a risk tier** (fills the spec table's Risk column). Blueprint
-classifies by *capability signal*, not by the feature's noun (see
-`$FORGE_HOME/docs/RISK-TIERS.md`):
-
-- **T1** if any signal fires — touches money; crosses a tenant/user boundary (incl. **any
-  filter-dependent tenant query** — a list/search/get across a tenant-scoped table, where
-  a missing filter silently leaks other tenants' rows past the happy-path test); makes an
-  authz/authn decision (auth, session, permissions, tokens); accepts untrusted external
-  input (public endpoints, webhooks, uploads); irreversible sends. Includes auth email.
-- **T2** — side effects but no signal: business-logic route handlers, scoped data
-  mutations, transactional/marketing email.
-- **T3** — pure read/render of same-tenant data, UI components, page/server components,
-  CRUD scaffolding.
-
-Each tag carries a one-line justification naming the signal. Ties break **upward**.
-Present the tiers in the scope table; the user can adjust any before approving — the tag
-is seed, not verdict.
+classifies by *capability signal, not the feature's noun* — apply the scheme in
+`$FORGE_HOME/docs/RISK-TIERS.md` (T1 = any signal fires: money, tenant-boundary /
+filter-dependent query, authz/authn, untrusted input, irreversible send; T2 = side effects
+without a signal; T3 = own-data render / scaffolding), don't restate it here. Each tag
+carries a one-line justification naming the signal that fired; ties break **upward**.
+Present the tiers in the scope table — the user adjusts any before approving (seed, not
+verdict).
 
 If a genuinely hard architecture question surfaced (wide solution space, expensive to
 reverse), offer to run the `design-panel` workflow on it instead of guessing.
@@ -102,7 +93,10 @@ default need a one-line reason. Verify with a quick web search that no major ver
 shifted since the playbook's as-of date.
 
 **Present spec + stack together for explicit approval** — the spec as its rendered
-artifact/link (from §2, refreshed if it changed since), the stack inline.
+artifact/link (from §2, refreshed if it changed since), the stack inline. Flag that the
+spec carries a **Decision policy** (`$FORGE_HOME/templates/SPEC.md`): approving it grants the build
+phase authority to decide-and-log reversible calls without interrupting, so the follow-on
+`/forge` runs hands-off. Their next required touch is the finish review, not mid-build.
 
 The spec **file does not exist yet** — the scaffolder needs an empty dir, so `docs/SPEC.md`
 is written only in step 4 *on approval*. Therefore the **artifact is the review surface at
@@ -117,7 +111,10 @@ user approves both** (this is the LIFECYCLE stage-1 gate).
 1. Run the playbook's scaffold commands for the target dir from §0 — they create it
    themselves and must run non-interactively (use the playbook's flag sets; if a prompt
    appears, the CLI's flags have drifted — check its current --help).
-2. `git init` + initial commit of the clean scaffold (if the scaffolder didn't).
+2. `git init` + initial commit of the clean scaffold (if the scaffolder didn't). Add
+   `.forge/` to the project `.gitignore` — the local-only run-state `/forge:build` writes
+   for `/forge:resume` (see CLAUDE.md → run state); it must never land in the product's
+   history.
 3. NOW write the held artifacts into the project: `docs/SPEC.md` (approved draft),
    `CLAUDE.md` from `$FORGE_HOME/templates/PROJECT-CLAUDE.md` (filled with the real stack,
    commands, conventions), `docs/adr/001-stack.md` from `$FORGE_HOME/templates/ADR.md`.

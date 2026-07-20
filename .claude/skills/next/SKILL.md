@@ -108,6 +108,10 @@ On approval, write the held draft to disk and commit — spec-sync precedes the 
 - Append the new features to `docs/SPEC.md` (the `### V<n>` section) and add matching
   F#-rows to `PROGRESS.md` (each with its **tier marker + justification**, unchecked).
 - Update `PROGRESS.md` "Next session should" to point at this version.
+- Write `.forge/run.json` for this run (`command: "/next"`, the §0 baseline SHA, the
+  approved integration mode, the wave plan with every feature `pending`) so a mid-run stop
+  is recoverable via `/resume` — thereafter updated at each boundary exactly as `/forge`
+  §4/§5 do (CLAUDE.md → run state).
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.
 
 ## 5. Build & finish — the `/forge:build` flow, no second gate

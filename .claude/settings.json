@@ -51,7 +51,9 @@
       "Bash(cargo test *)",
       "Bash(cargo run *)",
       "Bash(ls *)",
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Bash(bash *forge-worktree.sh*)",
+      "Bash(bash *forge-pr.sh*)"
     ],
     "ask": [
       "Bash(git push *)",

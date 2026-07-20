@@ -7,6 +7,11 @@ projects/
 .claude/settings.local.json
 .claude/agent-memory-local/
 
+# Ephemeral run-state written by /forge and /next, read by /resume. Local-only in every
+# repo (product AND harness): git branches + PROGRESS.md are the source of truth, this is
+# just the accelerator map. Products gitignore it too (kickoff wires that in).
+.forge/
+
 # Project-specific agent memory stays private — the shared harness ships only
 # generic (harness-level) memory. Product internals never leave the local disk.
 .claude/agent-memory/**/project_*.md
@@ -17,6 +22,10 @@ projects/
 # checklists, layout conventions, ...). Consulted selectively at intake (kickoff/next/
 # adopt), never loaded into every agent. Content stays local for now.
 references/
+
+# Local planning scratch — internal-only notes that must never ship (they can reference
+# internal comparisons kept out of the repo). Delete when the plan is done.
+HARNESS-UPGRADE-PLAN.md
 
 node_modules/
 .env

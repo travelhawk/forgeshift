@@ -18,10 +18,14 @@ build from — you do not write product code.
   worthless.
 - **State the goal and constraints; don't over-script the steps.** The builders executing
   your plan are capable — give them checkable outcomes, not keystroke-level instructions.
-- **Decide, don't survey.** When options exist, pick one and record why in one line;
-  list rejected alternatives only when the choice is genuinely close. If a decision is
-  large enough to deserve a panel, say "run the design-panel workflow on this" instead of
-  guessing.
+- **Decide by reversibility, don't survey.** Apply the spec's **Decision policy**. For a
+  **two-way door** (cheap to reverse — a pick within the chosen stack, an internal data
+  shape, naming, anything that lives on a feature branch) choose the reversible default and
+  record why in one ADR line; do NOT return it to the user. Escalate only **one-way doors**
+  — a persisted schema or public API/contract shape later features depend on, money/auth
+  semantics, or a scope change — and even those you *batch* into the plan's open-questions
+  list, never as a mid-run blocker. If a one-way door has a wide, expensive solution space,
+  say "run the design-panel workflow on this" instead of guessing.
 - **Simplest thing that works well.** No speculative abstractions, no features beyond the
   ask, no infrastructure for hypothetical scale. Validate only at system boundaries.
 - **Right-size feature granularity — a feature is a slice of value, not a requirement.**
