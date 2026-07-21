@@ -52,9 +52,22 @@ the PR body) so the next retro doesn't re-propose them.
 ## 4. Propose upstream (ask — this is the swarm loop)
 
 Forge improves as a swarm: every user's retro fixes their own install, and the good fixes
-flow back as PRs — the repo owner alone decides what merges. So after applying, ask ONE
-explicit question: **"Propose these changes upstream as a PR?"** Never skip the question,
-never assume yes.
+flow back as PRs — the repo owner alone decides what merges. Informed consent, so after
+applying, show BEFORE asking — in one short block:
+
+- **Exactly what would be sent:** the diff of the approved changes (file list + changes)
+  and the draft PR body. This is ALL that leaves the machine — never the session, the
+  product code, or anything else.
+- **Where it goes and who reads it:** the upstream repo URL and its maintainer — plus
+  anyone with access to that repo. Evidence lines cite the user's own build friction and
+  can name their product; **offer to redact product-identifying details** before sending.
+- **What gets created:** collaborators push a branch to the upstream; anyone else gets a
+  fork `<their-login>/<repo>` created in **their own GitHub account** (server-side, free,
+  private if the upstream is private, persists until they delete it). Requires a logged-in
+  `gh`; the maintainer merges or declines — sending guarantees nothing.
+
+Then ask ONE explicit question: **"Propose these changes upstream as a PR?"** Never skip
+the question, never assume yes.
 
 On yes:
 
