@@ -95,9 +95,14 @@ The approval covers everything downstream, including merges in auto-integrate mo
 and the finish step's fixes. It also grants the build phase the spec's **Decision policy**
 authority (`docs/SPEC.md`): reversible two-way-door calls are decided and logged as ADRs
 mid-run, never surfaced as questions; only genuine one-way doors (persisted schema, public
-contract, money/auth semantics, scope change) stop the run — and those batch. This is why
-"no questions after the gate" is safe, not reckless: every call rides a branch/PR and is
-overruleable at the finish deep-review.
+contract, money/auth semantics, scope change) stop the run — and those batch.
+**If `docs/SPEC.md` has no Decision policy section** (common after `/forge:adopt`, whose spec is
+reverse-engineered) the no-questions build phase has no authority basis — so synthesize the
+default two-way/one-way-door policy from `$FORGE_HOME/templates/SPEC.md`, show it verbatim in
+this gate message, and write it into the spec on approval:
+**never run the hands-off phase without a Decision policy in force.**
+This is why "no questions after the gate" is safe, not reckless: every call rides a branch/PR
+and is overruleable at the finish deep-review.
 
 ## 4. Execute (hands-off from here)
 
@@ -127,25 +132,34 @@ Per wave, in order:
    fallback per `$FORGE_HOME/CLAUDE.md`). A workflow-level error return is a stop condition — report,
    don't continue. The pipeline's verify stage returns `pr_title`, `pr_body`, and
    `evidence` per feature.
-2. Per PASSED feature: `git push -u origin <branch>`, then `gh pr create --head
-   <branch> --base main --title ... --body-file <scratchpad file>` (body: summary,
-   done-criteria checklist, evidence) — `--head` is required; the session checkout
-   stays on main, never on the feature branch. The pipeline's `pr_title`/`pr_body` are
-   ready to use as-is; only if a title is a bare task id ("wire up F7") or a body lacks
-   the What / How-to-review / Evidence sections, polish it inline here at `gh pr create`
-   time (main session, cheap) — but carry the done-criteria checklist and the verification
-   evidence through **verbatim**; a polish that trims evidence violates hard rule 7.
-   Auto-integrate: `gh pr merge <num> --squash --delete-branch`; blocked by required
-   checks → `gh pr checks <num> --watch`, then merge; still blocked → leave the PR
-   open and skip any later feature that depends on it (report why).
-   (`$FORGE_HOME/scripts/forge-pr.sh` wraps this exact flow so the flags can't drift — one
-   call per step: `bash "$FORGE_HOME/scripts/forge-pr.sh" open <branch> "<title>"
-   <body-file>` then `… merge <num>`; `FORGE_BASE` overrides the base branch. The raw
-   commands above are the fallback.)
+2. **Push + open PRs for the whole wave in ONE batch — they are independent across
+   features, so never serialize them.** Write one manifest line per PASSED feature
+   (`<branch>\t<title>\t<body-file>`; body = summary, done-criteria checklist, evidence)
+   to a scratchpad file, then `bash "$FORGE_HOME/scripts/forge-pr.sh" open-all <manifest>`
+   — it pushes every branch in a single `git push` and creates the PRs concurrently
+   (`--head` required so the session checkout stays on main, never a feature branch).
+   The pipeline's `pr_title`/`pr_body` are ready to use as-is; only if a title is a bare
+   task id ("wire up F7") or a body lacks the What / How-to-review / Evidence sections,
+   polish it inline before writing the manifest (main session, cheap) — but carry the
+   done-criteria checklist and the verification evidence through **verbatim**; a polish
+   that trims evidence violates hard rule 7. `FORGE_BASE` overrides the base branch; the
+   per-feature `open <branch> "<title>" <body-file>` + raw `git push`/`gh pr create` are
+   the fallback.
+   **Then merge (auto-integrate mode):** `bash "$FORGE_HOME/scripts/forge-pr.sh" merge
+   <num>` (`gh pr merge <num> --squash --delete-branch`) in dependency order — merges DO
+   serialize (each moves main forward for the next). Blocked by checks → watch the wave's
+   PRs **concurrently, not one at a time**, and wait only on **required** checks
+   (`gh pr checks <num> --watch --required`); a non-required/advisory check never blocks a
+   merge. Still blocked after its required checks pass-or-fail → leave the PR open and skip
+   any later feature that depends on it (report why).
 3. After a wave's merges: `git pull`, then run the FULL suite on integrated main —
-   each branch was verified in isolation, the merged whole was not. NEW failures
-   versus the recorded baseline → stop the run, report, leave later waves unbuilt.
-   Never "fix forward" into the next wave.
+   each branch was verified in isolation, the merged whole was not. On NEW failures
+   versus the recorded baseline, **re-run only those failing tests once** before
+   concluding — an intermittent (flaky) test must not halt an unattended run. A failure
+   that **reproduces** on the targeted re-run is a real regression → stop the run, report,
+   leave later waves unbuilt (never "fix forward" into the next wave). A failure that
+   **clears** on re-run is logged as flaky in the report (test name + that it passed on
+   retry) and the run continues — flakiness is surfaced, never silently swallowed.
 4. Tick PROGRESS.md per merged feature with its evidence string; one session-log line
    per wave. Update `.forge/run.json` the same moment — the feature's `status`
    (`merged`/`failed`), `branch`, `pr`, `evidence`, and the run's `next` — so a stop right
@@ -203,67 +217,38 @@ steps below apply to auto-integrate and local modes.
 
 ## 5b. Visual walkthrough (UI products only — automatic, fail-soft)
 
-Runs on the completed, green integrated result (auto-integrate and local modes; skipped
-in review-PRs mode — nothing is merged to run). **UI products only**, and **never a stop
-condition**: any failure is a note in the report, never a block on ready-for-`/forge:ship` —
-this is a deliverable, not a gate. Delegate to `forge-proof` with the product path, the
-dev-server command (product `CLAUDE.md`), and the core journey + shipped features from
-`docs/SPEC.md`:
-
-1. **Applicability.** No runnable web UI (CLI, API, library) → report "no UI to capture"
-   and stop. UI present → ensure Playwright is available (`npx playwright install
-   chromium` if missing; the web-app playbook already ships it).
-2. **Run the app.** Start the dev server in the background, poll until it responds; kill
-   the whole process tree at the end — Windows: `taskkill //F //T //PID <pid>` or
-   `npx kill-port <port>` (a bare kill leaks node.exe holding the port).
-3. **Videos of the main user flows.** Derive the flows from the spec's core journey plus
-   the shipped features — one flow per journey, not one per click. A Playwright script
-   drives each flow end-to-end with `recordVideo` → one `.webm` per flow in
-   `docs/walkthroughs/videos/`. A flow that can't be driven (auth/seed not available) is
-   recorded as skipped with the reason; partial capture still ships what it got.
-4. **Overview image of all screens.** Screenshot every distinct screen/route into
-   `docs/walkthroughs/screens/`, then assemble ONE contact-sheet
-   `docs/walkthroughs/overview.png` (ImageMagick `montage`, or lay the shots into an HTML
-   grid and screenshot that).
-5. **Artifacts.** Commit the small, review-friendly ones (`overview.png`, the
-   screenshots); add `docs/walkthroughs/videos/` to the product `.gitignore` (videos are
-   large binaries) — they stay on disk and are linked in the report. Follow the product's
-   own convention if it already commits media.
-
-Covered by the same finish opt-out at the gate.
+**UI products only, never a stop condition** — a deliverable, not a gate. Delegate to
+`forge-proof`: Playwright flow videos of the spec's core journeys → `docs/walkthroughs/
+videos/` (gitignored), plus a screenshot of every screen assembled into one contact-sheet
+`docs/walkthroughs/overview.png` (committed). No runnable UI (CLI/API/library) → "no UI to
+capture" and stop. Full procedure — applicability, dev-server lifecycle (kill the whole
+tree), flow derivation, artifact commit rules: **`$FORGE_HOME/docs/FINISH.md`**. Covered by
+the same finish opt-out at the gate.
 
 ## 5c. Documentation pass (`forge-etcher` — automatic, fail-soft)
 
-Runs on the completed, green integrated result (auto-integrate and local modes; skipped
-in review-PRs mode — nothing is merged). **Never a stop condition**: a docs failure is a
-report note, never a block on ready-for-`/forge:ship`. `/forge:build` builds features from the spec
-and reviews code — nothing in that loop owns the README, so a scaffolded product ships
-with boilerplate (`create-next-app`'s "bootstrapped with…" page, a bare `cargo`/`poetry`
-stub) unless this step replaces it. Delegate to `forge-etcher` with the product path,
-`docs/SPEC.md`, `PROGRESS.md`, and the actual `package.json`/manifest scripts:
-
-1. **README.** Rewrite (or create) `README.md` from the SHIPPED reality — what the product
-   is and does, the architecture in brief (link `docs/adr/`), the real stack, getting
-   started, the actual scripts, honest limitations/known-gaps drawn from PROGRESS (do not
-   oversell), and a one-line-per-module project map. Replace any scaffolder boilerplate
-   outright. **Verify every command it documents by running it** (`install`, `test`,
-   `typecheck`, `build` at minimum) — a README that documents a command that fails is a
-   lie (hard rule 2). State anything unverifiable in-session (a live deploy, a paid API)
-   as such rather than claiming it.
-2. **Docs sync.** If the run changed commands, env vars, or setup that a committed doc
-   (`README`, a `docs/` getting-started, `.env.example` prose) now contradicts, fix the
-   drift in the same pass. Do NOT invent new docs beyond the README — CHANGELOG and
-   release/listing texts belong to `/forge:ship`, not here.
-3. **Commit** the docs (small, review-friendly) directly on the integrated branch —
-   `docs: README + docs sync (/forge:build finish)` — like the walkthrough artifacts. In
-   auto-integrate mode a docs-only commit needs no PR; push it with the finish.
-
-Covered by the same finish opt-out at the gate.
+**Never a stop condition.** Nothing in the build loop owns the README, so a scaffolded
+product ships with boilerplate unless this replaces it. Delegate to `forge-etcher` (product
+path, `docs/SPEC.md`, `PROGRESS.md`, the real manifest scripts): rewrite `README` from the
+SHIPPED reality — stack, getting-started, actual scripts, honest known-gaps, one-line-per-
+module map — replacing scaffolder boilerplate.
+**Verify every command it documents by running it** — a README documenting a failing command
+is a lie (hard rule 2). Then fix any doc drift the run caused, and commit
+`docs: README + docs sync (/forge:build finish)` on the
+integrated branch. Full procedure: **`$FORGE_HOME/docs/FINISH.md`**. Covered by the same
+finish opt-out at the gate.
 
 ## 6. Report
 
 - Table: feature → branch → PR → verdict → merged.
-- Suite state on integrated main (pasted output); PROGRESS.md updated.
+- Suite state on integrated main (pasted output); PROGRESS.md updated. List any test
+  that failed then **cleared on a targeted re-run** (flaky) — surfaced, never a stop.
+- **Security tier escalations:** any feature the pipeline's post-build diff re-check
+  raised to a security pass (its seeded tier under-budgeted a sensitive surface) — with
+  the surface named, so an under-seeded feature is visible, not silently smoke-only.
+- **Actual spend vs. the gate estimate:** the run's real output-token spend (from the
+  pipeline's reported `spend`) against the "5–30x" quoted at the gate — calibrates the
+  next estimate instead of leaving it a guess.
 - Finish results: confirmed findings fixed (with evidence), unverified crit/high held
   as ship-blocking, medium/low open. In review-PRs mode: the deferred-review note.
 - Visual walkthrough (UI products): the paths to the flow videos and `overview.png`, plus
@@ -292,8 +277,9 @@ Covered by the same finish opt-out at the gate.
 ## Stop conditions (report, never push through)
 
 Unrecorded red baseline at start · more than half a wave fails verification · NEW
-suite failures on integrated main after a merge · a workflow-level pipeline error ·
-an unmergeable PR that later waves depend on. /forge:build never
+suite failures on integrated main after a merge that **reproduce on a targeted re-run**
+(a failure that clears on re-run is a flake — logged, not a stop) · a workflow-level
+pipeline error · an unmergeable PR that later waves depend on. /forge:build never
 force-pushes, never merges a feature that failed verification, and never weakens a
 test to get green. On any stop (or a killed session), `.forge/run.json` holds the
 state — `/forge:resume` reads it, reconciles against git, and states the next action.
