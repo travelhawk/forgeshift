@@ -578,5 +578,8 @@ suite('retro swarm loop', () => {
     assert.match(src, /origin\/<default-branch>/, 'the PR branch bases on the remote default branch, not local state')
     assert.match(src, /Never merge it/i, 'the maintainer alone decides — retro never merges its own PR')
     assert.match(src, /npm ci && npm test/, 'suite green in the PR working tree before pushing (hard rule 8)')
+    assert.match(src, /gh repo fork <upstream> --remote=true/, 'non-collaborators fork on demand instead of stopping')
+    assert.match(src, /--head <your-login>:<branch>/, 'the PR is opened cross-repo from the fork')
+    assert.match(src, /Allow forking/, 'private-repo fork rejection names the maintainer setting')
   })
 })

@@ -66,10 +66,17 @@ On yes:
    commits, or re-edit). On a cache install, clone the remote into the scratchpad and apply
    the same edits in that clone.
 3. Suite green in the PR working tree (`npm ci && npm test`) before pushing — hard rule 8.
-4. Push the branch, then `gh pr create` with the evidence per change in the body (friction
-   observed → exact change → expected effect; rejected proposals listed). `gh` missing or
-   unauthenticated → report the manual push + PR steps instead of failing silently.
-5. **Never merge it.** The PR is a proposal; the maintainer reviews and decides. Report the
+4. Push the branch — collaborators push to the upstream directly. **Push rejected (not a
+   collaborator)? Fork, don't stop:** `gh repo fork <upstream> --remote=true` (server-side,
+   idempotent — reuses an existing fork), push the branch to the fork, and open the PR
+   cross-repo: `gh pr create --repo <upstream> --head <your-login>:<branch>`. A private
+   upstream can only be forked by users with read access and only if the maintainer has
+   enabled "Allow forking" — if the fork call is rejected for that reason, say so and name
+   that setting instead of retrying.
+5. `gh pr create` with the evidence per change in the body (friction observed → exact
+   change → expected effect; rejected proposals listed). `gh` missing or unauthenticated →
+   report the manual push + PR steps instead of failing silently.
+6. **Never merge it.** The PR is a proposal; the maintainer reviews and decides. Report the
    PR URL and move on.
 
 On no: the local changes stand; note in the report that they are local-only (and on a cache
