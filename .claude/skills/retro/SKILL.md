@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Harness retrospective - mine the recent build work for friction (permission prompts, wrong defaults, misfiring prompts, playbook drift), propose ranked harness improvements, apply the approved ones as commits. Use after finishing a project milestone or whenever the harness felt wrong.
+description: Harness retrospective - mine the recent build work for friction (permission prompts, wrong defaults, misfiring prompts, playbook drift), propose ranked harness improvements, apply the approved ones locally, then offer to propose them upstream as a PR (the maintainer decides what merges). Use after finishing a project milestone or whenever the harness felt wrong.
 argument-hint: "[optional: what felt wrong, in your words]"
 disable-model-invocation: true
 ---
@@ -38,17 +38,48 @@ For each friction item, the fix lands in the right layer:
 Present the ranked list with, per item: the observed evidence, the exact change, the
 expected effect. Let the user approve/reject per item.
 
-## 3. Apply
+## 3. Apply (locally first)
 
-One commit per approved change with the why in the message ("retro: allow pnpm create —
-kickoff prompted 3x during recipes build"). Rejected proposals get one line in the
-commit body of the retro's closing commit so the next retro doesn't re-propose them.
+Changes land in the local plugin install — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`
+— so THIS machine benefits immediately, before any upstream review. When `$FORGE_HOME` is a
+git clone: one commit per approved change with the why in the message ("retro: allow pnpm
+create — kickoff prompted 3x during recipes build"), suite green first per hard rule 8
+(`npm test` there, when runnable). A marketplace-cache install has no repo — apply the edits
+anyway and say plainly that the next plugin update will overwrite them, which makes the §4
+PR the only durable path. Rejected proposals get one line in the closing commit body (or
+the PR body) so the next retro doesn't re-propose them.
 
-## 4. Close
+## 4. Propose upstream (ask — this is the swarm loop)
 
-Report: changes applied, expected effect, rejected-with-reason. If a friction item
-needs real redesign (not a tweak), don't botch it inline — record it and recommend a
-dedicated session.
+Forge improves as a swarm: every user's retro fixes their own install, and the good fixes
+flow back as PRs — the repo owner alone decides what merges. So after applying, ask ONE
+explicit question: **"Propose these changes upstream as a PR?"** Never skip the question,
+never assume yes.
+
+On yes:
+
+1. Resolve the upstream: `git -C "$FORGE_HOME" remote get-url origin` (no remote or no
+   repo → ask the user for the repo URL once).
+2. **Base the branch on the remote, not on local state** — a stale or diverged local clone
+   must not poison the PR: `git fetch origin`, then `git checkout -b retro/<slug>
+   origin/<default-branch>` and re-apply the approved changes there (cherry-pick the §3
+   commits, or re-edit). On a cache install, clone the remote into the scratchpad and apply
+   the same edits in that clone.
+3. Suite green in the PR working tree (`npm ci && npm test`) before pushing — hard rule 8.
+4. Push the branch, then `gh pr create` with the evidence per change in the body (friction
+   observed → exact change → expected effect; rejected proposals listed). `gh` missing or
+   unauthenticated → report the manual push + PR steps instead of failing silently.
+5. **Never merge it.** The PR is a proposal; the maintainer reviews and decides. Report the
+   PR URL and move on.
+
+On no: the local changes stand; note in the report that they are local-only (and on a cache
+install won't survive a plugin update).
+
+## 5. Close
+
+Report: changes applied, expected effect, rejected-with-reason, and the upstream outcome
+(PR URL, declined, or not applicable). If a friction item needs real redesign (not a
+tweak), don't botch it inline — record it and recommend a dedicated session.
 
 **Next →** back to product work — resume `/forge:build`/`/forge:feature`, or a dedicated session for
 any redesign item this retro recorded but didn't fix.

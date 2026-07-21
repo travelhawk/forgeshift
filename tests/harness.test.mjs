@@ -567,3 +567,16 @@ suite('review improvements', () => {
     assert.match(build(), /Actual spend vs\. the gate estimate/i, '/forge:build report compares real spend to the estimate')
   })
 })
+
+// --- retro swarm loop (2026-07-21) — local apply + opt-in upstream PR ----------
+suite('retro swarm loop', () => {
+  test('retro applies locally, asks before an upstream PR, and never merges it', () => {
+    const src = read('.claude', 'skills', 'retro', 'SKILL.md')
+    assert.match(src, /FORGE_HOME/, 'changes land in the local plugin install first')
+    assert.match(src, /Propose these changes upstream as a PR\?/, 'the PR offer is one explicit question')
+    assert.match(src, /never assume yes/i, 'PR creation is opt-in, never automatic')
+    assert.match(src, /origin\/<default-branch>/, 'the PR branch bases on the remote default branch, not local state')
+    assert.match(src, /Never merge it/i, 'the maintainer alone decides — retro never merges its own PR')
+    assert.match(src, /npm ci && npm test/, 'suite green in the PR working tree before pushing (hard rule 8)')
+  })
+})
