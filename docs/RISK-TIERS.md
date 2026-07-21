@@ -24,7 +24,16 @@ justification cites *which signal fired*, so the tag is auditable.
 | **Irreversible / hard-to-reverse side effect** | deletes, external sends (email/SMS), state that cannot be rolled back |
 
 **Any signal fires → Tier 1. Side effects but no signal → Tier 2. Render of the caller's
-own already-owned data, or scaffolding → Tier 3.** Ties break **upward** — when unsure,
+own already-owned data, or scaffolding → Tier 3.**
+
+**Client-only carve-out (T3):** side effects confined to in-memory client state — a game
+simulation, canvas/animation state, a local UI state machine — with no persistence beyond
+the user's own device, no network write, and no security signal, are **T3**, not T2.
+"State-mutating" alone is not a signal; T2's "side effects" means effects that outlive the
+tab or cross a boundary. Wrong client-only logic is caught by its own unit tests and the
+finish deep-review sweep at a fraction of a per-feature adversarial review's cost. (The
+post-build diff re-check below still escalates any such feature whose code turns out to
+touch a sensitive surface.) Ties break **upward** — when unsure,
 the higher tier. (A *filter-dependent tenant query* is not "own data" — it's T1; see the
 boundary calls below.)
 
@@ -53,6 +62,18 @@ Risk tier and `/forge:feature`'s small/medium/large **sizing** are orthogonal: s
 *planning ceremony*, tier controls *validation depth*. A 5-line auth-cookie change is
 *small* but **T1** — and tier overrides the "cosmetic changes may skip verify" allowance
 **upward** (a T1 change never skips verify, however tiny).
+
+## Verification cost rules (added after the forgedefense retro, 2026-07-21)
+
+- **Chained features share reviews.** Sequentially-chained entries (shared-footprint
+  builds) get ONE consolidated `forge-quench` per ~3 links (and one at the chain's end),
+  reviewing the combined diff — not a fresh reviewer per link. A HIGH found late in a
+  segment still lands pre-merge of that segment.
+- **The reviewer does not re-run the gate suite.** `forge-quench` spot-runs the unit
+  suite; it re-runs typecheck/build/e2e only when the diff gives a concrete reason to
+  distrust the builder's pasted evidence (build config touched, e2e specs changed). On
+  the forgedefense run, per-feature reviewers re-running every gate cost ~40% of total
+  review time while never contradicting the builder's evidence once.
 
 ## Boundary calls (where the obvious label misleads)
 

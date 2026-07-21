@@ -81,6 +81,11 @@ Present in one message, then get one approval:
   - **local** (no remote): offer `gh repo create --private --source .` once; declined →
     `git merge --no-ff` per verified feature, the merge commits are the audit trail,
     no PRs.
+- **The execution mode, stated plainly:** which waves fire the `feature-pipeline`
+  workflow (4+ parallel-safe entries) and which run the direct `/forge:feature` loop,
+  with the one-line why ("no wave has 4+ parallel-safe entries — engine features share
+  one footprint"). The user should never have to ask afterward why a workflow did or
+  didn't run.
 - A rough cost expectation (a 4+-feature wave is a feature-pipeline run: 5–30x
   session tokens; a 1–3-feature wave runs the direct `/forge:feature` loop at roughly
   half that; plus one deep-review for the finish).
@@ -114,7 +119,21 @@ For such a wave, skip the workflow and run the `/forge:feature` loop §2–§4 d
 feature — plan inline (forge-blueprint only if large), `forge-hammer` builds on a
 `feature/<slug>` branch, fresh-context verify per tier (T1: quench + warden, T2: quench,
 T3: smoke) — still hands-off under the gate approval, then continue at step 2 below
-(PR/merge machinery identical). Waves of 4+ genuinely-independent features fire the
+(PR/merge machinery identical). **The shortcut is not a license to serialize
+everything** (the forgedefense run lost hours to it):
+
+- **Disjoint-footprint features in one wave build CONCURRENTLY** — one worktree per
+  hammer (`isolation: "worktree"` / `EnterWorktree`), merged in plan order. Two
+  parallel hammers ≈ half the wave's wall-clock.
+- **Chained entries overlap stages:** while the consolidated quench reviews segment N
+  (read-only on committed branches), the next hammer already builds link N+1 branched
+  off N. A failed review costs one rebase of N+1; a passed one (the common case) saves
+  the entire review latency.
+- **Full e2e runs at checkpoints, not per link:** unit + typecheck + lint per link;
+  the e2e suite at wave boundaries and every ~3 chain links. The integrated-main suite
+  check after each wave's merges stays untouched.
+
+Waves of 4+ genuinely-independent features fire the
 pipeline:
 
 Per wave, in order:
@@ -171,6 +190,28 @@ After the last wave, ONE retry round: failed features whose issues read fixable 
 through a final pipeline wave with those issues in the context. Whatever fails twice
 is reported for `/forge:fix` or `/forge:debug-hard` — a third automatic attempt is banned
 (hard rule 3).
+
+## 4b. Visual checkpoints (products with a visual surface — fail-soft)
+
+Logic gates never look at pixels; these do. Twice per run, covered by the gate approval,
+never a stop condition. The critique is **generic by design**: it judges screenshots
+against the spec's own **Art direction** block, whatever the product type.
+
+1. **First-light** — right after the first feature that renders real UI merges: run the
+   app, screenshot it, and critique with fresh eyes (forge-proof or inline) against the
+   Art direction: cohesion (reads as one hand, one style), fidelity (stated palette/
+   mood/shape language actually present), craft (anything reading as placeholder-grade —
+   untextured primitives, no motion where motion is promised, flat empty environments).
+   Confirmed gaps feed the **next features' build prompts** — steering early is cheap,
+   reworking at the end is not.
+2. **Polish pass** — after the last feature merges, before the §5 deep-review:
+   screenshot every distinct screen/state, same critique, then spend ONE focused polish
+   feature (own branch, T3 smoke verify) on the confirmed gaps. §5b then captures the
+   polished result.
+
+Spec has no Art direction block → note it in the report and skip (that gap belongs to
+kickoff, not to this run). Kill dev servers by process tree (Windows: `taskkill //F //T
+//PID` / `npx kill-port`).
 
 ## 5. Finish (automatic — covered by the gate approval)
 
@@ -239,6 +280,12 @@ integrated branch. Full procedure: **`$FORGE_HOME/docs/FINISH.md`**. Covered by 
 finish opt-out at the gate.
 
 ## 6. Report
+
+**Verbosity rule (run-wide):** between-feature progress messages are 1-2 lines — id,
+verdict, PR#, test delta. No per-feature recap tables mid-run, no restating evidence
+that already lives in the PR body and PROGRESS.md. The final report is the compact
+version of everything below — a reader should get the verdict in 10 seconds and the
+detail only by following links.
 
 - Table: feature → branch → PR → verdict → merged.
 - Suite state on integrated main (pasted output); PROGRESS.md updated. List any test

@@ -66,6 +66,15 @@ tool (Markdown, minimal design — it's a document to read, not a designed page;
 edit** as you iterate to approval. Artifact tool unavailable → link the scratchpad `.md`
 instead. Either way the user reviews the full spec in place and reacts in chat.
 
+**Design directions (products with a visual surface).** Before finalizing the spec,
+propose **2-3 distinct design directions** — each a named mood in one sentence, a
+palette (colors by name), typography/shape language, motion feel, and one reference
+touchstone. Present them as AskUserQuestion options (a small visual mock per direction
+via the artifact/show_widget tools when cheap — react-faster-than-specify applies to
+aesthetics doubly). The user picks or blends; the winner lands in the spec's
+**Art direction** section and becomes binding for builders and for `/forge:build`'s
+visual checkpoints. No visual surface (API, CLI, library) → skip silently.
+
 **Right-size the feature list.** A feature is a slice of user value (independently
 buildable + testable, ~2-5 done-criteria), not one-per-requirement — a small tool has
 ~3-6, a typical MVP ~8-15. A V1 phase caps at ~15; a bigger backlog gets phased into V2

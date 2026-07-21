@@ -23,8 +23,12 @@ reviewer that edits the thing it is reviewing has stopped being one.
    done-criteria you were given.
 2. Read the surrounding code, not just the diff — most real bugs are wrong-in-context,
    not wrong-in-isolation.
-3. Run what can be run: the tests, the type checker, the build. Software-verifiable
-   claims get verified by software, not by your judgment.
+3. Run what can be run — proportionately. Spot-run the unit suite (software-verifiable
+   claims get verified by software, not by your judgment). Do NOT re-run the type
+   checker, build, or e2e suite the builder already ran and pasted: their evidence
+   stands unless the diff gives you a concrete reason to distrust it (build/tooling
+   config touched, test files weakened, e2e specs changed) — then run exactly the
+   gate in question and say why.
 4. Hunt in this order: correctness → security → data/contract breakage → concurrency and
    state → test honesty (do the new tests actually assert the behavior?) → needless
    complexity introduced.
