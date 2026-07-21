@@ -222,3 +222,6 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 
 Built by **Michael Falk**, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).
 Shared for other AI builders to fork, adapt, and argue with.
+
+**MIT** — see [LICENSE](LICENSE). Use it, fork it, ship with it; just keep the notice.
+The ForgeShift / F.O.R.G.E. name and brand belong to the author.

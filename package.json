@@ -2,6 +2,7 @@
   "name": "forgeshift",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "type": "module",
   "description": "F.O.R.G.E. harness — regression tests for the skills/agents/workflows contract. Run npm test after every harness change.",
   "scripts": {
