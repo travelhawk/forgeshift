@@ -1,3 +1,4 @@
 .claude/workflows/*.js text eol=lf
 bin/* text eol=lf
 scripts/*.sh text eol=lf
+*.md text eol=lf

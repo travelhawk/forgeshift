@@ -270,7 +270,7 @@ suite('cost optimizations', () => {
     const src = read('.claude', 'skills', 'build', 'SKILL.md')
     assert.match(src, /Small-wave shortcut \(1–2 features\)/, 'shortcut documented in Execute step')
     assert.match(src, /Waves of 3\+/, 'pipeline threshold is 3 — the point where prose bookkeeping starts to slip')
-    assert.match(src, /builds in PARALLEL, never serially/, '2-feature waves fan out as parallel worktree subagents')
+    assert.match(src, /build in PARALLEL, never serially/, 'disjoint-footprint features fan out as parallel worktree subagents')
     assert.match(read('.claude', 'skills', 'feature', 'SKILL.md'), /\(3\+\) independent items/, 'feature skill points at the same threshold')
   })
 

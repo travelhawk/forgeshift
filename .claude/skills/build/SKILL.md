@@ -83,6 +83,10 @@ Present in one message, then get one approval:
     merge commits are the audit trail, no PRs. **Recommend it proactively for a solo
     product with no CI and no second reviewer** — same branches, same gates, none of the
     per-feature PR + checks round-trips. This is the run's speed lever.
+- **The execution mode, stated plainly:** which waves fire the `feature-pipeline`
+  workflow (3+ parallel-safe entries) and which run the direct lane, with the one-line
+  why ("no wave has 3+ parallel-safe entries — engine features share one footprint").
+  The user should never have to ask afterward why a workflow did or didn't run.
 - A rough cost expectation (a 3+-feature wave is a feature-pipeline run: 5–30x
   session tokens; a 1–2-feature wave runs the direct lane at roughly half that; plus
   the finish deep-review — scoped to integration seams on a clean run, §5).
@@ -111,15 +115,23 @@ and is overruleable at the finish deep-review.
 **Small-wave shortcut (1–2 features):** below 3 features the workflow engine's fixed
 overhead and extra moving parts outweigh the scripted fan-out — run the loop directly,
 with the SAME gate shape the pipeline enforces (the tier contract is the quality
-promise; the lane is only the vehicle):
+promise; the lane is only the vehicle). **The shortcut is not a license to serialize
+everything** (the forgedefense run lost hours to it):
 
 - **Plan rides the session model** — inline, `forge-blueprint` only if large; planning is
   judgment, never pinned to a build tier (`$FORGE_HOME/docs/MODEL-ROUTING.md`).
-- `forge-hammer` builds on a `feature/<slug>` branch (Opus pinned for T1/T2, Sonnet for
-  T3). **A 2-feature wave builds in PARALLEL, never serially** — two build subagents in
-  isolated worktrees (`bash "$FORGE_HOME/scripts/forge-worktree.sh" new-build <n>` from
-  the product repo), launched in one message; the two fresh-context verifies fan out the
-  same way.
+- **Disjoint-footprint features build in PARALLEL, never serially** — one `forge-hammer`
+  subagent per feature (Opus pinned for T1/T2, Sonnet for T3) in isolated worktrees
+  (`bash "$FORGE_HOME/scripts/forge-worktree.sh" new-build <n>`, or `isolation:
+  "worktree"`), launched in one message, merged in plan order; the fresh-context verifies
+  fan out the same way. Two parallel hammers ≈ half the wave's wall-clock.
+- **Chained entries overlap stages:** while the consolidated quench reviews segment N
+  (read-only on committed branches), the next hammer already builds link N+1 branched
+  off N. A failed review costs one rebase of N+1; a passed one (the common case) saves
+  the entire review latency.
+- **Full e2e runs at checkpoints, not per link:** unit + typecheck + lint per link;
+  the e2e suite at wave boundaries and every ~3 chain links. The integrated-main suite
+  check after each wave's merges stays untouched.
 - **Post-build tier re-check — the same net the pipeline runs:** per T2/T3 feature, a
   cheap Haiku subagent reads `git diff --merge-base HEAD <branch>` (read-only) and, if
   the built diff touches a security-sensitive surface the seeded tier under-budgeted
@@ -188,6 +200,28 @@ After the last wave, ONE retry round: failed features whose issues read fixable 
 through a final pipeline wave with those issues in the context. Whatever fails twice
 is reported for `/forge:fix` or `/forge:debug-hard` — a third automatic attempt is banned
 (hard rule 3).
+
+## 4b. Visual checkpoints (products with a visual surface — fail-soft)
+
+Logic gates never look at pixels; these do. Twice per run, covered by the gate approval,
+never a stop condition. The critique is **generic by design**: it judges screenshots
+against the spec's own **Art direction** block, whatever the product type.
+
+1. **First-light** — right after the first feature that renders real UI merges: run the
+   app, screenshot it, and critique with fresh eyes (forge-proof or inline) against the
+   Art direction: cohesion (reads as one hand, one style), fidelity (stated palette/
+   mood/shape language actually present), craft (anything reading as placeholder-grade —
+   untextured primitives, no motion where motion is promised, flat empty environments).
+   Confirmed gaps feed the **next features' build prompts** — steering early is cheap,
+   reworking at the end is not.
+2. **Polish pass** — after the last feature merges, before the §5 deep-review:
+   screenshot every distinct screen/state, same critique, then spend ONE focused polish
+   feature (own branch, T3 smoke verify) on the confirmed gaps. §5b then captures the
+   polished result.
+
+Spec has no Art direction block → note it in the report and skip (that gap belongs to
+kickoff, not to this run). Kill dev servers by process tree (Windows: `taskkill //F //T
+//PID` / `npx kill-port`).
 
 ## 5. Finish (automatic — covered by the gate approval)
 
@@ -264,6 +298,12 @@ integrated branch. Full procedure: **`$FORGE_HOME/docs/FINISH.md`**. Covered by 
 finish opt-out at the gate.
 
 ## 6. Report
+
+**Verbosity rule (run-wide):** between-feature progress messages are 1-2 lines — id,
+verdict, PR#, test delta. No per-feature recap tables mid-run, no restating evidence
+that already lives in the PR body and PROGRESS.md. The final report is the compact
+version of everything below — a reader should get the verdict in 10 seconds and the
+detail only by following links.
 
 - Table: feature → branch → PR → verdict → merged.
 - Suite state on integrated main (pasted output); PROGRESS.md updated. List any test

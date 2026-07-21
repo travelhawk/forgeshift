@@ -38,6 +38,13 @@ overridable. See docs/RISK-TIERS.md.
 - Security: <auth model, data sensitivity, compliance constraints>
 - Platforms: <browsers/devices/OS actually supported>
 
+## Art direction
+<Products with a visual surface only — delete otherwise. Locked at kickoff from the
+design direction the user CHOSE (kickoff offers 2-3). 3-6 lines concrete enough that
+any builder produces the same look: mood in one sentence, palette by name, typography/
+shape language, motion feel, 1-2 reference touchstones. Binding for every builder;
+/forge:build's visual checkpoints critique screenshots against exactly this block.>
+
 ## Stack
 <Filled at kickoff from the matching playbook in docs/playbooks/. Name exact choices:
 framework + version, DB, auth, hosting, package manager.>
