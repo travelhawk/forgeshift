@@ -1,4 +1,4 @@
-# F.O.R.G.E.
+# ForgeShift
 
 ```
  ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
@@ -7,14 +7,15 @@
  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
  ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
  ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
-   Fable-Orchestrated, Review-Gated Engineering
+ F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering
 ```
 
-**Where products get hammered into shape.** A Claude Code plugin for building any software
-product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from idea to
-shipped, with quality gates that actually gate. The gates are the **risk-tier contract**,
-enforced in every build lane — the workflow fleets are the wide-batch vehicle, not the
-only gatekeeper. Install once; use in any folder.
+**The shift your products build themselves.** A Claude Code plugin for building any
+software product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from
+idea to shipped: brief the crew once (spec, wave plan), and a whole shift runs without you
+until the ship decisions. The gates still gate — the **risk-tier contract** is enforced in
+every build lane, with the workflow fleets as the wide-batch vehicle, not the only
+gatekeeper. Install once; use in any folder.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
@@ -84,21 +85,21 @@ No clone needed — the marketplace registers straight from GitHub (Claude Code 
 into its own cache):
 
 ```bash
-claude plugin marketplace add travelhawk/forge-harness
+claude plugin marketplace add travelhawk/forgeshift
 claude plugin install forge@forge
 ```
 
-Or from inside Claude Code: `/plugin marketplace add travelhawk/forge-harness` then
+Or from inside Claude Code: `/plugin marketplace add travelhawk/forgeshift` then
 `/plugin install forge@forge`. While the repo is private, your git credentials need read
 access (an authenticated `gh` or SSH key covers it) — a public repo installs with no auth.
 
 - **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is
   enabled only for the repo you run it in.
-- **Working from a clone anyway?** `claude plugin marketplace add ./forge-harness` registers
+- **Working from a clone anyway?** `claude plugin marketplace add ./forgeshift` registers
   the local path instead (copies the working tree, untracked files included), or run the
   wrapper `npm run install-forge` from the clone.
 - **Developing the plugin itself?** Skip install and launch with `claude --plugin-dir
-  /path/to/forge-harness` to load your working copy live (`/reload-plugins` picks up edits).
+  /path/to/forgeshift` to load your working copy live (`/reload-plugins` picks up edits).
 - **Update / remove:** `claude plugin update forge` (pulls the latest commit from GitHub) ·
   `claude plugin uninstall forge`.
 

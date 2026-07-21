@@ -5,8 +5,8 @@
   "author": {
     "name": "Michael Falk"
   },
-  "homepage": "https://github.com/travelhawk/forge-harness",
-  "repository": "https://github.com/travelhawk/forge-harness",
+  "homepage": "https://github.com/travelhawk/forgeshift",
+  "repository": "https://github.com/travelhawk/forgeshift",
   "keywords": ["orchestration", "agents", "skills", "workflows", "review", "lifecycle"],
   "skills": ["./.claude/skills/"],
   "agents": [

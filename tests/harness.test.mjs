@@ -131,7 +131,7 @@ suite('cross-references', () => {
   test('every forge-* agent referenced anywhere exists in .claude/agents/', () => {
     // Terms that look like agent names but are prose (or shell scripts), not agents.
     const NON_AGENT_TERMS = new Set([
-      'forge-agents', 'forge-themed', 'forge-home', 'forge-harness', 'forge-worktree', 'forge-pr',
+      'forge-agents', 'forge-themed', 'forge-home', 'forge-worktree', 'forge-pr',
     ])
     const sources = [
       ['CLAUDE.md', claudeMd],
