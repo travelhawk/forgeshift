@@ -24,8 +24,10 @@ one command. Details on demand: `docs/LIFECYCLE.md`
 
 Every feature is tagged with a **risk tier** (T1/T2/T3) at spec time; build+validate
 depth branches on it — T1 full loop + security pass, T2 build + one verify, T3 fast
-Sonnet build + smoke test. Seeded automatically, overridable, ties break up. Full scheme:
-`docs/RISK-TIERS.md`.
+Sonnet build + smoke test. Seeded automatically, overridable, ties break up. The tier
+contract is the quality gate and holds in **every** lane — `feature-pipeline` is the
+scripted fan-out for waves of 3+, the small-wave lane runs the same gates via parallel
+subagents. Full scheme: `docs/RISK-TIERS.md`.
 
 ## Command map
 

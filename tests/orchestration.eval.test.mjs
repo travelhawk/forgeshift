@@ -21,6 +21,21 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(calls.filter(c => c.label === 'verify:batch').length, 1, 'one batch refuter for all med/low')
   })
 
+  test('deep-review mode:integration -> ONE seam lens instead of three, verify unchanged', async () => {
+    const src = loadSource('.claude/workflows/deep-review.js')
+    const { result, calls } = await runWorkflow(src, {
+      args: { ...SCENARIOS['deep-review'].args, mode: 'integration' },
+      responder: deepReviewResponder(),
+    })
+    assert.ok(!result.error, 'integration mode runs clean')
+    const lenses = calls.filter(c => c.label.startsWith('review:'))
+    assert.equal(lenses.length, 1, 'exactly one review lens in integration mode')
+    assert.equal(lenses[0].label, 'review:integration')
+    // Default stays the full review — same args without mode still runs 3 lenses.
+    const full = await runWorkflow(src, { args: SCENARIOS['deep-review'].args, responder: deepReviewResponder() })
+    assert.equal(full.calls.filter(c => c.label.startsWith('review:')).length, 3, 'omitting mode keeps the 3-lens default')
+  })
+
   test('feature-pipeline: 6 mixed-tier features -> 4 plan agents (T3 skips), 6 builds', async () => {
     const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder())
     assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 4, 'T1/T2 planned, T3 not')

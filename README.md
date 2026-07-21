@@ -12,7 +12,9 @@
 
 **Where products get hammered into shape.** A Claude Code plugin for building any software
 product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from idea to
-shipped, with quality gates that actually gate. Install once; use in any folder.
+shipped, with quality gates that actually gate. The gates are the **risk-tier contract**,
+enforced in every build lane — the workflow fleets are the wide-batch vehicle, not the
+only gatekeeper. Install once; use in any folder.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
