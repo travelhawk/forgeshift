@@ -9,8 +9,9 @@ argument-hint: "[feature description or F# from the spec]"
 Build "$ARGUMENTS" tests-first with independent verification. One feature per
 invocation; a whole backlog belongs in `/forge:build` (one approval, waves of parallel
 builds, PR per feature) and a raw batch without PR ceremony in the `feature-pipeline`
-workflow — point the user there when they list several (4+) independent items (the
-threshold at which the pipeline's fan-out beats the direct loop; see `/forge` §4).
+workflow — point the user there when they list several (3+) independent items (the
+threshold at which the pipeline's scripted fan-out beats the direct loop; see
+`/forge:build` §4).
 
 ## 1. Anchor
 
@@ -69,7 +70,18 @@ threshold at which the pipeline's fan-out beats the direct loop; see `/forge` §
 
 The verifier always sees only the result, not the build reasoning. Fix CONFIRMED
 critical/high findings immediately; judge medium/low with the user if the fix isn't
-obvious. Branch by risk tier (`$FORGE_HOME/docs/RISK-TIERS.md`):
+obvious.
+
+**Post-build tier re-check (T2/T3 only):** the tier was seeded from the feature's
+*description*; the built diff is the truth. Before verifying, a cheap Haiku subagent
+reads `git diff --merge-base HEAD <branch>` (read-only) and, if the diff touches a
+security-sensitive surface the tier didn't budget — tenant-scoped query, webhook or
+external-input parser, token/secret handling, authn/authz, raw SQL/shell — the feature
+is escalated: its verify additionally gets the T1 security pass below, combined
+fail-closed. Raises depth only, never lowers it. (Same net `feature-pipeline` runs as
+its re-check stage.)
+
+Branch by (possibly escalated) risk tier (`$FORGE_HOME/docs/RISK-TIERS.md`):
 
 - **T1** — `forge-quench` on the diff **and** a parallel security/adversarial pass
   (`forge-warden`, or a `deep-review` scoped to this feature's diff). The feature is done

@@ -12,7 +12,9 @@
 
 **Where products get hammered into shape.** A Claude Code plugin for building any software
 product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from idea to
-shipped, with quality gates that actually gate. Install once; use in any folder.
+shipped, with quality gates that actually gate. The gates are the **risk-tier contract**,
+enforced in every build lane — the workflow fleets are the wide-batch vehicle, not the
+only gatekeeper. Install once; use in any folder.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
@@ -78,24 +80,27 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
 F.O.R.G.E. installs as a Claude Code plugin from the marketplace bundled in this repo —
 once, globally, so its commands are available in every folder.
 
-```bash
-# 1. Get the plugin source
-git clone https://github.com/travelhawk/forge-harness.git
+No clone needed — the marketplace registers straight from GitHub (Claude Code clones it
+into its own cache):
 
-# 2. Register the marketplace and install the plugin (global by default)
-claude plugin marketplace add ./forge-harness
+```bash
+claude plugin marketplace add travelhawk/forge-harness
 claude plugin install forge@forge
 ```
 
-Or from inside Claude Code: `/plugin marketplace add ./forge-harness` then `/plugin install
-forge@forge`. One convenience wrapper does both against the current repo — run
-`npm run install-forge` from the clone.
+Or from inside Claude Code: `/plugin marketplace add travelhawk/forge-harness` then
+`/plugin install forge@forge`. While the repo is private, your git credentials need read
+access (an authenticated `gh` or SSH key covers it) — a public repo installs with no auth.
 
 - **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is
   enabled only for the repo you run it in.
+- **Working from a clone anyway?** `claude plugin marketplace add ./forge-harness` registers
+  the local path instead (copies the working tree, untracked files included), or run the
+  wrapper `npm run install-forge` from the clone.
 - **Developing the plugin itself?** Skip install and launch with `claude --plugin-dir
   /path/to/forge-harness` to load your working copy live (`/reload-plugins` picks up edits).
-- **Update / remove:** `claude plugin update forge` · `claude plugin uninstall forge`.
+- **Update / remove:** `claude plugin update forge` (pulls the latest commit from GitHub) ·
+  `claude plugin uninstall forge`.
 
 ## Getting started
 

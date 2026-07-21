@@ -20,8 +20,12 @@ the lower level demonstrably fails (missed findings, serial slog through indepen
 
 - **Adversarial verification** (`deep-review`) — findings are only trustworthy after
   independent refutation attempts; that's inherently multi-agent.
-- **Wide independent work** (`feature-pipeline`) — N independent items, each fits one
-  context window, no shared mutable state (worktrees isolate the rest). (Codebase
+- **Wide independent work** (`feature-pipeline`) — 3+ independent items, each fits one
+  context window, no shared mutable state (worktrees isolate the rest). Below 3,
+  `/forge:build`'s small-wave lane is the same shape at level 0–2: a 2-feature wave
+  builds as two parallel worktree subagents under the identical tier gates — the
+  workflow engine only earns its overhead once prose bookkeeping would juggle 3+
+  branches/verifies at once. (Codebase
   *mapping* is also wide-independent, but `/forge:understand` is a **skill**, not a workflow —
   it has no fail-closed gate or code-only aggregation to justify the runtime, so the main
   session fans out its readers directly.)

@@ -266,10 +266,12 @@ suite('cost optimizations', () => {
     assert.match(src, /T3 direct build/, 'synthetic brief marks itself')
   })
 
-  test('/forge:build: waves of 1-3 features skip the workflow (direct /forge:feature loop)', () => {
+  test('/forge:build: waves of 1-2 features run the direct lane, 3+ fire the pipeline', () => {
     const src = read('.claude', 'skills', 'build', 'SKILL.md')
-    assert.match(src, /Small-wave shortcut/, 'shortcut documented in Execute step')
-    assert.match(src, /Waves of 4\+/, 'pipeline reserved for 4+ feature waves (prompt-driven path is the robust default below that)')
+    assert.match(src, /Small-wave shortcut \(1–2 features\)/, 'shortcut documented in Execute step')
+    assert.match(src, /Waves of 3\+/, 'pipeline threshold is 3 — the point where prose bookkeeping starts to slip')
+    assert.match(src, /build in PARALLEL, never serially/, 'disjoint-footprint features fan out as parallel worktree subagents')
+    assert.match(read('.claude', 'skills', 'feature', 'SKILL.md'), /\(3\+\) independent items/, 'feature skill points at the same threshold')
   })
 
   test('/kickoff hands off to /forge in the SAME session', () => {
@@ -565,5 +567,68 @@ suite('review improvements', () => {
     assert.match(fp(), /budget\.spent\(\)/, 'spend read from the Workflow budget API')
     assert.match(fp(), /spend,/, 'spend returned to the orchestrator')
     assert.match(build(), /Actual spend vs\. the gate estimate/i, '/forge:build report compares real spend to the estimate')
+  })
+})
+
+// --- lane consistency + speed (2026-07-21) — one tier contract, both lanes -----
+suite('lane consistency + speed', () => {
+  const build = () => read('.claude', 'skills', 'build', 'SKILL.md')
+
+  // The gate depth a feature gets depends on tier + diff, never on which lane built it:
+  // the post-build tier re-check runs in the pipeline AND in the direct loop.
+  test('post-build tier re-check runs in BOTH lanes', () => {
+    const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(fp, /label: `tier-recheck:\$\{i \+ 1\}`/, 'pipeline re-check stage present')
+    for (const s of ['build', 'feature']) {
+      const src = read('.claude', 'skills', s, 'SKILL.md')
+      assert.match(src, /git diff --merge-base HEAD/, `${s} lane re-checks the built diff`)
+      assert.match(src, /[Rr]aises depth only, never lowers it/, `${s} lane escalation is one-directional`)
+    }
+    assert.match(read('docs', 'RISK-TIERS.md'), /both lanes/i, 'RISK-TIERS states the re-check is lane-independent')
+    assert.match(read('docs', 'RISK-TIERS.md'), /never on which lane built it/, 'lane-independence stated as the invariant')
+  })
+
+  // The small-wave lane plans on the session model (judgment is never pinned to a
+  // build tier) and fans a 2-feature wave out in parallel.
+  test('small-wave lane: session-model planning, parallel 2-feature fan-out', () => {
+    assert.match(build(), /Plan rides the session model/i, 'planning stays on the session model')
+    assert.match(build(), /forge-worktree\.sh" new-build/, 'parallel builds use the deterministic worktree script')
+  })
+
+  // A clean run's finish reviews the seams, not the already-reviewed internals.
+  test('deep-review integration mode: one seam lens, wired into the /forge:build finish', () => {
+    const dr = readFileSync(join(workflowDir, 'deep-review.js'), 'utf8')
+    assert.match(dr, /a\.mode === 'integration'/, 'integration mode is explicit opt-in, full review stays the default')
+    assert.match(dr, /INTEGRATION_LENS/, 'a single integration lens replaces the 3-lens grind')
+    assert.match(dr, /do NOT re-grind per-feature internals/i, 'seam lens told not to re-review verified internals')
+    assert.match(build(), /mode: "integration"/, '/forge:build finish opts in when every feature passed its tier verify')
+    assert.match(build(), /a dirty run forfeits the shortcut/i, 'failures/skipped verifies force the full review')
+  })
+
+  // Speed is measured, and the no-reviewer ceremony tax is a named lever at the gate.
+  test('speed levers: stage timing recorded, local mode advertised for solo products', () => {
+    assert.match(build(), /date \+%s/, 'stage boundaries are timestamped')
+    assert.match(build(), /Where the time went/i, 'report carries the per-stage wall-clock')
+    assert.match(build(), /speed lever/i, 'local integration mode named as the speed lever at the gate')
+  })
+})
+
+// --- retro swarm loop (2026-07-21) — local apply + opt-in upstream PR ----------
+suite('retro swarm loop', () => {
+  test('retro applies locally, asks before an upstream PR, and never merges it', () => {
+    const src = read('.claude', 'skills', 'retro', 'SKILL.md')
+    assert.match(src, /FORGE_HOME/, 'changes land in the local plugin install first')
+    assert.match(src, /Propose these changes upstream as a PR\?/, 'the PR offer is one explicit question')
+    assert.match(src, /never assume yes/i, 'PR creation is opt-in, never automatic')
+    assert.match(src, /origin\/<default-branch>/, 'the PR branch bases on the remote default branch, not local state')
+    assert.match(src, /Never merge it/i, 'the maintainer alone decides — retro never merges its own PR')
+    assert.match(src, /npm ci && npm test/, 'suite green in the PR working tree before pushing (hard rule 8)')
+    assert.match(src, /gh repo fork <upstream> --remote=true/, 'non-collaborators fork on demand instead of stopping')
+    assert.match(src, /--head <your-login>:<branch>/, 'the PR is opened cross-repo from the fork')
+    assert.match(src, /Allow forking/, 'private-repo fork rejection names the maintainer setting')
+    assert.match(src, /show BEFORE asking/i, 'disclosure precedes the consent question')
+    assert.match(src, /ALL that leaves the machine/, 'what is sent is bounded and stated: diff + PR body, nothing else')
+    assert.match(src, /offer to redact product-identifying details/i, 'evidence can name the user product — redaction offered')
+    assert.match(src, /their own GitHub account/i, 'the fork location is disclosed up front')
   })
 })

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'deep-review',
   description: 'Multi-dimension code review with adversarial verification of every finding',
-  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md).',
+  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>", mode: "integration"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md); mode: "integration" swaps the 3 lenses for ONE integration-seam lens, for reviewing a merge of features that each already passed an isolated per-feature verify (the /forge:build finish on a clean run).',
   phases: [
     { title: 'Review', detail: 'three merged lenses in parallel: bugs, boundaries, craft' },
     { title: 'Verify', detail: 'crit/high refuted individually, all medium/low by one batch refuter' },
@@ -23,6 +23,12 @@ const scope = scopeArg || 'the current uncommitted diff plus commits not yet on 
 // Optional risk steer: names the high-risk (T1) features/paths so reviewers spend their
 // effort where it matters and sweep low-risk boilerplate lightly. See docs/RISK-TIERS.md.
 const priority = a && typeof a === 'object' && typeof a.priority === 'string' && a.priority.trim() ? a.priority.trim() : null
+// Scoped mode (2026-07-21): when every feature in the scope already passed an isolated
+// per-feature tier verify, the full 3-lens pass mostly re-reviews reviewed code. mode:
+// 'integration' reviews only what per-feature isolation could NOT see — the seams of
+// the merged whole — with one lens. The adversarial verify stage is unchanged, and the
+// default stays the full review: the scoped mode is explicit opt-in by the caller.
+const mode = a && typeof a === 'object' && a.mode === 'integration' ? 'integration' : 'full'
 
 const PREFLIGHT = {
   type: 'object', additionalProperties: false,
@@ -65,11 +71,23 @@ const agent = (p, o) => agent0(AT + p, o)
 // Three merged lenses, not six single-topic reviewers: past ~3 genuinely different
 // priors the findings overlap and the extra agents mostly pay to rediscover them.
 // Each lens still reads with fresh context; related topics share one reader.
-const DIMENSIONS = [
+const LENSES = [
   { key: 'bugs', prompt: 'Correctness and state. Logic bugs, off-by-ones, wrong conditionals, broken edge cases, unhandled error paths that produce wrong results; race conditions, stale state, missing transactions/locking, cache invalidation bugs, async ordering assumptions.' },
   { key: 'boundaries', prompt: 'Security and contracts. Injection, authz/authn gaps, secrets in code, unsafe deserialization, path traversal, SSRF, exposed internals (only real, reachable issues); schema/API mismatches, breaking changes for existing consumers or stored data, migration gaps, nullability violations.' },
   { key: 'craft', prompt: 'Tests and simplicity. Behavior changed without test changes, tests that assert nothing, missing coverage for the risky branch just introduced; dead code, needless abstraction, duplicated logic that existing helpers already cover, over-engineering vs the task.' },
 ]
+// The integration lens (mode: 'integration'): everything in the scope already passed an
+// isolated per-feature verify — the value left is at the seams the isolation hid.
+const INTEGRATION_LENS = {
+  key: 'integration',
+  prompt: 'Integration seams of independently-verified work. Every feature in this scope already passed an ' +
+    'isolated fresh-context verify — do NOT re-grind per-feature internals (logic, style, per-feature test depth). ' +
+    'Hunt only what isolation could not see: cross-feature interactions (shared state, routes, config, or schema ' +
+    'touched by more than one feature), contract mismatches between features merged together, migration ordering, ' +
+    'merge-resolution artifacts, duplicated or conflicting logic introduced by parallel builds — plus a light sweep ' +
+    'of smoke-only (T3) surfaces named in the risk steer. Only issues with a concrete failure scenario.',
+}
+const DIMENSIONS = mode === 'integration' ? [INTEGRATION_LENS] : LENSES
 
 const FINDINGS = {
   type: 'object',
@@ -106,7 +124,7 @@ const VERDICT = {
 }
 
 phase('Review')
-log(`Reviewing scope: ${scope}`)
+log(`Reviewing scope: ${scope}` + (mode === 'integration' ? ' — integration-seam mode (per-feature internals already verified)' : ''))
 const all = await parallel(DIMENSIONS.map(d => () =>
   agent(
     `Review ${scope} in the target repository. Your single dimension: ${d.key}.\n${d.prompt}\n\n` +

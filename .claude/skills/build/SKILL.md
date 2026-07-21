@@ -78,17 +78,18 @@ Present in one message, then get one approval:
     plans (each PR carries its own isolated verification; there is no integrated-main
     check because nothing merges). Otherwise offer auto-integrate or a re-scoped
     backlog.
-  - **local** (no remote): offer `gh repo create --private --source .` once; declined →
-    `git merge --no-ff` per verified feature, the merge commits are the audit trail,
-    no PRs.
+  - **local** (no remote — or chosen on purpose): with no remote, offer `gh repo create
+    --private --source .` once; declined → `git merge --no-ff` per verified feature, the
+    merge commits are the audit trail, no PRs. **Recommend it proactively for a solo
+    product with no CI and no second reviewer** — same branches, same gates, none of the
+    per-feature PR + checks round-trips. This is the run's speed lever.
 - **The execution mode, stated plainly:** which waves fire the `feature-pipeline`
-  workflow (4+ parallel-safe entries) and which run the direct `/forge:feature` loop,
-  with the one-line why ("no wave has 4+ parallel-safe entries — engine features share
-  one footprint"). The user should never have to ask afterward why a workflow did or
-  didn't run.
-- A rough cost expectation (a 4+-feature wave is a feature-pipeline run: 5–30x
-  session tokens; a 1–3-feature wave runs the direct `/forge:feature` loop at roughly
-  half that; plus one deep-review for the finish).
+  workflow (3+ parallel-safe entries) and which run the direct lane, with the one-line
+  why ("no wave has 3+ parallel-safe entries — engine features share one footprint").
+  The user should never have to ask afterward why a workflow did or didn't run.
+- A rough cost expectation (a 3+-feature wave is a feature-pipeline run: 5–30x
+  session tokens; a 1–2-feature wave runs the direct lane at roughly half that; plus
+  the finish deep-review — scoped to integration seams on a clean run, §5).
 - The finish step (section 5) is included by default: automatic `deep-review` of the
   integrated result, confirmed critical/high findings fixed on the spot, plus — for UI
   products — a Playwright **visual walkthrough** (§5b: flow videos + a screen-overview
@@ -111,20 +112,19 @@ and is overruleable at the finish deep-review.
 
 ## 4. Execute (hands-off from here)
 
-**Small-wave shortcut (1–3 features):** the pipeline's value is parallel fan-out +
-context isolation; below 4 features its fixed overhead (preflight, per-feature plan
-agent, re-contexting) outweighs it — and the prompt-driven `/forge:feature` path is the
-more robust default anyway (fewer moving parts than the JS engine, so fewer break points).
-For such a wave, skip the workflow and run the `/forge:feature` loop §2–§4 directly per
-feature — plan inline (forge-blueprint only if large), `forge-hammer` builds on a
-`feature/<slug>` branch, fresh-context verify per tier (T1: quench + warden, T2: quench,
-T3: smoke) — still hands-off under the gate approval, then continue at step 2 below
-(PR/merge machinery identical). **The shortcut is not a license to serialize
+**Small-wave shortcut (1–2 features):** below 3 features the workflow engine's fixed
+overhead and extra moving parts outweigh the scripted fan-out — run the loop directly,
+with the SAME gate shape the pipeline enforces (the tier contract is the quality
+promise; the lane is only the vehicle). **The shortcut is not a license to serialize
 everything** (the forgedefense run lost hours to it):
 
-- **Disjoint-footprint features in one wave build CONCURRENTLY** — one worktree per
-  hammer (`isolation: "worktree"` / `EnterWorktree`), merged in plan order. Two
-  parallel hammers ≈ half the wave's wall-clock.
+- **Plan rides the session model** — inline, `forge-blueprint` only if large; planning is
+  judgment, never pinned to a build tier (`$FORGE_HOME/docs/MODEL-ROUTING.md`).
+- **Disjoint-footprint features build in PARALLEL, never serially** — one `forge-hammer`
+  subagent per feature (Opus pinned for T1/T2, Sonnet for T3) in isolated worktrees
+  (`bash "$FORGE_HOME/scripts/forge-worktree.sh" new-build <n>`, or `isolation:
+  "worktree"`), launched in one message, merged in plan order; the fresh-context verifies
+  fan out the same way. Two parallel hammers ≈ half the wave's wall-clock.
 - **Chained entries overlap stages:** while the consolidated quench reviews segment N
   (read-only on committed branches), the next hammer already builds link N+1 branched
   off N. A failed review costs one rebase of N+1; a passed one (the common case) saves
@@ -132,11 +132,21 @@ everything** (the forgedefense run lost hours to it):
 - **Full e2e runs at checkpoints, not per link:** unit + typecheck + lint per link;
   the e2e suite at wave boundaries and every ~3 chain links. The integrated-main suite
   check after each wave's merges stays untouched.
+- **Post-build tier re-check — the same net the pipeline runs:** per T2/T3 feature, a
+  cheap Haiku subagent reads `git diff --merge-base HEAD <branch>` (read-only) and, if
+  the built diff touches a security-sensitive surface the seeded tier under-budgeted
+  (tenant query, webhook parser, token handling…), escalates that feature: its verify
+  additionally gets the adversarial security pass, combined fail-closed like a T1.
+  Raises depth only, never lowers it (`$FORGE_HOME/docs/RISK-TIERS.md`).
+- Verify per (possibly escalated) tier: T1 quench + warden in parallel, T2 quench,
+  T3 smoke.
 
-Waves of 4+ genuinely-independent features fire the
-pipeline:
+Still hands-off under the gate approval; continue at step 2 below (PR/merge machinery
+identical). **Waves of 3+** genuinely-independent entries fire the pipeline:
 
-Per wave, in order:
+Per wave, in order (capture `date +%s` at each stage boundary — wave start → builds done
+→ verifies done → merges done — §6 reports per-stage wall-clock, so "slow" gets a
+culprit stage, not a feeling):
 
 1. Fire the `feature-pipeline` workflow (scriptPath per §0) with `{dir: <product path>, features: [wave
    entries], context, known_failures}`. Each wave entry is an object `{feature, tier,
@@ -230,6 +240,14 @@ steps below apply to auto-integrate and local modes.
    concentrate their effort on the high-risk paths — T3 boilerplate, already smoke-built,
    gets swept but not ground over. Pipeline verification saw each feature in isolation —
    this is the adversarial pass over the merged whole, and the one review T3 features get.
+   **Scope it to what per-feature verification could NOT see:** when every merged feature
+   passed its tier verify and no wave had failures or skipped dependents, add
+   `mode: "integration"` — deep-review then runs ONE integration-seam lens (cross-feature
+   interactions, contract/migration mismatches, merge artifacts, a light T3 sweep steered
+   by `priority`) instead of re-grinding already-reviewed internals with all 3 lenses; the
+   adversarial verify of findings is unchanged. Run the FULL review (omit `mode`) whenever
+   any feature merged without its tier verify, a wave had failures, or the run was
+   resumed/reconciled mid-way — a dirty run forfeits the shortcut.
    A deep-review error return (a result with no `confirmed`/`unverified` — preflight
    flaked, target refused) is ship-blocking: report the error, never emit
    ready-for-`/forge:ship` without a completed review (same rule as a section-4 workflow
@@ -296,6 +314,9 @@ detail only by following links.
 - **Actual spend vs. the gate estimate:** the run's real output-token spend (from the
   pipeline's reported `spend`) against the "5–30x" quoted at the gate — calibrates the
   next estimate instead of leaving it a guess.
+- **Where the time went:** per-wave stage wall-clock (build / verify / integrate, from
+  the `date +%s` boundaries recorded in §4) beside the spend line — the next tuning
+  decision starts from a measured bottleneck, not an impression.
 - Finish results: confirmed findings fixed (with evidence), unverified crit/high held
   as ship-blocking, medium/low open. In review-PRs mode: the deferred-review note.
 - Visual walkthrough (UI products): the paths to the flow videos and `overview.png`, plus
