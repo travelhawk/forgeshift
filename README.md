@@ -10,12 +10,10 @@
  F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering
 ```
 
-**The shift your products build themselves.** A Claude Code plugin for building any
+**Where products get hammered into shape.** A Claude Code plugin for building any
 software product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from
-idea to shipped: brief the crew once (spec, wave plan), and a whole shift runs without you
-until the ship decisions. The gates still gate — the **risk-tier contract** is enforced in
-every build lane, with the workflow fleets as the wide-batch vehicle, not the only
-gatekeeper. Install once; use in any folder.
+idea to shipped: brief the crew once (spec, wave plan, design), and a whole shift runs without you
+until the ship decisions. A build lane which is focused on long-autonomous runs with quality gates which actually gates, risk-tiered validation and model routing. Install once; use in any folder.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
@@ -24,7 +22,7 @@ gatekeeper. Install once; use in any folder.
 ## What this is (and isn't)
 
 F.O.R.G.E. is **not a library you import** — it's a **Claude Code plugin you install once
-and use everywhere.** Install it globally, then run `claude` inside any product folder and
+and use everywhere.** Install it globally, then run `claude` inside any product folder (or use the app) and
 drive whole products through a set of `/forge:*` commands: `/forge:kickoff` to
 spec-and-scaffold, `/forge:build` to build a backlog hands-off, `/forge:ship` to release.
 The plugin ships the parts that make that reliable:
@@ -68,8 +66,7 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
 ## Requirements
 
 - **Claude Code**, current version (plugin support + the **Workflow tool** for dynamic
-  workflows — the four orchestration commands depend on it; skills and agents work on any
-  recent version).
+  workflows — the four orchestration commands depend on it).
 - **git**, and **Node 22+ with pnpm** (`corepack enable`) for the default playbooks.
   Per-type extras (Go, Rust for Tauri, Expo/EAS, Apple Developer) are listed in each
   playbook and only needed when you build that type.
@@ -81,8 +78,7 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
 F.O.R.G.E. installs as a Claude Code plugin from the marketplace bundled in this repo —
 once, globally, so its commands are available in every folder.
 
-No clone needed — the marketplace registers straight from GitHub (Claude Code clones it
-into its own cache):
+No clone needed — the marketplace registers straight from GitHub:
 
 ```bash
 claude plugin marketplace add travelhawk/forgeshift
@@ -90,8 +86,7 @@ claude plugin install forge@forge
 ```
 
 Or from inside Claude Code: `/plugin marketplace add travelhawk/forgeshift` then
-`/plugin install forge@forge`. While the repo is private, your git credentials need read
-access (an authenticated `gh` or SSH key covers it) — a public repo installs with no auth.
+`/plugin install forge@forge`.
 
 - **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is
   enabled only for the repo you run it in.
@@ -105,9 +100,7 @@ access (an authenticated `gh` or SSH key covers it) — a public repo installs w
 
 ## Getting started
 
-Once installed, **run `claude` inside your product folder** (or an empty folder for a brand
-new one) — the `/forge:*` commands are available everywhere; there is no harness directory to
-sit inside.
+Once installed, **run `claude` inside your product folder** (or use the Claude app) — the `/forge:*` commands are available everywhere.
 
 **1. Kick off your first product.**
 
@@ -147,10 +140,8 @@ That's the loop. New to it? Read [docs/LIFECYCLE.md](docs/LIFECYCLE.md) for the 
 idea-to-ship path, and [docs/COMMANDS.md](docs/COMMANDS.md) for what each command costs
 and when it pauses for you.
 
-> **The one rule that pays rent:** run `claude` **inside your product** and let the plugin
-> do the rest — its commands, agents, and workflows are available in every folder. Products
-> live wherever you keep them; the plugin lives in your Claude Code config, not in a
-> workspace you build inside of.
+> **The one rule:** run `claude` **inside your product** and let the plugin
+> do the rest — its commands, agents, and workflows are available in every folder.
 
 ## What's inside
 
@@ -198,7 +189,7 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 
 ## Maintenance
 
-- **The harness is a git repo — treat harness changes like code.** Every edit to
+- **The coding workflow is a git repo — treat changes like code.** Every edit to
   CLAUDE.md, playbooks, skills, or workflows gets committed with a one-line why;
   that's your rollback when an agent (or you) breaks the operating manual.
 - Quarterly (or when models change): re-check `docs/MODEL-ROUTING.md` pricing/IDs.
@@ -212,6 +203,3 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 
 Built by **Michael Falk**, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).
 Shared for other AI builders to fork, adapt, and argue with.
-
-No license file ships yet — add one that matches how you intend to share it (MIT for
-"do what you like," or keep it all-rights-reserved for a private share).
