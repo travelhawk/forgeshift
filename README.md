@@ -63,6 +63,23 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
   drops to Sonnet; mechanical sweeps to Haiku. One session-model choice raises or lowers
   the whole judgment tier. Policy: [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md).
 
+## The self-improving loop
+
+ForgeShift doesn't just build products — every run sharpens the tool itself. After a
+milestone, `/forge:retro` mines the session for observed friction: a gate that fired too
+late, a prompt agents kept misreading, a wave that serialized when it should have run
+parallel. Each finding becomes a concrete fix to the harness — skills, agents, workflows,
+docs — applied to **your installed copy first**, regression suite green, committed with
+the reason. Your ForgeShift adapts to how you build, one run at a time.
+
+The same loop is community-driven: when a fix is general rather than product-specific,
+retro offers to submit it upstream as an automatic PR — one explicit question (never
+assumed), forking on demand if you lack push rights, and only the diff plus a draft PR
+body ever leave your machine (product-identifying details redacted on request). Merged
+upstream, it ships back to everyone on the next `claude plugin update forge`. Every build,
+by anyone, can make the next build better for all — a living harness, re-forged on every
+run.
+
 ## Requirements
 
 - **Claude Code**, current version (plugin support + the **Workflow tool** for dynamic
@@ -197,7 +214,9 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 - When a session teaches you something durable about how you want to build: it goes in
   `CLAUDE.md` (tersely), and something stale comes out — commit both.
 - After each milestone: `/forge:retro` — mines the build for friction and turns it into
-  committed harness improvements. This loop is what keeps "best" true over time.
+  committed harness improvements, optionally PR'd upstream (see
+  [The self-improving loop](#the-self-improving-loop)). This is what keeps "best" true
+  over time.
 
 ## Credits & license
 
