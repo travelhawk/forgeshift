@@ -21,21 +21,22 @@ until the ship decisions. A build lane which is focused on long-autonomous runs 
 
 ## Quick start
 
-Install once, globally — two commands, and the `/forge:*` commands work in every folder:
+Install once — the `/forge:*` commands then work in every folder. Pick whichever fits you:
+
+**In the Claude app — no terminal, no git needed.** In the sidebar, click
+**Customize → Plugins → Add marketplace**, and paste this Git URL:
+
+```
+https://github.com/FalkTechLab/forgeshift
+```
+
+**F.O.R.G.E.** then appears in the list — click **Install**, and you're done.
+
+**In a terminal.** Run these two commands (or type them as `/plugin marketplace add …`
+then `/plugin install …` inside an interactive `claude` session):
 
 ```bash
-claude plugin marketplace add travelhawk/forgeshift
-claude plugin install forge@forge
-```
-
-**Don't use a terminal or know git?** You don't need to. Open Claude Code (or the Claude
-app) in any folder and paste this — let your agent do the install for you:
-
-```
-Install the ForgeShift Claude Code plugin for me. Run these two commands and then
-confirm the /forge: commands are available:
-
-claude plugin marketplace add travelhawk/forgeshift
+claude plugin marketplace add FalkTechLab/forgeshift
 claude plugin install forge@forge
 ```
 
@@ -129,11 +130,11 @@ once, globally, so its commands are available in every folder.
 No clone needed — the marketplace registers straight from GitHub:
 
 ```bash
-claude plugin marketplace add travelhawk/forgeshift
+claude plugin marketplace add FalkTechLab/forgeshift
 claude plugin install forge@forge
 ```
 
-Or from inside Claude Code: `/plugin marketplace add travelhawk/forgeshift` then
+Or from inside Claude Code: `/plugin marketplace add FalkTechLab/forgeshift` then
 `/plugin install forge@forge`.
 
 - **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is
