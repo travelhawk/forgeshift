@@ -32,12 +32,18 @@ https://github.com/FalkTechLab/forgeshift
 
 **F.O.R.G.E.** then appears in the list — click **Install**, and you're done.
 
-**In a terminal.** Run these two commands (or type them as `/plugin marketplace add …`
-then `/plugin install …` inside an interactive `claude` session):
+**In a terminal.** Run these two commands:
 
 ```bash
 claude plugin marketplace add FalkTechLab/forgeshift
 claude plugin install forge@forge
+```
+
+Or, inside an interactive `claude` session, type them as slash commands:
+
+```
+/plugin marketplace add FalkTechLab/forgeshift
+/plugin install forge@forge
 ```
 
 Then kick off your first product — just describe it:
