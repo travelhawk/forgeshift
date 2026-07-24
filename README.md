@@ -19,6 +19,37 @@ until the ship decisions. A build lane which is focused on long-autonomous runs 
 
 ---
 
+## Quick start
+
+Install once, globally — two commands, and the `/forge:*` commands work in every folder:
+
+```bash
+claude plugin marketplace add travelhawk/forgeshift
+claude plugin install forge@forge
+```
+
+**Don't use a terminal or know git?** You don't need to. Open Claude Code (or the Claude
+app) in any folder and paste this — let your agent do the install for you:
+
+```
+Install the ForgeShift Claude Code plugin for me. Run these two commands and then
+confirm the /forge: commands are available:
+
+claude plugin marketplace add travelhawk/forgeshift
+claude plugin install forge@forge
+```
+
+Then kick off your first product — just describe it:
+
+```
+> /forge:kickoff a habit tracker that guilt-trips me with charts
+```
+
+That's the whole on-ramp. Everything below explains what you just installed, the other
+commands, and how to make it yours — read it when you want the depth, not before you start.
+
+---
+
 ## What this is (and isn't)
 
 F.O.R.G.E. is **not a library you import** — it's a **Claude Code plugin you install once
