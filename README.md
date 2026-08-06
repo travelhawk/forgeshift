@@ -27,7 +27,7 @@ Install once — the `/forge:*` commands then work in every folder. Pick whichev
 **Customize → Plugins → Add marketplace**, and paste this Git URL:
 
 ```
-https://github.com/FalkTechLab/forgeshift
+https://github.com/travelhawk/forgeshift
 ```
 
 **F.O.R.G.E.** then appears in the list — click **Install**, and you're done.
@@ -35,7 +35,7 @@ https://github.com/FalkTechLab/forgeshift
 **In a terminal.** Run these two commands:
 
 ```bash
-claude plugin marketplace add FalkTechLab/forgeshift
+claude plugin marketplace add travelhawk/forgeshift
 claude plugin install forge@forge
 ```
 
