@@ -101,7 +101,9 @@ Specialists live in `.claude/agents/`, forge-themed names with the role in paren
    narration; generated docs say each thing once. Context (evidence, paths, criteria)
    is never cut — only words about words.
 8. **Harness changes run the regression suite.** `npm test` in the plugin repo green before
-   any commit that touches skills/agents/workflows/docs; new invariants get a test.
+   any commit that touches skills/agents/workflows/docs; new invariants get a test. PRs
+   additionally face the CI eval gate (`npm run eval:gate`): quality metrics may not drop
+   vs the merge-base, cost may not jump past budget — `docs/EVALS.md`.
 9. **Deterministic work is a script, never an agent turn.** Git plumbing, worktree
    lifecycle, PR assembly, running the suite, version bumps — anything with a single
    correct answer — lives in `$FORGE_HOME/scripts/` (or a command a skill runs directly),

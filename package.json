@@ -8,6 +8,7 @@
   "scripts": {
     "test": "node --test \"tests/*.test.mjs\"",
     "eval": "node evals/run-evals.mjs",
+    "eval:gate": "node evals/gate.mjs",
     "install-forge": "node scripts/install.mjs"
   }
 }
