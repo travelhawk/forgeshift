@@ -1,19 +1,16 @@
 # Risk-Tiered Validation
 
-Not every feature deserves the same validation. A payment webhook and a read-only admin
-list both went through the identical plan → test → build → fresh-context-verify loop —
-thorough, but slow and expensive on boilerplate, and no *concentrated* scrutiny on the
-dangerous 20%. Risk tiers fix that: each feature is tagged **T1/T2/T3** at spec time, and
-the build+validate orchestration branches on the tag instead of running one fixed loop.
-
-The tag is **seeded** by auto-classification and is **plain text in the feature row** —
-you audit and override it (see [Override](#override)).
+Every feature is tagged **T1/T2/T3** at spec time and validation depth branches on the tag. A
+payment webhook and a read-only admin list do not deserve the same loop: one loop for both is
+slow on boilerplate and leaves no *concentrated* scrutiny for the dangerous 20%. The tag is
+**seeded** by auto-classification and is **plain text in the feature row** — you audit and
+override it (see [Override](#override)).
 
 ## Classify on capability, not on the noun
 
-Risk is not a property of a feature's label ("admin view", "API route", "CRUD"). It is a
-property of what the feature can *do*. Tag by **capability signal** — and the one-line
-justification cites *which signal fired*, so the tag is auditable.
+Risk is a property not of a feature's label ("admin view", "API route", "CRUD") but of what the
+feature can *do*. Tag by **capability signal**; the one-line justification cites *which signal
+fired*, so the tag is auditable.
 
 | Signal | Fires on |
 |---|---|
@@ -23,19 +20,13 @@ justification cites *which signal fired*, so the tag is auditable.
 | **Accepts untrusted external input** | public/unauthenticated endpoints, webhooks, file uploads, redirect targets |
 | **Irreversible / hard-to-reverse side effect** | deletes, external sends (email/SMS), state that cannot be rolled back |
 
-**Any signal fires → Tier 1. Side effects but no signal → Tier 2. Render of the caller's
-own already-owned data, or scaffolding → Tier 3.**
+**Any signal fires → T1. Side effects but no signal → T2. Render of the caller's own
+already-owned data, or scaffolding → T3.** Ties break **upward**.
 
 **Client-only carve-out (T3):** side effects confined to in-memory client state — a game
-simulation, canvas/animation state, a local UI state machine — with no persistence beyond
-the user's own device, no network write, and no security signal, are **T3**, not T2.
-"State-mutating" alone is not a signal; T2's "side effects" means effects that outlive the
-tab or cross a boundary. Wrong client-only logic is caught by its own unit tests and the
-finish deep-review sweep at a fraction of a per-feature adversarial review's cost. (The
-post-build diff re-check below still escalates any such feature whose code turns out to
-touch a sensitive surface.) Ties break **upward** — when unsure,
-the higher tier. (A *filter-dependent tenant query* is not "own data" — it's T1; see the
-boundary calls below.)
+simulation, canvas/animation state, a local UI state machine — with no persistence beyond the
+user's device, no network write, and no security signal are **T3**, not T2. "State-mutating"
+alone is not a signal; T2's "side effects" means effects that outlive the tab or cross a boundary.
 
 ## The tiers
 
@@ -44,66 +35,65 @@ boundary calls below.)
 | **Qualifies** | any capability signal: auth/session, payments/webhooks, permission checks, filter-dependent tenant/owner queries, untrusted external input, irreversible sends | side effects without a signal: business-logic API route handlers, own-record mutations, transactional/marketing email | render of the caller's own/already-owned data, UI components, page/server components, CRUD *scaffolding* |
 | **Plan** | `forge-blueprint`, failure paths in the done-criteria | inline or blueprint, tests-first for core behavior | fast: inline generate |
 | **Build** | `forge-hammer`, **Opus** (pinned), effort **xhigh**, tests-first | `forge-hammer`, **Opus** (pinned), effort **high** | **Sonnet**, effort **medium** |
-| **Per-feature verify** | `forge-quench` (session model) **+ a parallel security/adversarial pass**; feature passes only if both pass | `forge-quench` (session model), **one** pass, medium effort | **smoke check only** (Haiku/Sonnet: builds / renders / one happy-path assertion). **No `forge-quench`.** |
-| **Tests** | full suite + explicit edge/failure cases | happy path + top failure path | a smoke test as the done-criteria's test |
+| **Tests the builder writes** | behavior tests at the public surface: happy path + explicit failure and edge cases | happy path + top failure path | one smoke test as the done-criteria's test |
+| **E2E** | at most **one** spec, and only for what no other layer can reach; written after the feature works | rarely — same bar | none |
+| **Per-feature verify** | `forge-quench` (session model) **+ a parallel security pass**, both scoped to the diff; the feature passes only if both pass | `forge-quench` (session model), **one** pass, medium effort | **smoke check only** (Haiku/Sonnet: builds / renders / one happy-path assertion). **No `forge-quench`.** |
 | **In `/forge:build` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
 
-**The seeded tier is a pre-build guess — the built diff gets a second look.** After a
-T2/T3 feature is built — in **both lanes**: the `feature-pipeline` workflow (its re-check
-stage) and the direct `/forge:feature` / small-wave loop — a cheap Haiku pass reads its
-actual diff (`git diff --merge-base`) and, if it touched a security-sensitive surface the
-seed under-budgeted (a tenant query, a webhook parser, token handling), **escalates** that
-feature to the adversarial security pass — combined fail-closed like a T1. This only ever
-*raises* depth, closing the gap where a feature was seeded low but the code turned out
-sensitive. T1 already runs security, so it is skipped there. The gate depth a feature gets
-depends on its tier and its diff, never on which lane built it.
+**Tier sets test *depth*, never *who runs what*.** At every tier the build agent's own gate is
+`typecheck` + `lint` + the tests covering its diff. The full suite and the single e2e run
+belong to the merge gate, once per wave (`CLAUDE.md` hard rules 2–3). A T1 feature is not a
+licence for its agent to run the whole suite.
 
-`build → Sonnet` for T3 is the existing routing policy, not a new rule: well-defined
-boilerplate execution is exactly Sonnet's tier ([MODEL-ROUTING.md](MODEL-ROUTING.md)).
-Risk tier and `/forge:feature`'s small/medium/large **sizing** are orthogonal: sizing controls
-*planning ceremony*, tier controls *validation depth*. A 5-line auth-cookie change is
-*small* but **T1** — and tier overrides the "cosmetic changes may skip verify" allowance
-**upward** (a T1 change never skips verify, however tiny).
+**The seeded tier is a pre-build guess — the built diff gets a second look.** After a T2/T3
+feature is built, in **both lanes** (the `feature-pipeline` re-check stage and the direct
+`/forge:feature` / small-wave loop), a cheap Haiku pass reads its actual diff
+(`git diff --merge-base`) and **escalates** it to the adversarial security pass if it touched a
+sensitive surface the seed under-budgeted (a tenant query, a webhook parser, token handling) —
+combined fail-closed like a T1. It only ever *raises* depth, and is skipped for T1, which runs
+security already. Gate depth depends on a feature's tier and its diff,
+never on which lane built it.
+
+Tier and `/forge:feature`'s small/medium/large **sizing** are orthogonal: sizing controls
+*planning ceremony*, tier controls *validation depth*. A 5-line auth-cookie change is *small*
+but **T1** — and tier overrides the "cosmetic changes may skip verify" allowance **upward**: a
+T1 change never skips verify, however tiny. (`build → Sonnet` for T3 is existing routing policy
+— [MODEL-ROUTING.md](MODEL-ROUTING.md).)
 
 ## Verification cost rules (added after the forgedefense retro, 2026-07-21)
 
-- **Chained features share reviews.** Sequentially-chained entries (shared-footprint
-  builds) get ONE consolidated `forge-quench` per ~3 links (and one at the chain's end),
-  reviewing the combined diff — not a fresh reviewer per link. A HIGH found late in a
-  segment still lands pre-merge of that segment.
-- **The reviewer does not re-run the gate suite.** `forge-quench` spot-runs the unit
-  suite; it re-runs typecheck/build/e2e only when the diff gives a concrete reason to
-  distrust the builder's pasted evidence (build config touched, e2e specs changed). On
-  the forgedefense run, per-feature reviewers re-running every gate cost ~40% of total
-  review time while never contradicting the builder's evidence once.
+- **Chained features share reviews.** Sequentially-chained entries get ONE consolidated
+  `forge-quench` per ~3 links (and one at the chain's end) over the combined diff — not a fresh
+  reviewer per link. A HIGH found late in a segment still lands pre-merge of that segment.
+- **Reviews are scoped to the diff**, not to the surrounding subsystem. An unscoped consolidated
+  audit over a three-feature auth chain measured 2 h 57 min — longer than building it.
+- **The reviewer does not re-run the gate suite.** `forge-quench` spot-runs the unit suite; it
+  re-runs typecheck/build/e2e only when the diff gives a concrete reason to distrust the
+  builder's pasted evidence (build config touched, e2e specs changed). On the forgedefense run,
+  per-feature reviewers re-running every gate cost ~40% of total review time while never once
+  contradicting the builder's evidence.
 
 ## Boundary calls (where the obvious label misleads)
 
-- **Admin views are not uniformly low-risk.** A read-only admin view of *same-tenant*
-  data is T3. One that **mutates** (delete user, change role, issue refund, toggle a flag)
-  or **reads across tenants / shows PII** is **T1** — a forgotten tenant filter in an
-  admin list is the cross-tenant-leak class.
-- **"Route" conflates two things.** A page / server component that renders = **T3**. An
-  API **route handler** (`app/api/**/route.ts`) runs server-side and usually mutates or
-  makes an authz decision → **T2**, or **T1** if a signal fires.
-- **CRUD: the R is not the CUD.** Rendering the caller's own record + pure scaffolding =
-  T3. A read/list that *queries a tenant-scoped table* is **T1** (next bullet).
-  Create/Update/Delete on the caller's own record = **T2**; on money / permissions /
-  another tenant's rows = **T1**.
-- **A tenant-scoped *query* is T1 — a rendered own-record is not.** The moment a feature
-  runs a query that must be filtered by `tenantId`/`orgId`/owner to be correct (list,
-  search, get-by-id across a multi-row tenant table), that filter *is* the security
-  boundary: a silently-missing one leaks other tenants' rows, and the happy-path test
-  passes anyway — it asserts *your* row is present, never that foreign rows are absent.
-  That earns the security pass → **T1**. Rendering data the caller already owns (their own
-  settings/dashboard, no filter-dependent query) stays **T3**. This is the auto-classifier's
-  most common under-call, confirmed by eval: when the seed tag says T2/T3 on a
-  filter-dependent tenant query, treat it as a tie and bump to **T1**.
-- **Auth email is not "email sending."** Transactional/marketing email = T2. But a
-  password-reset / magic-link / email-verification message is part of the **auth flow** —
-  the token is a credential → **T1**.
-- Also always T1: **file uploads** (path traversal / SSRF), anything **setting auth
-  cookies / a session**, and **secret / token handling**.
+- **Admin views are not uniformly low-risk.** Read-only, *same-tenant* = T3. One that **mutates**
+  (delete user, change role, issue refund, toggle a flag) or **reads across tenants / shows
+  PII** = **T1** — a forgotten tenant filter in an admin list is the cross-tenant-leak class.
+- **"Route" conflates two things.** A page / server component that renders = **T3**. An API
+  **route handler** (`app/api/**/route.ts`) runs server-side and usually mutates or makes an
+  authz decision → **T2**, or **T1** if a signal fires.
+- **CRUD: the R is not the CUD.** Rendering the caller's own record + pure scaffolding = T3.
+  Create/Update/Delete on the caller's own record = **T2**; on money / permissions / another
+  tenant's rows = **T1**.
+- **A tenant-scoped *query* is T1 — a rendered own-record is not.** The moment a feature runs a
+  query that must be filtered by `tenantId`/`orgId`/owner to be correct, that filter *is* the
+  security boundary: a missing one leaks other tenants' rows and the happy-path test still
+  passes, because it asserts *your* row is present, never that foreign rows are absent. This is
+  the auto-classifier's most common under-call, confirmed by eval: a seed tag of T2/T3 on a
+  filter-dependent tenant query is a tie — bump to **T1**.
+- **Auth email is not "email sending."** Transactional/marketing email = T2. A password-reset /
+  magic-link / email-verification message carries a credential → **T1**.
+- Also always T1: **file uploads** (path traversal / SSRF), anything **setting auth cookies / a
+  session**, and **secret / token handling**.
 
 ## Tagging
 
@@ -113,33 +103,24 @@ The tag lives in the feature row — the source of truth the skills already read
 - **docs/SPEC.md** V1 table: a **Risk** column holding `T? (<one-line justification>)`.
 - **docs/features/F<#>.md** (large features): a `## Risk tier` line.
 
-`/forge:kickoff` (and `/forge:adopt`) seed the tags via `forge-blueprint` at spec time, each with a
-one-line justification naming the signal. Auto-classification only *seeds* — the file is
+`/forge:kickoff` and `/forge:adopt` seed the tags via `forge-blueprint` at spec time, each with
+a one-line justification naming the signal. Auto-classification only *seeds*; the file is
 authoritative.
 
 ## Override
 
-Auto-classification will miss context you have. Three override points, coarsest to finest:
+Three override points, coarsest to finest:
 
 1. **Durable:** edit the `T?` marker (and its justification) in `PROGRESS.md` / `SPEC.md`.
    Whatever is written wins — state on disk, not in chat.
 2. **Per batch, at the gate:** the `/forge:build` wave-plan table shows every feature's tier +
-   justification. Adjust tiers there before you approve; the approval covers the change.
-3. **Per run:** `/forge:feature F3 as tier 1` (or `as tier 3`) in the argument overrides the
-   recorded tag for that single run.
+   justification. Adjust before you approve; the approval covers the change.
+3. **Per run:** `/forge:feature F3 as tier 1` (or `as tier 3`) overrides the recorded tag for
+   that single run.
 
-## Guardrails (why this is right-sizing, not a hole in the gates)
+## Why this is right-sizing, not a hole in the gates
 
-Harness Hard Rule #1 — *never delete, weaken, or skip a test to get green* — still holds.
-T3's "smoke-test only" is compatible because a boilerplate feature's *appropriate* test
-**is** a smoke test; we right-size the test, we do not skip a warranted one. Two
-guardrails keep that honest:
-
-1. **Ties classify up.** Doubt → higher tier. A feature that *might* touch a boundary is
-   treated as if it does.
-2. **The final integrated `deep-review` in `/forge:build` sweeps all tiers.** T3 is "not
-   *individually* pre-reviewed," never "unreviewed." A high-risk feature misclassified to
-   T3 is still caught at the finish gate before `/forge:ship`.
-
-Without these two, tiering would be a hole in "gates that gate." With them, it is
-right-sizing.
+Hard rule 1 still holds: T3's "smoke-test only" right-sizes a warranted test, it never skips
+one — a boilerplate feature's *appropriate* test **is** a smoke test. T3 is "not *individually*
+pre-reviewed", never "unreviewed": ties classify up, and the integrated `deep-review` sweeps
+every tier, so a high-risk feature misclassified to T3 is still caught before `/forge:ship`.

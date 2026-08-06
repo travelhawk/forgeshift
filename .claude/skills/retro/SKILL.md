@@ -1,109 +1,124 @@
 ---
 name: retro
-description: Harness retrospective - mine the recent build work for friction (permission prompts, wrong defaults, misfiring prompts, playbook drift), propose ranked harness improvements, apply the approved ones locally, then offer to propose them upstream as a PR (the maintainer decides what merges). Use after finishing a project milestone or whenever the harness felt wrong.
-argument-hint: "[optional: what felt wrong, in your words]"
-disable-model-invocation: true
+description: Harness retrospective - turn observed friction from real builds into approved, committed changes to the skills, agents, playbooks and rules. Use after a build run that felt wrong, or periodically.
+argument-hint: "[what felt wrong, if anything]"
 ---
 
-# /forge:retro — The harness improves from evidence, not theory
+# /forge:retro — the harness improves from evidence, not theory
 
 User's observation, if any: "$ARGUMENTS"
 
-The harness is code; this is its feedback loop. Every change proposed here must trace
-to OBSERVED friction — no speculative features, no "while we're at it".
+Every change proposed here traces to **observed** friction. No speculative features, no
+"while we're at it".
 
 ## 1. Gather evidence
 
-- The user's observation above — start there, it's the highest-signal input.
-- PROGRESS.md session logs of recently built products: repeated manual steps, escalations,
-  reverted work, "don't touch X" traps that should be playbook gotchas.
-- Harness git log since the last retro: what got hot-fixed mid-build? Those patches are
-  friction telling you where the design was wrong.
-- Ask the user 2-3 batched questions max: where did you wait on permission prompts?
-  Which agent output did you routinely edit? Which gate felt like theater?
+- **The user's observation is the highest-signal input** — start there.
+- **Measure, don't recall.** If the complaint is about time, get real numbers before proposing
+  anything: per-agent `duration_ms` from this session's subagent results, `.forge/run.json`
+  stage marks, suite runtimes. Group them **parallelism-aware** (a wave's cost is its slowest
+  member, not the sum) and report the split — building vs. reviewing vs. fixing vs. gates. A
+  retro that answers "where did the time go" with an impression is worthless; the biggest
+  single line item is usually not where anyone guessed.
+- `PROGRESS.md` session logs: repeated manual steps, escalations, reverted work, traps that
+  should be playbook gotchas.
+- Harness git log since the last retro: what got hot-fixed mid-build? Those patches mark where
+  the design was wrong.
+- Ask **2–3 batched questions max**: where did you wait on permission prompts, which agent
+  output did you routinely edit, which gate felt like theater.
 
 ## 2. Classify and propose (max 5, ranked by expected saved pain)
 
-For each friction item, the fix lands in the right layer:
-
-| Friction type | Fix layer |
+| Friction | Fix layer |
 |---|---|
 | Permission prompt for a routine safe command | `settings.json` allowlist |
-| Agent output needed the same correction twice | that agent's `.md` prompt |
+| Agent output needed the same correction twice | that agent's `.md` |
 | A skill step was ambiguous or wrong in practice | that `SKILL.md` |
-| Stack default aged or scaffold command drifted | the playbook (+ new as-of date) |
+| Stack default aged, scaffold command drifted | the playbook (+ new as-of date) |
 | Model too big/small for a stage | workflow `model:`/`effort:` or agent frontmatter |
-| A rule everyone kept re-explaining | CLAUDE.md (and something stale comes OUT) |
+| A rule everyone kept re-explaining | `CLAUDE.md` (and something stale comes OUT) |
 
-Present the ranked list with, per item: the observed evidence, the exact change, the
-expected effect. Let the user approve/reject per item.
+Per item: the observed evidence, the exact change, the expected effect. The user approves or
+rejects each.
 
-## 3. Apply (locally first)
+## 3. Apply — generalize first
 
-Changes land in the local plugin install — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`
-— so THIS machine benefits immediately, before any upstream review. When `$FORGE_HOME` is a
-git clone: one commit per approved change with the why in the message ("retro: allow pnpm
-create — kickoff prompted 3x during recipes build"), suite green first per hard rule 8
-(`npm test` there, when runnable). A marketplace-cache install has no repo — apply the edits
-anyway and say plainly that the next plugin update will overwrite them, which makes the §4
-PR the only durable path. Rejected proposals get one line in the closing commit body (or
-the PR body) so the next retro doesn't re-propose them.
+Changes land in the local install (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`), so
+this machine benefits immediately.
+
+**The harness is product-agnostic. The evidence never is.** Every lesson arrives wearing the
+clothes of the product that produced it — a framework, a database, a language, a domain noun.
+Strip them:
+
+- **Name the mechanism, not the instance.** "Leaked test workers starve later waves" is a rule;
+  "kill orphaned vitest workers" is a note about one product's toolchain.
+- **A trap belongs in the harness only if it recurs across products.** One that is real but
+  specific to a stack belongs in that **playbook**; one specific to a single product belongs in
+  **that product's** `CLAUDE.md`, not here. Ask per item: would this still be true for a CLI
+  tool in Rust? No → it is not a harness change.
+- **Grep before you commit.** Search the files you touched for the product's name, its
+  framework, its libraries and its domain vocabulary. Playbooks are the one place stack names
+  legitimately live.
+- Keep the *number* that made the case (a measured duration, a failure count) — numbers are
+  evidence, and evidence is what stops the next retro re-litigating this one.
+
+**Cut prose, never contracts.** `tests/harness.test.mjs` pins exact phrases because they encode
+contracts. Rewording one breaks its test — that is the test doing its job, not a nuisance.
+Restore the phrase; do not relax the regex, and never delete a test to get green (hard rule 1).
+A pinned phrase must also survive line-wrapping: a regex with a literal space does not match
+across a newline.
+
+Suite green before any commit (hard rule 11), one commit per approved change with the why in
+the message ("retro: allow pnpm create — kickoff prompted 3x during recipes build"). Rejected
+proposals get one line in the closing commit body so the next retro does not re-propose them.
+
+**A marketplace-cache install has no repo** — apply the edits anyway, and say plainly that the
+next plugin update overwrites them, which makes the §4 PR the only durable path. Its
+git-dependent tests cannot pass in a cache; note them as environmental rather than "fixing"
+them.
 
 ## 4. Propose upstream (ask — this is the swarm loop)
 
-Forge improves as a swarm: every user's retro fixes their own install, and the good fixes
-flow back as PRs — the repo owner alone decides what merges. Informed consent, so after
-applying, show BEFORE asking — in one short block:
+Forge improves as a swarm: each user's retro fixes their own install, the good fixes flow back
+as PRs, the repo owner decides what merges. **Informed consent — show before asking:**
 
-- **Exactly what would be sent:** the diff of the approved changes (file list + changes)
-  and the draft PR body. This is ALL that leaves the machine — never the session, the
-  product code, or anything else.
-- **Where it goes and who reads it:** the upstream repo URL and its maintainer — plus
-  anyone with access to that repo. Evidence lines cite the user's own build friction and
-  can name their product; **offer to redact product-identifying details** before sending.
-- **What gets created:** collaborators push a branch to the upstream; anyone else gets a
-  fork `<their-login>/<repo>` created in **their own GitHub account** (server-side, free,
-  private if the upstream is private, persists until they delete it). Requires a logged-in
-  `gh`; the maintainer merges or declines — sending guarantees nothing.
+- **Exactly what would be sent:** the diff of the approved changes and the draft PR body. This
+  is ALL that leaves the machine — never the session, never product code. Evidence lines can
+  name the user's product; **offer to redact product-identifying details**.
+- **Where it goes:** the upstream repo URL and its maintainer, plus anyone with repo access.
+- **What gets created:** collaborators push a branch upstream; anyone else gets a fork
+  `<their-login>/<repo>` created in **their own GitHub account** (server-side, free, private if
+  the upstream is, and it persists until they delete it). Requires a logged-in `gh`. The
+  maintainer merges or declines — sending guarantees nothing.
 
-Then ask ONE explicit question: **"Propose these changes upstream as a PR?"** Never skip
-the question, never assume yes.
+Then ask ONE explicit question: **"Propose these changes upstream as a PR?"** Never skip it,
+never assume yes.
 
 On yes:
 
-1. Resolve the upstream: `git -C "$FORGE_HOME" remote get-url origin` (no remote or no
-   repo → ask the user for the repo URL once).
-2. **Base the branch on the remote, not on local state** — a stale or diverged local clone
-   must not poison the PR: `git fetch origin`, then `git checkout -b retro/<slug>
-   origin/<default-branch>` and re-apply the approved changes there (cherry-pick the §3
-   commits, or re-edit). On a cache install, clone the remote into the scratchpad and apply
-   the same edits in that clone.
-3. Suite green in the PR working tree (`npm ci && npm test`) before pushing — hard rule 8.
-   Upstream CI re-runs the suite plus the comparative eval gate (`npm run eval:gate`,
-   `docs/EVALS.md`) on the PR: quality metrics may not drop vs the merge-base, cost may
-   not jump past budget. Run the gate locally too — a measured regression arrives as a
-   red check, and the maintainer will not merge it.
-4. Push the branch — collaborators push to the upstream directly. **Push rejected (not a
-   collaborator)? Fork, don't stop:** `gh repo fork <upstream> --remote=true` (server-side,
-   idempotent — reuses an existing fork), push the branch to the fork, and open the PR
-   cross-repo: `gh pr create --repo <upstream> --head <your-login>:<branch>`. A private
-   upstream can only be forked by users with read access and only if the maintainer has
-   enabled "Allow forking" — if the fork call is rejected for that reason, say so and name
-   that setting instead of retrying.
-5. `gh pr create` with the evidence per change in the body (friction observed → exact
-   change → expected effect; rejected proposals listed). `gh` missing or unauthenticated →
-   report the manual push + PR steps instead of failing silently.
-6. **Never merge it.** The PR is a proposal; the maintainer reviews and decides. Report the
-   PR URL and move on.
+1. Resolve the upstream (`git -C "$FORGE_HOME" remote get-url origin`; no repo → ask once).
+2. **Base the branch on the remote, not on local state** — `git fetch origin`, then
+   `git checkout -b retro/<slug> origin/<default-branch>`, and re-apply the changes there. On a
+   cache install, clone the remote into the scratchpad and apply the edits in that clone.
+3. `npm ci && npm test` green in the PR tree before pushing (hard rule 11) — this is also where
+   the git-dependent tests finally run for real. Run `npm run eval:gate` too: upstream CI
+   re-runs both, and a measured regression (quality down, cost past budget — `docs/EVALS.md`)
+   arrives as a red check the maintainer will not merge.
+4. Push. **Rejected because you are not a collaborator? Fork, don't stop:**
+   `gh repo fork <upstream> --remote=true` (idempotent), push there, and
+   `gh pr create --repo <upstream> --head <your-login>:<branch>`. A private upstream can only be
+   forked with read access and if "Allow forking" is enabled — say so rather than retrying.
+5. `gh pr create` with evidence per change (friction → change → expected effect; rejected items
+   listed). `gh` missing or unauthenticated → report the manual steps, never fail silently.
+6. **Never merge it.** Report the PR URL and move on.
 
-On no: the local changes stand; note in the report that they are local-only (and on a cache
-install won't survive a plugin update).
+On no: the local changes stand; note that they are local-only and, on a cache install, will not
+survive a plugin update.
 
 ## 5. Close
 
-Report: changes applied, expected effect, rejected-with-reason, and the upstream outcome
-(PR URL, declined, or not applicable). If a friction item needs real redesign (not a
-tweak), don't botch it inline — record it and recommend a dedicated session.
+Report: changes applied, expected effect, rejected-with-reason, upstream outcome (PR URL,
+declined, or not applicable). A friction item that needs real redesign rather than a tweak gets
+recorded and a dedicated session recommended — do not botch it inline.
 
-**Next →** back to product work — resume `/forge:build`/`/forge:feature`, or a dedicated session for
-any redesign item this retro recorded but didn't fix.
+**Next →** back to product work, or a dedicated session for any redesign item recorded here.

@@ -6,129 +6,92 @@ argument-hint: "[feature description or F# from the spec]"
 
 # /forge:feature — One feature through the loop
 
-Build "$ARGUMENTS" tests-first with independent verification. One feature per
-invocation; a whole backlog belongs in `/forge:build` (one approval, waves of parallel
-builds, PR per feature) and a raw batch without PR ceremony in the `feature-pipeline`
-workflow — point the user there when they list several (3+) independent items (the
-threshold at which the pipeline's scripted fan-out beats the direct loop; see
-`/forge:build` §4).
+Build "$ARGUMENTS" tests-first with independent verification. One feature per invocation; a
+whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent items in the
+`feature-pipeline` workflow — point the user there when they list several.
 
 ## 1. Anchor
 
-- Establish the target product first: normally the directory you launched `claude` in
-  (its root holds the manifest / `docs/SPEC.md`). Several candidate products under the
-  cwd and it's ambiguous → ask; then `cd` into the right one.
-- Find the feature in `docs/SPEC.md` / `PROGRESS.md` if it exists there; use its
-  done-criteria. Ad-hoc feature → write 2-5 checkable done-criteria now and get a nod.
-- **Read its risk tier** (the `T?` marker on the feature's row). Ad-hoc / untagged →
-  classify it now by capability signal (harness assets live at the plugin root — resolve
-  once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then see
-  `$FORGE_HOME/docs/RISK-TIERS.md`; ties break upward). The argument may override for this
-  run — `/forge:feature F3 as tier 1` wins over the recorded tag; state the tier and why
-  you're using it. The tier sets validation depth in the steps below.
-- Run the existing test suite first. Starting from red means fixing that first or
-  explicitly recording that the red is pre-existing and unrelated.
-- Note remote status (`git remote get-url origin`); a GitHub remote with `gh auth
-  status` passing enables the PR flow in step 5. No remote → step 5 falls back to a
-  local merge.
+- Establish the target product (normally the directory you launched `claude` in; ambiguous →
+  ask, then `cd`).
+- Find the feature in `docs/SPEC.md` / `PROGRESS.md` and use its done-criteria. Ad-hoc →
+  write 2–5 checkable ones now and get a nod.
+- **Read its risk tier** (`T?` on the feature's row). Untagged → classify by capability
+  signal (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then
+  `$FORGE_HOME/docs/RISK-TIERS.md`; ties up). `/forge:feature F3 as tier 1` overrides for this
+  run — state the tier you're using and why.
+- Run the suite. Starting red means fixing it first, or recording explicitly that the red is
+  pre-existing and unrelated.
+- Note remote status; a GitHub remote with `gh auth status` passing enables step 5's PR flow.
 
 ## 2. Plan — size it honestly
 
-- **Small** (single file, describable diff in one sentence): plan inline, skip ceremony.
-- **Medium**: show the inline plan — approach, files to touch, test plan — and proceed
-  without waiting for approval; the user can interrupt.
-- **Large or judgment-heavy** (new subsystem, data-model change, security-relevant):
-  delegate planning to `forge-blueprint`, record the plan as `docs/features/F<#>.md` from
-  `$FORGE_HOME/templates/FEATURE.md`, **present it for review as an artifact/link** so
-  the user needn't open the file (Artifact tool, minimal design — load `artifact-design`
-  first; or link the doc), and **block on user approval** before building.
-- **Integrates an external HTTP API** (a raw-`fetch` adapter behind an interface, no
-  vendor SDK)? Capture the verified request/response contract *now*, at plan time —
-  delegate to `forge-prospector` (it has web access) to confirm the endpoint, auth header,
-  request-body shape, and the success/error signal against live vendor docs, and record it
-  in the plan (or the feature doc). `forge-quench` has **no network** and cannot check
-  adapter fidelity itself; the recorded contract is the spec it verifies the code against.
-  Skip this and a faithful-looking-but-wrong adapter passes review (e.g. Postmark returns a
-  non-zero `ErrorCode` inside an HTTP 200 — only the docs tell you that).
+- **Small** (one file, diff describable in a sentence): plan inline, skip ceremony.
+- **Medium**: show the inline plan and proceed without waiting; the user can interrupt.
+- **Large or judgment-heavy** (new subsystem, data-model change, security-relevant): delegate
+  to `forge-blueprint`, record it as `docs/features/F<#>.md` from
+  `$FORGE_HOME/templates/FEATURE.md`, present it as an artifact/link, and **block on approval**.
+- **Integrates an external HTTP API?** Capture the verified request/response contract *now* —
+  delegate to `forge-prospector` (it has web access) to confirm endpoint, auth header, body
+  shape and the success/error signal against live vendor docs. `forge-quench` has no network;
+  the recorded contract is the only spec it can verify the adapter against. Skip this and a
+  faithful-looking-but-wrong adapter passes review (Postmark returns a non-zero `ErrorCode`
+  inside an HTTP 200 — only the docs tell you that).
 
 ## 3. Build
 
-- The feature builds on its own branch `feature/<F#-or-slug>` — **never commit a
-  feature straight to main**. It integrates only through step 5's PR (or the
-  local-merge fallback), and only after step 4 verification passes. Even a trivial
-  one-line fix gets a branch and a PR — the PR is the review record.
-- Implement per the plan — yourself for small work, via `forge-hammer` for medium+
-  (give it the plan, done-criteria, and paths; it works tests-first and commits per
-  green cycle). Never delete or weaken existing tests to get to green.
-- **Build effort follows the tier** (orthogonal to the size sizing above): **T1** builds
-  tests-first at high/xhigh effort; **T2** tests-first at high; **T3** boilerplate builds
-  fast — delegate to `forge-hammer` on **Sonnet** at medium effort (well-defined
-  execution), with a smoke test (compiles/renders + one happy path) as its test, not an
-  exhaustive suite.
+- Own branch `feature/<F#-or-slug>` — **never commit a feature straight to main**. Even a
+  one-line fix gets a branch; the PR is the review record.
+- Implement yourself for small work, via `forge-hammer` for medium+ (give it the plan,
+  done-criteria and paths). **Effort follows the tier:** T1 tests-first at high/xhigh, T2
+  tests-first at high, T3 fast on **Sonnet** at medium with a smoke test as its test.
+- **The gate while building is `typecheck`, `lint` and the tests covering the diff** — not the
+  full suite on every cycle. Full suite and e2e run once, at step 4, before integration.
+- **E2E: at most one spec for this feature, often none** — only for what no other layer can
+  reach. Written after the feature works, never e2e-first.
 
 ## 4. Verify (fresh context — depth follows the tier)
 
-The verifier always sees only the result, not the build reasoning. Fix CONFIRMED
-critical/high findings immediately; judge medium/low with the user if the fix isn't
-obvious.
+The verifier sees only the result, never the build reasoning. Run the **full suite and the
+e2e suite here**, before integrating. Fix CONFIRMED critical/high immediately; judge
+medium/low with the user if the fix isn't obvious.
 
-**Post-build tier re-check (T2/T3 only):** the tier was seeded from the feature's
-*description*; the built diff is the truth. Before verifying, a cheap Haiku subagent
-reads `git diff --merge-base HEAD <branch>` (read-only) and, if the diff touches a
-security-sensitive surface the tier didn't budget — tenant-scoped query, webhook or
-external-input parser, token/secret handling, authn/authz, raw SQL/shell — the feature
-is escalated: its verify additionally gets the T1 security pass below, combined
-fail-closed. Raises depth only, never lowers it. (Same net `feature-pipeline` runs as
-its re-check stage.)
+**Post-build tier re-check (T2/T3):** the tier was seeded from the feature's *description*;
+the built diff is the truth. A cheap Haiku pass reads `git diff --merge-base HEAD <branch>`
+and escalates to the T1 security pass if the diff touched a tenant-scoped query, an
+external-input parser, token/secret handling, authn/authz, or raw SQL/shell.
+Raises depth only, never lowers it.
 
-Branch by (possibly escalated) risk tier (`$FORGE_HOME/docs/RISK-TIERS.md`):
+- **T1** — `forge-quench` on the diff **and** a parallel security pass (`forge-warden`, or a
+  `deep-review` scoped to this diff). Done only when both pass; verify covers failure paths.
+  **Scope the review to the diff** — an unscoped audit over the surrounding subsystem can cost
+  more than the feature took to build.
+- **T2** — one `forge-quench` pass on the diff. Core coverage, no edge-case grinding.
+- **T3** — smoke check only: builds, renders, happy path. No `forge-quench`; the integrated
+  `deep-review` before ship is the net that sweeps T3.
 
-- **T1** — `forge-quench` on the diff **and** a parallel security/adversarial pass
-  (`forge-warden`, or a `deep-review` scoped to this feature's diff). The feature is done
-  only when **both** pass. Verify covers the failure/edge paths, not just the happy one.
-- **T2** — one `forge-quench` fresh-context pass on the diff. Core coverage; skip
-  exhaustive edge-case grinding.
-- **T3** — smoke check only: it builds, it renders/boots, the happy path works. No
-  `forge-quench` pass. The integrated `deep-review` (in `/forge:build`, or `/forge:deep-review`
-  before ship) is the safety net that still sweeps T3.
-
-**Tier overrides the cosmetic-skip allowance upward:** a T1 change never skips verify,
-however small. The "cosmetic changes may skip" shortcut applies to T3 only — say so
-explicitly when you take it.
+A T1 change never skips verify, however small. The cosmetic-skip shortcut is T3-only — say so
+when you take it.
 
 ## 5. Integrate — one PR per feature
 
-Verification green (step 4) → the feature branch integrates through a PR, never a
-direct push to main:
-
-- Push the branch: `git push -u origin feature/<...>`.
-- Open the PR with evidence: `gh pr create --head feature/<...> --base main
-  --title ... --body-file <scratchpad file>` — body = one-line summary, the
-  done-criteria as a checklist, and the step-4 verification evidence (test names +
-  output, review verdict). `--head` is required; the session checkout stays on main,
-  never on the feature branch.
-- Leave the PR open for you to review and merge — `/forge:feature` is the supervised lane,
-  so the merge call is yours. Ask and it squash-merges for you (`gh pr merge <n>
-  --squash --delete-branch`); otherwise the report hands you the PR link.
-- **No GitHub remote:** offer `gh repo create --private --source .` once. Declined →
-  fall back to `git merge --no-ff feature/<...>` into main (the merge commit is the
-  audit trail) — still never an unreviewed fast-forward onto main.
+- `git push -u origin feature/<...>`, then `gh pr create --head feature/<...> --base main
+  --body-file <scratchpad>` — body = summary, done-criteria checklist, step-4 evidence.
+  `--head` is required so the session checkout stays on main.
+- Leave the PR open; this is the supervised lane, the merge call is the user's. Ask and it
+  squash-merges (`gh pr merge <n> --squash --delete-branch`).
+- **No remote:** offer `gh repo create --private --source .` once; declined → `git merge
+  --no-ff` (the merge commit is the audit trail). Never an unreviewed fast-forward onto main.
 
 ## 6. Close
 
-- Tick the feature in `PROGRESS.md` **only after** done-criteria are demonstrably met —
-  paste the evidence (test names + output) into the session log line, and note the PR
-  (`#N`, open or merged).
-- Update `docs/SPEC.md` if the implementation legitimately deviated from it.
-- Commit(s) are already granular from the build; ensure the final state is committed and
-  the branch pushed.
-- Report: what shipped, evidence, the PR link, deviations, and the natural next feature.
-- **Next →** name one command: `/forge:feature <next F#>` for the next slice, `/forge:deep-review`
-  then `/forge:ship` if this was the last — and `/forge:harden` before exposure after a T1
-  feature. Never `/forge:ship` while verification is red.
+- Tick `PROGRESS.md` **only** with pasted evidence, and note the PR. Report anything the
+  environment could not prove as **open**, never ticked.
+- Update `docs/SPEC.md` if the implementation legitimately deviated.
+- Report: what shipped, evidence, PR link, deviations, next feature.
+- **Next →** one command. Never `/forge:ship` while verification is red.
 
 ## Escalation
 
 Two failed attempts at the same problem → stop grinding: `/forge:debug-hard` for bugs,
-`forge-blueprint` (or the `design-panel` workflow) for design dead-ends. A third identical
-attempt is banned.
+`forge-blueprint` or `design-panel` for design dead-ends. A third identical attempt is banned.
