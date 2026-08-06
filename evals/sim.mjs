@@ -145,6 +145,45 @@ export const releaseGateResponder = (overrides = {}) => (prompt, opts) => {
   return null
 }
 
+// The canonical eval case list: which workflow runs which scenario, plus the
+// quality metrics the merge gate holds steady. `quality` maps a workflow result
+// to [{ metric, value, better: 'higher'|'lower' }] — the gate fails a PR when
+// any of these move the wrong way vs the merge-base (evals/gate.mjs).
+export const CASES = [
+  {
+    wf: 'deep-review', scenario: 'deep-review', note: '12 findings (4 crit/high, 8 med/low)',
+    // ?? [] everywhere: some result shapes omit keys (deep-review's zero-findings
+    // return has no `unverified`) — a throwing extractor would null the quality
+    // channel exactly when it matters most (all findings lost must compare as 12 -> 0).
+    quality: r => [
+      { metric: 'findings confirmed', value: (r.confirmed ?? []).length, better: 'higher' },
+      { metric: 'findings left unverified', value: (r.unverified ?? []).length, better: 'lower' },
+    ],
+  },
+  {
+    wf: 'feature-pipeline', scenario: 'feature-pipeline', note: '6 features: 2xT1 2xT2 2xT3',
+    quality: r => [
+      { metric: 'features passed', value: (r.passed ?? []).length, better: 'higher' },
+      { metric: 'features failed', value: (r.failed ?? []).length, better: 'lower' },
+    ],
+  },
+  {
+    wf: 'design-panel', scenario: 'design-panel', note: 'default panel',
+    quality: r => [{ metric: 'final design produced', value: r.design ? 1 : 0, better: 'higher' }],
+  },
+  {
+    wf: 'design-panel', scenario: 'design-panel-wide', note: 'panel: wide',
+    quality: r => [{ metric: 'final design produced', value: r.design ? 1 : 0, better: 'higher' }],
+  },
+  {
+    wf: 'release-gate', scenario: 'release-gate', note: 'standard release',
+    quality: r => [
+      { metric: 'SHIP verdict on all-pass', value: r.verdict === 'SHIP' ? 1 : 0, better: 'higher' },
+      { metric: 'gates reporting evidence', value: (r.gates ?? []).length, better: 'higher' },
+    ],
+  },
+]
+
 // Standard scenario args (6-feature mixed-tier batch for the pipeline).
 export const SCENARIOS = {
   'deep-review': { args: { dir: DIR, scope: 'the last merge diff' }, responder: deepReviewResponder },

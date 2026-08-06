@@ -1,0 +1,40 @@
+# The harness merge bar: every PR (retro proposals included) must keep the
+# regression suite green AND pass the comparative eval gate — quality metrics
+# may not drop vs the merge-base, cost may not jump past budget. docs/EVALS.md.
+# Fully offline: stubbed agents, no secrets, safe on fork PRs.
+name: evals
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: regression suite (npm test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm test
+
+  eval-gate:
+    name: eval gate (vs merge-base)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the gate replays workflows at the merge-base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: compare PR head against merge-base
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node evals/gate.mjs --base "origin/$BASE_REF"

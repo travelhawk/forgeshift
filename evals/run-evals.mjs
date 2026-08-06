@@ -1,16 +1,9 @@
 // Before/after orchestration evals: run each changed workflow at a baseline git
 // revision and at HEAD on the SAME scenario, compare agents spawned and prompt
 // volume. Usage: npm run eval [-- <baselineRev>]   (default: pre-optimization rev)
-import { loadSource, runWorkflow, SCENARIOS } from './sim.mjs'
+import { loadSource, runWorkflow, SCENARIOS, CASES } from './sim.mjs'
 
 const BASELINE = process.argv[2] || '9156741' // last commit before the optimization series
-const CASES = [
-  { wf: 'deep-review', scenario: 'deep-review', note: '12 findings (4 crit/high, 8 med/low)' },
-  { wf: 'feature-pipeline', scenario: 'feature-pipeline', note: '6 features: 2xT1 2xT2 2xT3' },
-  { wf: 'design-panel', scenario: 'design-panel', note: 'default panel' },
-  { wf: 'design-panel', scenario: 'design-panel-wide', note: 'panel: wide' },
-  { wf: 'release-gate', scenario: 'release-gate', note: 'standard release' },
-]
 
 const runAt = async (wf, scenario, rev) => {
   const { args, responder } = SCENARIOS[scenario]

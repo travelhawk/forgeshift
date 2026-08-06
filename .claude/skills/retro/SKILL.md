@@ -79,6 +79,10 @@ On yes:
    commits, or re-edit). On a cache install, clone the remote into the scratchpad and apply
    the same edits in that clone.
 3. Suite green in the PR working tree (`npm ci && npm test`) before pushing — hard rule 8.
+   Upstream CI re-runs the suite plus the comparative eval gate (`npm run eval:gate`,
+   `docs/EVALS.md`) on the PR: quality metrics may not drop vs the merge-base, cost may
+   not jump past budget. Run the gate locally too — a measured regression arrives as a
+   red check, and the maintainer will not merge it.
 4. Push the branch — collaborators push to the upstream directly. **Push rejected (not a
    collaborator)? Fork, don't stop:** `gh repo fork <upstream> --remote=true` (server-side,
    idempotent — reuses an existing fork), push the branch to the fork, and open the PR
