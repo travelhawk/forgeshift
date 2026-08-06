@@ -1,10 +1,13 @@
 # Playbook: Full-Stack Web App / SaaS
 
-_As of 2026-07. Verify major versions at kickoff — this file ages._
+_As of 2026-08. Verify major versions at kickoff — this file ages._
+**Run `--help` on every scaffold CLI before you use it.** Flags in this file were correct
+against `create-next-app` 16.2.12, `shadcn` 4.16.1, `pnpm` 11.18.0; scaffold CLIs drop flags
+between minors and a dropped flag turns a non-interactive command into a hanging prompt.
 
 ## Default stack
 
-| Layer | Choice | Version (2026-07) | Notes |
+| Layer | Choice | Version (2026-08) | Notes |
 |---|---|---|---|
 | Framework | Next.js (App Router) | 16.2.x LTS | Turbopack default for dev+build; opt-in "Cache Components" (`'use cache'`) |
 | Language | TypeScript | bundled | strict mode on |
@@ -23,8 +26,18 @@ _As of 2026-07. Verify major versions at kickoff — this file ages._
 ```bash
 # All scaffold commands MUST run non-interactively — if one prompts, its flags have
 # drifted; check the CLI's current --help before fighting it.
-pnpm dlx create-next-app@latest <name> --ts --app --tailwind --eslint --turbopack --use-pnpm --src-dir --import-alias "@/*" --yes
+# No --turbopack: the flag is GONE in Next 16 (Turbopack is the default). Passing it
+# aborts arg parsing and drops the CLI into the interactive prompt.
+pnpm dlx create-next-app@latest <name> --ts --app --tailwind --eslint --use-pnpm --src-dir --import-alias "@/*" --yes
 cd <name>
+# On pnpm 11 the scaffold's own install ABORTS here (ERR_PNPM_IGNORED_BUILDS, sharp +
+# unrs-resolver) and leaves a half-installed project. Overwrite the placeholder
+# pnpm-workspace.yaml it wrote, then finish the install. See Gotchas — `pnpm
+# approve-builds` does NOT work from this state.
+printf 'allowBuilds:\n  sharp: true\n  unrs-resolver: true\n' > pnpm-workspace.yaml
+pnpm install
+# No --base-color either: shadcn 4.x uses --template / --base / --preset.
+# -d == --template=next --preset=base-nova.
 pnpm dlx shadcn@latest init -d
 pnpm add drizzle-orm postgres && pnpm add -D drizzle-kit
 pnpm add better-auth
@@ -62,6 +75,27 @@ via `drizzle-kit migrate` in CI/predeploy — never auto-push schema from dev ag
   config at scaffold time, not first-failure time.
 - Killing the dev server on Windows: a bare `kill` hits the pnpm wrapper and leaves
   node.exe holding port 3000 — use `taskkill //F //T //PID <pid>` or `npx kill-port 3000`.
+- **Dependency build scripts are opt-in, and the config moved twice.** `pnpm` no longer reads
+  the `pnpm` field in `package.json` (verified on 11.18.0: it prints a warning and ignores the
+  keys). Build-script permission now lives in `pnpm-workspace.yaml` at the repo root —
+  `onlyBuiltDependencies:` (pnpm 10.27+) and, on **pnpm 11**, an `allowBuilds:` map:
+
+  ```yaml
+  allowBuilds:
+    sharp: true
+    unrs-resolver: true
+  ```
+
+  Without it, postinstalls are skipped and the install **aborts** with
+  `ERR_PNPM_IGNORED_BUILDS`. Verified: `create-next-app` 16.2.12 + pnpm 11.18 ends in
+  "Aborting installation. pnpm install has failed" over `sharp` and `unrs-resolver`, leaving a
+  half-installed project. **The error message's own advice is a dead end here:**
+  create-next-app already wrote an `allowBuilds` map whose values are the literal placeholder
+  `set this to true or false`, so `pnpm approve-builds --all` answers "There are no packages
+  awaiting approval" and changes nothing, and every later `pnpm install` fails identically.
+  Only replacing the placeholders with real booleans fixes it. Same class breaks esbuild's
+  postinstall, which takes vitest and tsx down with it. Confirm the repair by an install
+  ending in `Done in ...`. (as of 2026-08)
 - `create-next-app`'s default `.gitignore` has `.env*`, which silently swallows your
   committed `.env.example` (a hard-rule-5 artifact). After scaffold, append
   `!.env.example` and confirm `git status` shows the file staged. (as of 2026-07)
