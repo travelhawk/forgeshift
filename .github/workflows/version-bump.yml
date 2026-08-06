@@ -1,0 +1,46 @@
+# Every merge to main must grow the plugin version — installed copies of the
+# plugin only see an update when .claude-plugin/plugin.json's version does.
+# PRs may bump deliberately (scripts/bump-version.mjs minor|major); when one
+# lands without a bump, this job patch-bumps and pushes the commit itself.
+# Loop-safe twice over: the guard sees its own bump as "version already moved",
+# and pushes made with GITHUB_TOKEN never re-trigger workflows anyway.
+name: plugin-version
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plugin-version-main
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main # branch tip, not the push sha — a racing bump lands on top, never conflicts
+          fetch-depth: 0 # the guard reads the manifest at the pre-push commit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: patch-bump unless this push already moved the version
+        run: |
+          manifest=.claude-plugin/plugin.json
+          current=$(node -p "require('./$manifest').version")
+          # Version at the pre-push tip; unreadable (force push) → treat as moved, never loop.
+          previous=$(git show '${{ github.event.before }}':"$manifest" 2>/dev/null \
+            | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || echo '')
+          if [ "$current" != "$previous" ]; then
+            echo "version already moved ($previous -> $current) — no auto-bump"
+            exit 0
+          fi
+          next=$(node scripts/bump-version.mjs patch)
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore: bump plugin version to $next [skip ci]"
+          git push origin main

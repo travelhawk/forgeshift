@@ -4,8 +4,9 @@
 // invariant here so a later edit can't silently regress it.
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { join, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -487,6 +488,38 @@ suite('plugin packaging', () => {
     assert.ok(skills.includes('build'), 'build skill dir present')
     assert.ok(!skills.includes('forge'), 'no forge skill dir (would collide with the plugin name)')
     assert.equal(frontmatter(read('.claude', 'skills', 'build', 'SKILL.md')).name, 'build')
+  })
+
+  // Every merge to main must grow the version — installed plugins update by it.
+  test('bump-version.mjs bumps each level and preserves manifest formatting', () => {
+    const script = p('scripts', 'bump-version.mjs')
+    const dir = mkdtempSync(join(tmpdir(), 'forge-bump-'))
+    try {
+      const f = join(dir, 'plugin.json')
+      const src = '{\n  "name": "forge",\n  "version": "1.2.3",\n  "keywords": ["a", "b"]\n}\n'
+      writeFileSync(f, src)
+      const run = (level) => execSync(`node "${script}" ${level} "${f}"`).toString().trim()
+      assert.equal(run('patch'), '1.2.4')
+      assert.equal(run('minor'), '1.3.0')
+      assert.equal(run('major'), '2.0.0')
+      // Only the version string moved — inline arrays and layout survive untouched.
+      assert.equal(readFileSync(f, 'utf8'), src.replace('1.2.3', '2.0.0'))
+      // A bad level fails loudly instead of guessing.
+      assert.throws(() => execSync(`node "${script}" nope "${f}"`, { stdio: 'pipe' }))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('CI auto-bump: push-to-main workflow guards on the pre-push version and cannot loop', () => {
+    const wf = read('.github', 'workflows', 'version-bump.yml')
+    assert.match(wf, /branches: \[main\]/, 'fires on pushes to main')
+    assert.match(wf, /contents: write/, 'may push the bump commit')
+    assert.match(wf, /github\.event\.before/, 'compares against the pre-push version so PR bumps win')
+    assert.match(wf, /fetch-depth: 0/, 'full history — a shallow clone cannot read the pre-push manifest and would silently never bump')
+    assert.match(wf, /concurrency:/, 'racing bump runs serialize instead of conflicting')
+    assert.match(wf, /bump-version\.mjs patch/, 'the bump goes through the script')
+    assert.match(wf, /\[skip ci\]/, 'the bump commit cannot re-trigger CI')
   })
 
   test('claude plugin validate passes on the manifest + marketplace', (t) => {

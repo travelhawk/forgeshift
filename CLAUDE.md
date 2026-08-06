@@ -95,7 +95,10 @@ Specialists in `.claude/agents/`: `forge-blueprint` (planner), `forge-hammer` (i
 11. **Harness changes run the regression suite.** `npm test` green in the plugin repo before
     any commit touching skills/agents/workflows/docs; new invariants get a test. PRs also
     face the CI eval gate (`npm run eval:gate`): quality may not drop vs the merge-base,
-    cost may not jump past budget — `docs/EVALS.md`.
+    cost may not jump past budget — `docs/EVALS.md`. Every merge to main must grow the
+    plugin version (installed plugins update by it): bump deliberately with
+    `node scripts/bump-version.mjs minor|major` when warranted; CI patch-bumps any PR
+    that lands without one.
 12. **Deterministic work is a script, never an agent turn.** Git plumbing, worktree lifecycle,
     PR assembly, version bumps — anything with one correct answer — lives in
     `$FORGE_HOME/scripts/`. It is cheaper *and* deletes a failure class. Reviewers are
