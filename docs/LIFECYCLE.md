@@ -1,7 +1,7 @@
 # Build Lifecycle
 
-The loop every product built with Forge moves through. Skills automate the transitions;
-you stay at the decision points.
+The loop every Forge product moves through. Skills automate the transitions; you stay at the
+gates.
 
 ```
  IDEA ──► /forge:kickoff ──► SPEC + STACK + SCAFFOLD
@@ -19,83 +19,68 @@ you stay at the decision points.
                   feedback → /forge:next → SPEC (next version) → loop
 ```
 
-## Stages & gates
+## 1. Kickoff (`/forge:kickoff`)
 
-### 1. Kickoff (`/forge:kickoff`)
-Idea → interview → `docs/SPEC.md` → stack choice from a playbook → scaffolded repo with
-its own git history, CLAUDE.md, and CI-ready test setup. **Gate: you approve the spec and
-stack before scaffolding.** For wide-open design questions, kickoff runs the
-`design-panel` workflow instead of guessing.
+Idea → interview → `docs/SPEC.md` → stack from a playbook → scaffolded repo with its own git
+history, CLAUDE.md, and CI-ready test setup. Wide-open design questions go to the
+`design-panel` workflow rather than being guessed.
+**Gate: you approve spec and stack before scaffolding.**
 
-### 2. Feature loop (`/forge:feature` / `/forge:build` / `feature-pipeline`)
-One feature at a time interactively, a raw batch of independent features in parallel
-worktrees — or the whole backlog via `/forge:build`: one wave-plan approval, then waves of
-parallel pipeline builds, one PR per feature, verified work merged in dependency
-order. Always tests-first:
+## 2. Feature loop (`/forge:feature` / `/forge:build` / `feature-pipeline`)
 
-1. **Plan** — smallest change that meets the done-criteria, fitting existing conventions
-2. **Test** — write the failing test that encodes the done-criteria
-3. **Build** — implement until green, full suite still green
-4. **Verify** — fresh-context check against the plan (not the builder grading itself)
+One feature interactively, a raw batch in parallel worktrees, or the whole backlog via
+`/forge:build` (one wave-plan approval → waves of parallel builds → one PR per feature → merge
+in dependency order). Always tests-first:
 
-**Validation depth follows the feature's risk tier**, tagged at spec time and overridable
-(`docs/RISK-TIERS.md`). **T1** (auth, payments, permissions, cross-tenant data, untrusted
-input) gets the full loop plus a security pass; **T2** (side effects, no security/money
-exposure) gets build + core coverage + one verify; **T3** (CRUD scaffolding, UI, page
-renders) builds fast on Sonnet and gets a smoke test only. Tiers classify **up** on doubt,
-and the integrated `deep-review` still sweeps T3 — so this right-sizes cost without opening
-a hole in the gates.
+1. **Plan** — smallest change meeting the done-criteria, fitting existing conventions
+2. **Test** — the failing test that encodes the done-criteria
+3. **Build** — implement until green
+4. **Verify** — fresh-context check against the plan, never the builder grading itself
 
-**Gate: no feature merges with failing or missing tests.** No exceptions "just this once".
-A smoke test is the *right-sized* test for T3 — never zero tests, and never a weakened one.
+Depth branches on the feature's **risk tier** ([RISK-TIERS.md](RISK-TIERS.md)), identically in
+every lane.
 
-### 3. Review (`/forge:deep-review`)
-Before anything user-facing ships — and before manual merges outside `/forge:build`'s gated
-flow: six-dimension review with adversarial verification. `/forge:build` fires it
-automatically on the integrated result as its finish step (auto-integrate and local
-modes; skipped in review-PRs mode and on opt-out): confirmed critical/high findings
-are fixed on the spot (`/forge:fix` discipline), medium/low go to the report.
-Only CONFIRMED findings come back — fix criticals/highs, judge the rest.
-The `/forge:build` finish also produces, for UI products, a Playwright **visual walkthrough** —
-flow videos + a screen-overview image (fail-soft, never a ship blocker).
+**Gate: no feature merges with failing or missing tests.** No exceptions "just this once". A
+smoke test is the *right-sized* test for T3 — never zero tests, never a weakened one.
+
+## 3. Review (`/forge:deep-review`)
+
+Before anything user-facing ships, and before manual merges outside `/forge:build`'s gated
+flow: six-dimension review with adversarial verification, so only CONFIRMED findings come back.
+`/forge:build` fires it automatically on the integrated result (auto-integrate and local modes;
+skipped in review-PRs mode and on opt-out) — confirmed critical/high fixed on the spot in
+`/forge:fix` discipline, medium/low into the report. For UI products the finish also produces a
+Playwright **visual walkthrough** (flow videos + screen overview; fail-soft, never a blocker).
 **Gate: zero confirmed critical findings before `/forge:ship`.**
 
-### 4. Hardening (`/forge:harden`)
+## 4. Hardening (`/forge:harden`)
+
 Once per project before first public exposure, and after auth/payment/data-model changes.
-Security audit + robustness pass (input validation at boundaries, failure modes, secrets
-hygiene, rate limiting where public).
+Security audit + robustness pass (boundary validation, failure modes, secrets hygiene, rate
+limiting where public).
 
-### 5. Ship (`/forge:ship`)
-Prepares the release commit (CHANGELOG + version bump) → runs the `release-gate`
-workflow (static/security/docs parallel, then tests → build → runtime smoke) → manual
-checklist from `templates/RELEASE-CHECKLIST.md` → tag, deploy, live smoke test.
-**Gate: NO-SHIP verdict blocks. Fix, don't override.**
+## 5. Ship (`/forge:ship`)
 
-### 6. Bugfix loop (`/forge:fix`)
-Production bugs and broken behavior skip feature ceremony: reproduce → regression test
-that fails → smallest fix → `forge-quench` on the diff → patch `/forge:ship` with the
-abbreviated manual checklist (only the broken journey re-walked; the automated gate
-always runs in full). Bugs that survive two attempts escalate to `/forge:debug-hard`.
+Release commit (CHANGELOG + version bump) → `release-gate` workflow (static/security/docs in
+parallel, then tests → build → runtime smoke) → manual checklist from
+`templates/RELEASE-CHECKLIST.md` → tag, deploy, live smoke test.
+**Gate: a NO-SHIP verdict blocks. Fix, don't override.**
 
-### 7. Feedback → next version (`/forge:next`)
-Feature-shaped feedback goes back into `docs/SPEC.md` as new features or revisions —
-not straight into code. The spec stays the source of intent. `/forge:next` is the one command
-for this: it clarifies the new ideas (a lighter, spec-aware interview than `/forge:kickoff`),
-appends them to the spec as the next version's tiered features, and hands the slice to
-the forge flow under a single approval — waves of PRs, merge, deep-review finish. It is
-kickoff's iteration sibling: **`/forge:kickoff` births a product, `/forge:next` grows it, `/forge:build`
-is the builder both hand off to.** Bug-shaped feedback goes to `/forge:fix` directly.
+## 6. Bugfix loop (`/forge:fix`)
 
-## Rules that hold across all stages
+Bugs skip feature ceremony: reproduce → failing regression test → smallest fix →
+`forge-quench` on the diff → patch `/forge:ship` with the abbreviated manual checklist (only
+the broken journey re-walked; the automated gate always runs in full). Two failed attempts →
+`/forge:debug-hard`.
 
-- **Spec drift is a bug.** When implementation legitimately deviates, update the spec in
-  the same change.
-- **Decisions get ADRs.** Anything you'd have to re-explain in 3 months →
-  `docs/adr/NNN-*.md` from `templates/ADR.md`.
-- **Commit granularity = one reviewable idea.** Agents commit after each green
-  test-build cycle, not one mega-commit per session.
-- **Escalate stuck work, don't grind.** Two failed attempts at the same problem → change
-  the approach: `/forge:debug-hard` (session model), `design-panel`, or ask the user. Third identical
-  attempt is banned.
-- **You are the product owner.** Agents propose, verify, and build; scope and taste calls
-  stay with you. Skills pause at the gates marked above.
+## 7. Feedback → next version (`/forge:next`)
+
+Feature-shaped feedback goes into `docs/SPEC.md` as new features or revisions, not straight into
+code — the spec stays the source of intent. `/forge:next` clarifies the ideas (a lighter,
+spec-aware interview than kickoff), appends them as the next version's tiered features, and
+hands the slice to the build under a single approval. **`/forge:kickoff` births a product,
+`/forge:next` grows it, `/forge:build` is the builder both hand off to.** Bug-shaped feedback
+goes to `/forge:fix`.
+
+Cross-stage rules live in `CLAUDE.md` § Hard rules. The bolded gates above are the only points
+where a skill stops and waits for you; everywhere else it runs.
