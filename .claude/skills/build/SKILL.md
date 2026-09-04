@@ -42,6 +42,11 @@ Blueprint partitions the backlog by **file footprint**:
   capability signal per `$FORGE_HOME/docs/RISK-TIERS.md`, ties up). Tier sets validation
   depth, not wave membership — that's footprint only.
 - **Fewer, fatter waves.** Parallelism inside a wave is the lane's job.
+- **A slice with no parallelism is a normal outcome, not a planning failure.** Waves pay off
+  over a broad backlog of independent features; iterating a mature product usually has none,
+  because new work converges on the surfaces that already exist. Measured on one product: a
+  backlog build ran 3-wide twice, while the next version slice went 4 waves for 5 features and
+  ran parallel once. When it lands that way, say "built in order" and skip the wave table.
 
 Output per entry: features, tier + justification, footprint, why it is parallel-safe,
 done-criteria. Plus: which done-criteria **cannot be proven in this environment** and the
@@ -51,8 +56,12 @@ honest substitute — those get reported open at the end, never ticked.
 
 One message, one approval:
 
-- The wave table: feature → wave → **tier** → footprint → done-criteria. Tiers are the
-  user's override point here; the approval covers any adjustment.
+- **What the user gets**, first: the backlog's outcome in one line, then feature → done means
+  in product language. This is the part being approved.
+- **How it gets built**, in a separate block below: the tier per feature (the user's override
+  point; the approval covers any adjustment) and the execution order. Show a **wave table only
+  when two or more features actually run in parallel** — an all-serial plan says "built in
+  order: A → B → C" and drops the wave vocabulary. A wave of one is a step.
 - **Integration mode.** `auto-integrate` (default): verified feature → branch → PR with
   evidence → squash-merge → next wave builds on updated main. `review-PRs`: PRs stay open —
   only valid when nothing later depends on an unmerged one (in practice: single-wave plans).
@@ -124,7 +133,13 @@ touched a sensitive surface the seed under-budgeted. Raises depth only, never lo
 4. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
    real regression, stop the run and report, leave later waves unbuilt. Clears → log as flaky
    (name + that it passed on retry) and continue. Flakiness is surfaced, never swallowed.
-5. Merge in dependency order (merges serialize — each moves main forward). PR modes: open the
+5. Merge in dependency order (merges serialize — each moves main forward). **Every PR targets
+   the integration branch — never another feature's branch.** A chained feature branches off
+   its predecessor to *build*, but it is rebased onto the integration branch before its PR
+   opens. A PR whose base is merged and deleted first lands in a dead ref: the platform reports
+   it MERGED, the work never reaches main, and nothing in the run fails. If a stacked base is
+   truly unavoidable it is a **stop-and-report**, not a note — §6 states the required merge
+   order as a blocker and the run does not claim the feature integrated. PR modes: open the
    wave's PRs in ONE batch (`bash "$FORGE_HOME/scripts/forge-pr.sh" open-all <manifest>`),
    then merge each; wait only on **required** checks (`gh pr checks <n> --watch --required`),
    watched across the wave **concurrently, not one at a time**.

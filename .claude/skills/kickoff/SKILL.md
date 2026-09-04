@@ -58,7 +58,8 @@ capability signal, not by the feature's noun; each tag carries a one-line justif
 the signal that fired; ties break **up**. Show the tiers in the scope table so the user can
 adjust before approving (seed, not verdict).
 
-**Make done-criteria checkable, and honest about the environment.** "Contact list loads" is
+**Make done-criteria checkable, and honest about the environment.** 2-5 per feature, ≤25
+words each, each one checkable by someone who does not read the code. "Contact list loads" is
 useless; "search over name/company/email returns hits in under 300 ms at 5.000 contacts, empty
 state with a create CTA" is not. Say per criterion **what the target environment can actually
 prove** — one it cannot is reported open later, never ticked.

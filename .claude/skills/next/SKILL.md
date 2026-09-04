@@ -59,9 +59,9 @@ Have `forge-blueprint` turn the clarified ideas into buildable features and a wa
 it returns markdown/structure, it does not write files (the draft lands in step 4):
 
 - **Right-size** per the granularity rule: a feature is a slice of user value
-  (independently buildable + testable, ~2-5 done-criteria), not one-per-requirement.
-  Fewer, coherent features mean fewer waves and subagents. This slice phases into a later
-  version rather than cramming (`$FORGE_HOME/docs/RISK-TIERS.md` sizing; the spec's V-cap logic).
+  (independently buildable + testable, ~2-5 done-criteria of ≤25 words each), not
+  one-per-requirement. Fewer, coherent features mean fewer waves and subagents. This slice
+  phases into a later version rather than cramming (`$FORGE_HOME/docs/RISK-TIERS.md` sizing; the spec's V-cap logic).
 - **Tier each** by capability signal (`$FORGE_HOME/docs/RISK-TIERS.md`, ties break **upward**), each
   with a one-line justification naming the signal — same scheme kickoff uses.
 - Place them as the **next version slice**: the next unstarted `### V<n> — <theme>`
@@ -85,9 +85,17 @@ it, never at the on-disk spec (which doesn't include the new features yet).
 
 Present in one message, get one approval:
 
-- **Proposed new features**: feature → version → tier → done-criteria. The tier column is
-  your override point — bump any up or down here (`$FORGE_HOME/docs/RISK-TIERS.md`); ties break up.
-- **The wave table**: feature → wave → tier → footprint → why it's parallel-safe.
+- **The phase, first and in one line.** The `V<n>` theme stated as an outcome: what someone
+  can do after this slice that they cannot do now. The features are the steps to it. This is
+  the thing being approved, and it is the only part written for a product owner — keep tier
+  codes, wave numbers and file paths out of it entirely.
+- **Proposed new features**: feature → done means. Two columns, product language, nothing else.
+- **How it gets built** — a separate block *below* the decision, never interleaved with it:
+  the tier per feature (the user's override point — `$FORGE_HOME/docs/RISK-TIERS.md`; ties
+  break up) and the execution order. Show a **wave table only when two or more features
+  actually run in parallel**. An all-serial slice says "built in order: A → B → C" and drops
+  the wave vocabulary altogether — a wave of one is a step wearing a scheduling word, and four
+  waves for five features taught one user that the ceremony *was* the plan.
 - **Integration mode** (identical to `/forge:build` §3): auto-integrate (default) · review-PRs
   (single-wave only) · local (no remote → offer `gh repo create` once, else `git merge
   --no-ff`).

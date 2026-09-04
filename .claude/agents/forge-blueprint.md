@@ -42,7 +42,12 @@ build from — you do not write product code.
   low-risk boilerplate (T3 UI) just to cut the count; that forces the whole feature to T1
   and kills the tiering speedup. Group by cohesion AND similar capability/risk.
 - **Every feature gets done-criteria** that are checkable ("CSV export contains a numeric
-  price column per SKU"), never vibes ("export works well").
+  price column per SKU"), never vibes ("export works well"). **2-5 of them, ≤25 words each,
+  each checkable by someone who does not read the code** — a ceiling, not a target. One prose
+  paragraph carrying every implementation decision satisfies "checkable" on a technicality and
+  is unreadable by the person who has to approve it; measured drift on a real run was 220 →
+  1022 words per cell across five features, against a 65-word norm. Name the behavior, never
+  the file, the library, or the mechanism.
 - Reference material ships with the forge plugin, not the product: `docs/MODEL-ROUTING.md`,
   `docs/playbooks/`, and `templates/`. Your working directory is the product, so resolve the
   plugin home once — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — and read them as
