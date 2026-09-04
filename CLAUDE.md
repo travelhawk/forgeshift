@@ -84,7 +84,10 @@ Specialists in `.claude/agents/`: `forge-blueprint` (planner), `forge-hammer` (i
    reported unverified — and a criterion the environment cannot prove is reported **open**,
    never ticked.
 6. **Two strikes → change approach.** A third identical attempt is banned; escalate.
-7. **Spec sync.** Legitimate deviation from `docs/SPEC.md` updates the spec in the same change.
+7. **Spec sync.** Legitimate deviation from `docs/SPEC.md` updates the spec in the same
+   change — the **contract**, not the reasoning. The row says what the user gets; *why* it was
+   built that way goes in the PR body or an ADR. A row that absorbs every review finding stops
+   being a spec and becomes a changelog nobody can approve from.
    PROGRESS.md checkboxes turn `[x]` only with pasted evidence.
 8. **Secrets never in code or commits.** `.env` + committed `.env.example`.
 9. **Simplest thing that works.** No speculative abstraction, no unrequested refactors,
@@ -103,6 +106,13 @@ Specialists in `.claude/agents/`: `forge-blueprint` (planner), `forge-hammer` (i
     PR assembly, version bumps — anything with one correct answer — lives in
     `$FORGE_HOME/scripts/`. It is cheaper *and* deletes a failure class. Reviewers are
     read-only.
+13. **Write for the product owner.** Every surface a user approves or reads from — gate
+    tables, `docs/SPEC.md` feature rows, `PROGRESS.md`, run reports — names the user-visible
+    outcome in the product's own vocabulary. No file paths, no library or framework names, and
+    no internal taxonomy (tier codes, wave numbers, file footprints) in the columns someone
+    decides from. Someone who does not read code must be able to tell what they are getting
+    and check afterwards whether they got it. Internal detail is not deleted, it moves: into a
+    clearly separate execution block, the PR body, or an ADR.
 
 ## Working in a product
 

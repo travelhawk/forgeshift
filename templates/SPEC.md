@@ -27,8 +27,8 @@ overridable. See docs/RISK-TIERS.md.
 
 | # | Feature | Risk | Done means |
 |---|---|---|---|
-| F1 | <feature> | T? (<why>) | <checkable statement> |
-| F2 | <feature> | T? (<why>) | <checkable statement> |
+| F1 | <what someone can do that they could not before> | T? (<why>) | <2-5 criteria, `·`-separated, ≤25 words each, each checkable without reading the code> |
+| F2 | <…> | T? (<why>) | <…> |
 
 ### Explicitly out of scope (V1)
 - <thing people will ask about — and why it waits>
