@@ -34,7 +34,7 @@ Mechanics and worked examples: `docs/COMMANDS.md`
 | `/forge:ship [version]` | Release commit → release-gate → checklist → tag → deploy |
 | `/forge:debug-hard <symptom>` | Escalation to the hard-bug debugger |
 | `/forge:status` · `/forge:resume` | Ground-truth report · recover a stalled run |
-| `/forge:retro` | Harness retrospective: observed friction → approved fixes |
+| `/forge:retro` | Harness retrospective: cited blockers/defects → verified, approved fixes |
 | `/forge:understand` · `/forge:design-panel` · `/forge:feature-pipeline` · `/forge:deep-review` · `/forge:release-gate` | Workflows |
 
 ## Model routing (full policy: `docs/MODEL-ROUTING.md`)
