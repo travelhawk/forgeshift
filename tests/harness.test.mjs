@@ -664,4 +664,20 @@ suite('retro swarm loop', () => {
     assert.match(src, /offer to redact product-identifying details/i, 'evidence can name the user product — redaction offered')
     assert.match(src, /their own GitHub account/i, 'the fork location is disclosed up front')
   })
+
+  // A retro repairs damage, it does not collect wishes (2026-09-04).
+  test('retro admits only blockers and observed defects, each cited and verified', () => {
+    const src = read('.claude', 'skills', 'retro', 'SKILL.md')
+    assert.match(src, /damage that already happened/i, 'the scope is past failures, not future improvements')
+    assert.match(src, /Inadmissible/i, 'the skill names what it refuses to change')
+    assert.match(src, /A new capability, command, agent or stage/, 'feature wishes are inadmissible in a retro')
+    assert.match(src, /routed, not applied/i, 'wishes are routed to their own lane, not smuggled in')
+    assert.match(src, /a citation, or the item dies here/i, 'no citation, no candidate')
+    assert.match(src, /Occurrences \(n=\)/, 'the evidence ledger records how often it happened')
+    assert.match(src, /Never go symptom . change/i, 'diagnosis is verified before a change is proposed')
+    assert.match(src, /Locate the cause in the harness text/i, 'the cause is pinned to a file and line')
+    assert.match(src, /Prove the change would have prevented this failure/i, 'the fix is replayed against the failure')
+    assert.match(src, /State the falsifier/i, 'every applied change carries an observable did-it-work signal')
+    assert.match(src, /unverified — not applied/i, 'unproven items are reported, never committed')
+  })
 })

@@ -1,33 +1,97 @@
 ---
 name: retro
-description: Harness retrospective - turn observed friction from real builds into approved, committed changes to the skills, agents, playbooks and rules. Use after a build run that felt wrong, or periodically.
-argument-hint: "[what felt wrong, if anything]"
+description: Harness retrospective - blockers and observed defects only, each traced to a citation and verified against the harness text before it becomes a change. Use after a run that broke, stalled, or produced a wrong result.
+argument-hint: "[what broke, with the error or commit if you have it]"
 ---
 
-# /forge:retro — the harness improves from evidence, not theory
+# /forge:retro — the harness changes only where a run proved it wrong
 
 User's observation, if any: "$ARGUMENTS"
 
-Every change proposed here traces to **observed** friction. No speculative features, no
-"while we're at it".
+A retro repairs **damage that already happened**. It is not a wishlist, not a design session,
+and not a place for improvements that merely sound sensible. Every change that leaves this
+skill carries a citation and a verification. Nothing else ships.
 
-## 1. Gather evidence
+## 1. Admissibility — what a retro may change
 
-- **The user's observation is the highest-signal input** — start there.
-- **Measure, don't recall.** If the complaint is about time, get real numbers before proposing
-  anything: per-agent `duration_ms` from this session's subagent results, `.forge/run.json`
-  stage marks, suite runtimes. Group them **parallelism-aware** (a wave's cost is its slowest
-  member, not the sum) and report the split — building vs. reviewing vs. fixing vs. gates. A
-  retro that answers "where did the time go" with an impression is worthless; the biggest
-  single line item is usually not where anyone guessed.
-- `PROGRESS.md` session logs: repeated manual steps, escalations, reverted work, traps that
-  should be playbook gotchas.
-- Harness git log since the last retro: what got hot-fixed mid-build? Those patches mark where
-  the design was wrong.
-- Ask **2–3 batched questions max**: where did you wait on permission prompts, which agent
-  output did you routinely edit, which gate felt like theater.
+Two inputs are admissible, and only these:
 
-## 2. Classify and propose (max 5, ranked by expected saved pain)
+- **Blocker** — a run stopped or had to be rescued: a command failed, an agent looped past two
+  strikes, a gate could not be satisfied, a worktree or merge broke, a session was restarted,
+  work was reverted, the harness was hot-fixed mid-build to keep going.
+- **Defect** — the harness produced a wrong result: an instruction that misfired, two rules
+  that contradict each other, a claim reported done that was not verified, output the user had
+  to correct by hand more than once.
+
+Inadmissible, however reasonable it sounds:
+
+| Not admissible | Where it belongs instead |
+|---|---|
+| A new capability, command, agent or stage | `/forge:next` on the harness repo |
+| Taste or ergonomics with no failure behind it | `/forge:next`, or nowhere |
+| A fix an agent (including this one) recommended, that no run exercised | dropped |
+| "Best practice says", "we should probably", "it would be cleaner if" | dropped |
+
+The owner may still want one of those. That is legitimate work — it is just a different lane.
+Record it in the closing report as **routed, not applied**, and move on. Do not smuggle it in
+as a retro item because it is small.
+
+## 2. Collect evidence — a citation, or the item dies here
+
+Sweep in this order and stop when each candidate has a locator:
+
+1. **The user's observation** — highest signal, but ask for the artifact, not the opinion.
+2. **This session's tool results** — failing commands, agent reports, per-agent `duration_ms`.
+3. **`.forge/run.json` stage marks and `PROGRESS.md` session logs** — repeated manual steps,
+   escalations, reverted work.
+4. **Harness `git log` since the last retro** — mid-build hot-fixes mark where the design was
+   wrong; a revert is the strongest evidence there is.
+5. **Failed CI runs and gate output.**
+
+Evidence is something a third party can re-open on their own:
+
+- the exact error string **plus** the command that produced it,
+- a commit SHA (hot-fix, revert, manual repair),
+- a dated `PROGRESS.md` or session-log line,
+- a measured number — `duration_ms`, stage wall-clock, suite runtime,
+- a quote of the harness instruction that misfired.
+
+**Measure, don't recall.** "It felt slow" is not evidence; get the numbers, group them
+**parallelism-aware** (a wave costs its slowest member, not the sum) and report the split —
+building vs. reviewing vs. fixing vs. gates. The biggest line item is usually not where anyone
+guessed.
+
+Record everything in one ledger before proposing anything:
+
+| # | Symptom | Evidence (locator) | Occurrences (n=) | Class | Admitted |
+|---|---|---|---|---|---|
+
+One occurrence is admissible but ranks below anything recurring. Ask at most **2–3 batched
+questions**, each asking for an artifact: which command failed, paste the error, which commit
+fixed it by hand.
+
+## 3. Verify each candidate — the gate, not a formality
+
+Never go symptom → change. For every admitted item, all five steps, in order:
+
+1. **Locate the cause in the harness text.** Name the file and line whose wording produced the
+   behaviour. No locator means the cause may not be the harness at all — product code, model
+   variance, network, a one-off. Say so and drop it.
+2. **Check the rule does not already exist.** `grep` the harness for it. If it exists and was
+   ignored, the defect is placement or wording — a rule nobody reads at the moment they need
+   it. Fix that. Never add a second copy of a rule that is already there.
+3. **Prove the change would have prevented this failure.** Replay the run against the new
+   wording: an agent handed only this file, would it have done the other thing? "Probably, if
+   it reads carefully" is a failed proof — the change is too weak to ship.
+4. **Check the blast radius.** `grep` the touched files for the phrases `tests/harness.test.mjs`
+   pins, and for other skills that quote them.
+5. **State the falsifier.** Name what would show the fix did not work, observable in the next
+   run. An item with no "did it work" signal is a wish wearing evidence.
+
+Items failing step 1 or 3 are reported as **unverified — not applied**, naming what evidence
+would settle it. They are not proposed and not committed.
+
+## 4. Propose (max 5, ranked by measured pain)
 
 | Friction | Fix layer |
 |---|---|
@@ -38,10 +102,11 @@ Every change proposed here traces to **observed** friction. No speculative featu
 | Model too big/small for a stage | workflow `model:`/`effort:` or agent frontmatter |
 | A rule everyone kept re-explaining | `CLAUDE.md` (and something stale comes OUT) |
 
-Per item: the observed evidence, the exact change, the expected effect. The user approves or
-rejects each.
+Per item, in this order: **evidence locator → verified cause → the exact change → expected
+effect → falsifier.** The user approves or rejects each. A proposal presented without its
+locator is not ready to be approved.
 
-## 3. Apply — generalize first
+## 5. Apply — generalize first
 
 Changes land in the local install (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`), so
 this machine benefits immediately.
@@ -68,16 +133,17 @@ Restore the phrase; do not relax the regex, and never delete a test to get green
 A pinned phrase must also survive line-wrapping: a regex with a literal space does not match
 across a newline.
 
-Suite green before any commit (hard rule 11), one commit per approved change with the why in
-the message ("retro: allow pnpm create — kickoff prompted 3x during recipes build"). Rejected
-proposals get one line in the closing commit body so the next retro does not re-propose them.
+Suite green before any commit (hard rule 11), one commit per approved change with the evidence
+in the message ("retro: allow pnpm create — kickoff prompted 3x during recipes build").
+Rejected and unverified items get one line each in the closing commit body so the next retro
+does not re-propose them.
 
 **A marketplace-cache install has no repo** — apply the edits anyway, and say plainly that the
-next plugin update overwrites them, which makes the §4 PR the only durable path. Its
+next plugin update overwrites them, which makes the §6 PR the only durable path. Its
 git-dependent tests cannot pass in a cache; note them as environmental rather than "fixing"
 them.
 
-## 4. Propose upstream (ask — this is the swarm loop)
+## 6. Propose upstream (ask — this is the swarm loop)
 
 Forge improves as a swarm: each user's retro fixes their own install, the good fixes flow back
 as PRs, the repo owner decides what merges. **Informed consent — show before asking:**
@@ -108,17 +174,27 @@ On yes:
    `gh repo fork <upstream> --remote=true` (idempotent), push there, and
    `gh pr create --repo <upstream> --head <your-login>:<branch>`. A private upstream can only be
    forked with read access and if "Allow forking" is enabled — say so rather than retrying.
-5. `gh pr create` with evidence per change (friction → change → expected effect; rejected items
-   listed). `gh` missing or unauthenticated → report the manual steps, never fail silently.
+5. `gh pr create` with the evidence per change (locator → verified cause → change → expected
+   effect → falsifier; rejected and unverified items listed). `gh` missing or unauthenticated →
+   report the manual steps, never fail silently.
 6. **Never merge it.** Report the PR URL and move on.
 
 On no: the local changes stand; note that they are local-only and, on a cache install, will not
 survive a plugin update.
 
-## 5. Close
+## 7. Close
 
-Report: changes applied, expected effect, rejected-with-reason, upstream outcome (PR URL,
-declined, or not applicable). A friction item that needs real redesign rather than a tweak gets
-recorded and a dedicated session recommended — do not botch it inline.
+Report four buckets, never fewer:
+
+| Bucket | What it says |
+|---|---|
+| Applied | the change, its evidence locator, expected effect, falsifier |
+| Rejected | the item and the user's reason |
+| Unverified — not applied | the symptom and what evidence would settle it |
+| Routed, not applied | wishes and new capabilities, sent to `/forge:next` |
+
+Then the upstream outcome (PR URL, declined, or not applicable). A friction item that needs
+real redesign rather than a tweak gets recorded and a dedicated session recommended — do not
+botch it inline.
 
 **Next →** back to product work, or a dedicated session for any redesign item recorded here.
