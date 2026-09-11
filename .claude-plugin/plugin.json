@@ -1,6 +1,6 @@
 {
   "name": "forge",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering. A control center for building software products from idea to shipped, with quality gates that gate. Install once, use in any folder.",
   "author": {
     "name": "Michael Falk"
