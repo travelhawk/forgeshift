@@ -14,7 +14,7 @@ reported at the end. The user can always interrupt.
 ## 0. Anchor
 
 - `cd` into the target product (ambiguous → ask; that is before the gate, so it's allowed).
-- `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`. Fire workflows by
+- `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`. Fire workflows by
   `scriptPath: "$FORGE_HOME/.claude/workflows/<name>.js"` with an absolute path, and always
   pass the product as their `dir` arg — workflows do not follow the shell `cd`.
 - Baseline or stop: clean tree, suite green — or the pre-existing red **recorded in
@@ -97,7 +97,7 @@ not a wave, it is a merge conflict with extra steps. **Remove the worktrees befo
 merged result** — a stale worktree makes `lint` traverse a second copy of the source.
 
 **Waves of 3+ independent entries** fire `feature-pipeline` (scriptPath per §0) with
-`{dir, features: [{feature, tier, done_criteria}], context, known_failures}` — `known_failures`
+`{dir, forge_home: "$FORGE_HOME", features: [{feature, tier, done_criteria}], context, known_failures}` — `known_failures`
 as its own field, not buried in `context`, so a pre-existing red is never counted as this
 feature's regression. Mirror the same object into `feature-pipeline.input.json` in the product
 root before invoking (args-mangling fallback), delete it after. A workflow-level error is a

@@ -42,7 +42,7 @@ claude plugin install forge@forge
 Or, inside an interactive `claude` session, type them as slash commands:
 
 ```
-/plugin marketplace add FalkTechLab/forgeshift
+/plugin marketplace add travelhawk/forgeshift
 /plugin install forge@forge
 ```
 
@@ -136,11 +136,11 @@ once, globally, so its commands are available in every folder.
 No clone needed — the marketplace registers straight from GitHub:
 
 ```bash
-claude plugin marketplace add FalkTechLab/forgeshift
+claude plugin marketplace add travelhawk/forgeshift
 claude plugin install forge@forge
 ```
 
-Or from inside Claude Code: `/plugin marketplace add FalkTechLab/forgeshift` then
+Or from inside Claude Code: `/plugin marketplace add travelhawk/forgeshift` then
 `/plugin install forge@forge`.
 
 - **Project-scoped instead of global?** Add `--scope project` to the install — the plugin is

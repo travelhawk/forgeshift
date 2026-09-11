@@ -70,6 +70,9 @@ const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working dir
   `prompts). Stay within it.\n\n`
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
+const spend = () => (typeof budget !== 'undefined' && budget && typeof budget.spent === 'function')
+  ? { output_tokens: budget.spent(), target: budget.total ?? null }
+  : null
 
 const ANGLES = [
   { key: 'simplest', prior: 'Radical simplicity. The least machinery that fully solves the problem. Boring technology. You lose points for every moving part.' },
@@ -80,6 +83,17 @@ const ANGLES = [
 // Lean drops 'evolution' — the judge's rubric still scores long-term risk, and the
 // simplicity prior already fights the overbuilding that evolution-thinking invites.
 const angles = wide ? ANGLES : ANGLES.filter(x => x.key !== 'evolution')
+
+// The final document is read by the product owner first and the builder second, so the
+// decision block leads and every one-way door is a named approval, not an implied spec row
+// (2026-09-11 eval: a good design buried the decision under panel context and folded two
+// new public flags in silently).
+const DOC_STRUCTURE =
+  `Structure, in this order: Decision (FIRST — the owner's block: what the user gets, in the product's own ` +
+  `vocabulary, then a "Needs approval" list of every one-way door — including any public surface the design adds ` +
+  `beyond the brief: a new flag, env var, endpoint, file format, or dependency — never folded into the spec silently) ` +
+  `→ Context → Architecture → Components → Data flow → Failure handling → Deviations from the brief (each named, ` +
+  `with why; "none" if none) → Rejected alternatives (one line each, why) → Build plan (ordered).`
 
 const DESIGN = {
   type: 'object',
@@ -159,8 +173,7 @@ if (!wide) {
     `target repository only to spot-check specific claims, not to explore). Then write the FINAL design document in design_doc: base it on ` +
     `your winning design, graft in specific superior ideas from the runners-up, and address your own strongest ` +
     `criticism of the winner explicitly (mitigate or accept with rationale). ` +
-    `Structure: Context → Decision → Architecture → Components → Data flow → Failure handling → ` +
-    `Rejected alternatives (one line each, why) → Build plan (ordered).\n\n` +
+    DOC_STRUCTURE + `\n\n` +
     `BRIEF:\n${brief}\n\nDESIGNS:\n${JSON.stringify(designs, null, 2)}`,
     { label: 'judge+synthesize', phase: 'Judge', effort: 'xhigh', schema: LEANVERDICT },
   )
@@ -172,6 +185,7 @@ if (!wide) {
     target: TARGET, design: one.design_doc, winner: one.best, tied: false,
     tally: { [one.best]: 1 }, designs,
     verdicts: [{ scores: one.scores, best: one.best, reasoning: one.reasoning }],
+    spend: spend(),
   }
 }
 
@@ -219,7 +233,7 @@ const final = await agent(
   `BRIEF:\n${brief}\n\nALL DESIGNS:\n${JSON.stringify(designs, null, 2)}\n\nJUDGE VERDICTS:\n${JSON.stringify(verdicts, null, 2)}\n\n` +
   `Base the document on the winning design, but graft in specific superior ideas from the runners-up where judges flagged them. ` +
   `Address the judges' strongest criticisms of the winner explicitly (mitigate or accept with rationale). ` +
-  `Structure: Context → Decision → Architecture → Components → Data flow → Failure handling → Rejected alternatives (one line each, why) → Build plan (ordered).`,
+  DOC_STRUCTURE,
   { label: 'synthesize:final', effort: 'xhigh' },
 )
 
@@ -227,4 +241,4 @@ if (!final) {
   return { target: TARGET, error: 'Synthesis agent failed — winner and raw materials returned for manual synthesis.', winner: winnerKey, tied, tally, designs, verdicts }
 }
 
-return { target: TARGET, design: final, winner: winnerKey, tied, tally, designs, verdicts }
+return { target: TARGET, design: final, winner: winnerKey, tied, tally, designs, verdicts, spend: spend() }

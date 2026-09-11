@@ -108,7 +108,7 @@ locator is not ready to be approved.
 
 ## 5. Apply — generalize first
 
-Changes land in the local install (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`), so
+Changes land in the local install (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`), so
 this machine benefits immediately.
 
 **The harness is product-agnostic. The evidence never is.** Every lesson arrives wearing the

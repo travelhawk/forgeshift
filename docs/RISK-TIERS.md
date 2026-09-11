@@ -38,7 +38,7 @@ alone is not a signal; T2's "side effects" means effects that outlive the tab or
 | **Tests the builder writes** | behavior tests at the public surface: happy path + explicit failure and edge cases | happy path + top failure path | one smoke test as the done-criteria's test |
 | **E2E** | at most **one** spec, and only for what no other layer can reach; written after the feature works | rarely — same bar | none |
 | **Per-feature verify** | `forge-quench` (session model) **+ a parallel security pass**, both scoped to the diff; the feature passes only if both pass | `forge-quench` (session model), **one** pass, medium effort | **smoke check only** (Haiku/Sonnet: builds / renders / one happy-path assertion). **No `forge-quench`.** |
-| **In `/forge:build` finish** | **priority scope** of the integrated `deep-review` (full 6 dimensions, 2 refuters) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
+| **In `/forge:build` finish** | **priority scope** of the integrated `deep-review` (3 lenses, findings clustered by root cause, every crit/high refuted individually) | swept by the integrated `deep-review` | swept at reduced refuter cost, not individually pre-reviewed |
 
 **Tier sets test *depth*, never *who runs what*.** At every tier the build agent's own gate is
 `typecheck` + `lint` + the tests covering its diff. The full suite and the single e2e run

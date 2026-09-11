@@ -468,7 +468,7 @@ suite('plugin packaging', () => {
       }
       // A skill that uses $FORGE_HOME defines how to resolve it.
       if (/\$FORGE_HOME/.test(src)) {
-        assert.match(src, /CLAUDE_PLUGIN_ROOT:-\$\(forge-home\)/, `skill ${s} carries the FORGE_HOME idiom`)
+        assert.match(src, /CLAUDE_PLUGIN_ROOT:-\$\(forge-home/, `skill ${s} carries the FORGE_HOME idiom`)
       }
     }
   })
@@ -679,5 +679,92 @@ suite('retro swarm loop', () => {
     assert.match(src, /Prove the change would have prevented this failure/i, 'the fix is replayed against the failure')
     assert.match(src, /State the falsifier/i, 'every applied change carries an observable did-it-work signal')
     assert.match(src, /unverified — not applied/i, 'unproven items are reported, never committed')
+  })
+})
+
+// --- 2026-09-11 workflow eval fixes ------------------------------------------------
+// Live evaluation of plugin 0.2.3 (report: "ForgeShift Workflow Evals"). Each test pins
+// one repair so a later edit cannot quietly undo it.
+suite('2026-09-11 eval fixes', () => {
+  const wf = f => readFileSync(join(workflowDir, f + '.js'), 'utf8')
+
+  // deep-review listed one defect three times (three lenses, three anchors) and paid a
+  // refuter per copy: a cheap root-cause cluster pass now precedes verification.
+  test('deep-review: root-cause clustering before verification, fail-open, sightings kept', () => {
+    const src = wf('deep-review')
+    assert.match(src, /label: 'cluster:root-cause', phase: 'Verify', model: 'sonnet', effort: 'low', schema: CLUSTERS/, 'one Sonnet cluster pass: grouping is a judgment call, Haiku is too weak for it')
+    assert.match(src, /also_reported/, 'merged sightings survive in the representative finding')
+    assert.match(src, /verifying all \$\{raw\.length\} findings individually/, 'invalid or dead cluster pass falls back to the exact-key list')
+    assert.match(src, /SEVERITY RUBRIC/, 'lenses share one severity rubric')
+    assert.match(src, /ONE finding per root cause/, 'lenses are told not to restate a defect per line')
+  })
+
+  // A failed T1 feature dropped its security verdict + evidence from failed[].
+  test('feature-pipeline: failed features keep evidence, write-up and security verdict', () => {
+    const src = wf('feature-pipeline')
+    assert.match(src, /evidence: r\.check \? r\.check\.evidence : null/, 'failed[] carries the verifier evidence')
+    assert.match(src, /pr_body: r\.check \? r\.check\.pr_body : null/, 'failed[] carries the verifier write-up')
+    assert.match(src, /security: sec \? \{ verdict: sec\.verdict, evidence: sec\.evidence \}/, 'combined T1 check keeps the security verdict separately')
+  })
+
+  // The security pass was the one prompt without the known-red baseline.
+  test('feature-pipeline: security pass carries the known-red note', () => {
+    assert.match(wf('feature-pipeline'), /look that found none\.\\n` \+ knownRedNote/, 'knownRedNote appended to securityCheck')
+  })
+
+  // Preflight facts that select behaviour are computed in code, not judged by Haiku.
+  test('feature-pipeline: cwd equality computed in code; scripts dir from forge_home arg', () => {
+    const src = wf('feature-pipeline')
+    assert.match(src, /normPath\(pre\.cwd\) === normPath\(TARGET\)/, 'runtime isolation decided from the raw pwd line')
+    assert.match(src, /: !!pre\.cwdIsTarget/, 'model judgement only as the fallback when pwd is missing')
+    assert.match(src, /const SCRIPTS = forgeHomeArg\s*\? `\$\{forgeHomeArg\}\/scripts`/, 'scripts dir derived from forge_home')
+    for (const s of ['feature-pipeline', 'build']) {
+      assert.match(read('.claude', 'skills', s, 'SKILL.md'), /forge_home: "\$FORGE_HOME"/, `${s} launcher passes forge_home`)
+    }
+  })
+
+  // Evidence discipline on the cheap tiers: no tracker ticks on the branch, unproven
+  // criteria stay open, and feature agents run the diff's tests, not the full suite.
+  test('feature-pipeline: builders do not tick trackers; verifiers keep unproven criteria open', () => {
+    const src = wf('feature-pipeline')
+    assert.match(src, /Do NOT tick PROGRESS\.md/, 'builder never ticks the tracker on its branch')
+    assert.match(src, /not the full suite \(it belongs to the merge gate/, 'builder gate is typecheck + lint + diff tests (hard rule 3)')
+    assert.equal((src.match(/EVIDENCE RULE/g) || []).length, 2, 'verify and smoke prompts both carry the evidence rule')
+    assert.ok(!/run the project's full relevant test suite/.test(src), 'old full-suite instruction removed')
+  })
+
+  test('release-gate: concrete tests blocker, honest audit without lockfile, smoke leaves nothing behind', () => {
+    const src = wf('release-gate')
+    assert.match(src, /testsGate\.status\}: \$\{String\(testsGate\.evidence/, 'tests blocker cites the gate evidence')
+    assert.match(src, /never generate or synthesize a lockfile/, 'audit without a lockfile is a warning, not a pass')
+    assert.match(src, /git status --porcelain --ignored before and after/, 'runtime smoke checks for leftovers before claiming a clean tree')
+    assert.match(src, /has no test script/, 'a missing test script is named in the blocker')
+  })
+
+  test('design-panel: owner decision block first, one-way doors listed for approval', () => {
+    const src = wf('design-panel')
+    assert.match(src, /const DOC_STRUCTURE =/, 'one shared document structure')
+    assert.equal((src.match(/DOC_STRUCTURE/g) || []).length, 3, 'both the lean and the wide synthesis use it')
+    assert.match(src, /Decision \(FIRST/, 'decision block leads the document')
+    assert.match(src, /"Needs approval" list of every one-way door/, 'new public surfaces are approvals, not silent spec rows')
+    assert.match(src, /Deviations from the brief/, 'deviations from the brief are named')
+  })
+
+  test('every workflow returns spend from the budget API', () => {
+    for (const f of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate']) {
+      assert.match(wf(f), /budget\.spent\(\)/, `${f} reads spend`)
+    }
+  })
+
+  // forge-home is not on the Bash PATH on every install (observed 2026-09-11): the idiom
+  // falls back to the newest plugin-cache version instead of an empty FORGE_HOME.
+  test('FORGE_HOME idiom falls back to the plugin cache when forge-home is not on PATH', () => {
+    const FALLBACK = /forge-home 2>\/dev\/null \|\| ls -d ~\/\.claude\/plugins\/cache\/forge\/forge\/\*\/ \| sort -V \| tail -1/
+    assert.match(read('CLAUDE.md'), FALLBACK, 'CLAUDE.md carries the fallback')
+    for (const s of skills) {
+      const src = read('.claude', 'skills', s, 'SKILL.md')
+      if (/CLAUDE_PLUGIN_ROOT:-/.test(src)) assert.match(src, FALLBACK, `skill ${s} carries the fallback`)
+    }
+    assert.ok(!/CLAUDE_PLUGIN_ROOT:-\$\(forge-home\)\}/.test(read('.claude', 'agents', 'forge-blueprint.md')), 'blueprint agent uses the fallback idiom')
   })
 })

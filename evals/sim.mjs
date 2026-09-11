@@ -92,6 +92,13 @@ export const deepReviewResponder = (overrides = {}) => (prompt, opts) => {
   if (l in overrides) return overrides[l]
   if (l.startsWith('preflight')) return preflightOK
   if (l.startsWith('review:')) return { findings: LENS_MAP[l.slice(7)] || [] }
+  // Root-cause clustering (2026-09-11): identity grouping — the 12 canned findings are
+  // distinct defects, so the shape stays 1 cluster per finding. Tests that exercise a
+  // real merge pass their own responder.
+  if (l === 'cluster:root-cause') {
+    const ids = [...new Set([...prompt.matchAll(/"id":\s*(\d+)/g)].map(m => +m[1]))]
+    return { clusters: ids.map(id => ({ ids: [id] })) }
+  }
   if (l === 'verify:batch') {
     const ids = [...new Set([...prompt.matchAll(/"id":\s*(\d+)/g)].map(m => +m[1]))]
     return { verdicts: ids.map(id => ({ id, refuted: false, reasoning: 'stands' })) }

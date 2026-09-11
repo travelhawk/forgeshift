@@ -15,7 +15,7 @@ git.
 
 - Establish the target product (cd into it; `$ARGUMENTS` may name it; ambiguous → ask).
 - Harness assets and scripts ship with the plugin, not the product: resolve their home once
-  with `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` and read them as
+  with `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"` and read them as
   `$FORGE_HOME/<path>`.
 - Read `.forge/run.json` if present — the run-state `/forge:build`/`/forge:next` write at
   each boundary: `baseline_sha`, `integration_mode`, the wave plan, and each feature's

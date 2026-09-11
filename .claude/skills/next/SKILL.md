@@ -22,7 +22,7 @@ kickoff), approve once, and the build runs hands-off from there.
   and redirect**: a brand-new product is `/forge:kickoff`; existing code without a spec is
   `/forge:adopt`. `/forge:next` iterates a product that already exists.
 - Harness assets (references, RISK-TIERS) ship with the plugin, not the product. Resolve
-  their home once and reuse it: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — then
+  their home once and reuse it: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"` — then
   read e.g. `$FORGE_HOME/docs/RISK-TIERS.md`. Product files stay relative to the product.
 - Baseline must hold or you build on sand (same rule as `/forge:build` §0): working tree clean,
   full suite green — or the pre-existing red explicitly recorded in `PROGRESS.md`, in

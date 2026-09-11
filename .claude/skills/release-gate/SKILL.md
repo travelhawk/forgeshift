@@ -11,7 +11,7 @@ tests → build → runtime smoke sequentially, each returning evidence, aggrega
 closed** — a gate that doesn't report blocks the ship. Usually fired by `/forge:ship`; run
 it directly for a standalone pre-release check.
 
-1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`. Pass
+1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`. Pass
    the target repo as `dir` (absolute) — the gates run real commands there, and workflows do
    NOT follow the shell `cd`.
 2. Parse `$ARGUMENTS` into the release context (version + change summary), or an object

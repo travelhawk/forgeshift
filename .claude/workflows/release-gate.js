@@ -73,14 +73,14 @@ const CHECK = {
 
 const INSPECT_GATES = [
   { key: 'static', task: 'Run the type checker and linter using the project\'s own commands (detect from package.json/pyproject/Makefile). status=fail on type errors or lint errors (not warnings). If the project has neither configured, status=skipped with that fact as a warning.' },
-  { key: 'security', task: 'Scan the diff since the last tag (or last 20 commits if no tag) for: committed secrets/keys, new endpoints without auth checks, disabled security middleware, unsafe input handling introduced. Also run the package manager\'s audit command; only HIGH/CRITICAL advisories in production deps are blockers.' },
+  { key: 'security', task: 'Scan the diff since the last tag (or last 20 commits if no tag) for: committed secrets/keys, new endpoints without auth checks, disabled security middleware, unsafe input handling introduced. Also run the package manager\'s audit command; only HIGH/CRITICAL advisories in production deps are blockers. No lockfile = the audit has no signal: say so as a warning and do not count it as an audit pass; never generate or synthesize a lockfile.' },
   { key: 'docs', task: 'Release hygiene by INSPECTION ONLY — do not execute installers or setup commands: CHANGELOG has an entry for this release (missing = blocker); version fields consistent across all manifests (inconsistent = blocker); README setup/run commands textually match the scripts and tooling that actually exist in the manifests (mismatch = warning, wrong/nonexistent command = blocker).' },
 ]
 
 const EXECUTE_GATES = [
-  { key: 'tests', task: 'Run the full test suite with the project\'s own test command. status=fail on any failing test. Report count passed/failed and the failing test names. No test command configured = status=skipped (the verdict treats that as blocking).' },
+  { key: 'tests', task: 'Run the full test suite with the project\'s own test command. status=fail on any failing test. Report count passed/failed and the failing test names. No test command configured = status=skipped with a blocker naming the manifest and the missing script (e.g. "package.json has no test script") — the verdict treats it as blocking.' },
   { key: 'build', task: 'Run the production build command. status=fail if the build errors. Note bundle-size or output anomalies as warnings. Projects with no build step (e.g. a plain Python API): status=skipped with the reason.' },
-  { key: 'runtime', task: 'Smoke-test with BOUNDED execution: start the app as a BACKGROUND process with output redirected to a log file — never as a blocking foreground command. Record the PID. Poll the primary route/command with curl --max-time 5 (or the CLI equivalent) for at most 60 seconds. Then kill the process UNCONDITIONALLY — also on failure — using a tree kill (Windows: taskkill //F //T //PID <pid>, or npx kill-port <port>); verify nothing still listens on the port. Whole gate finishes within ~3 minutes; app not responding by then = status=fail with the log tail as evidence. Libraries/packages with nothing to boot: status=skipped with the reason.' },
+  { key: 'runtime', task: 'Smoke-test with BOUNDED execution: start the app as a BACKGROUND process with output redirected to a log file — never as a blocking foreground command. Record the PID. Poll the primary route/command with curl --max-time 5 (or the CLI equivalent) for at most 60 seconds. Then kill the process UNCONDITIONALLY — also on failure — using a tree kill (Windows: taskkill //F //T //PID <pid>, or npx kill-port <port>); verify nothing still listens on the port. Whole gate finishes within ~3 minutes; app not responding by then = status=fail with the log tail as evidence. Libraries/packages with nothing to boot: status=skipped with the reason. Point any data the smoke run writes at a temporary location when the product offers one (env var, flag, config), otherwise delete what the run created; compare git status --porcelain --ignored before and after and report every leftover file as a warning — never claim a clean tree without that check.' },
 ]
 
 const ALL_KEYS = [...INSPECT_GATES, ...EXECUTE_GATES].map(g => g.key)
@@ -150,14 +150,23 @@ for (const k of missing) blockers.push(`[${k}] gate agent failed to report — n
 const testsGate = results.find(r => r.gate === 'tests')
 const testsPassed = !!testsGate && testsGate.status === 'pass'
 if (!testsPassed && !blockers.some(b => b.startsWith('[tests]'))) {
-  blockers.push('[tests] no passing test-suite evidence (failed, skipped, or missing) — verify the target is the project root and a test command exists')
+  // Cite the gate's own evidence so the blocker names the concrete gap (no test script,
+  // wrong root, failing suite) instead of a generic template line.
+  blockers.push(`[tests] no passing test-suite evidence — ${testsGate
+    ? `${testsGate.status}: ${String(testsGate.evidence || '').slice(0, 240)}`
+    : 'the tests gate did not report'}; a release needs a green suite run from the project root`)
 }
 
 const ship = failed.length === 0 && blockers.length === 0
 log(ship ? 'VERDICT: SHIP' : `VERDICT: NO-SHIP — ${failed.length} failed gates, ${blockers.length} blockers`)
 
+const spend = (typeof budget !== 'undefined' && budget && typeof budget.spent === 'function')
+  ? { output_tokens: budget.spent(), target: budget.total ?? null }
+  : null
+
 return {
   target: TARGET,
+  spend,
   verdict: ship ? 'SHIP' : 'NO-SHIP',
   gates: results.map(r => ({ gate: r.gate, status: r.status, evidence: r.evidence })),
   blockers,

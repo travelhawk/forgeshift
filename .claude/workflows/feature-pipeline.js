@@ -19,6 +19,13 @@ export const meta = {
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
 const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+// forge_home (2026-09-11): the launcher skill already resolved $FORGE_HOME to build this
+// scriptPath, so it hands the same path over and the scripts dir is derived in code —
+// deterministic. The Haiku preflight locating it via `forge-home` on PATH missed in 1 of
+// 4 live runs (and forge-home is not on the Bash PATH on every install); it stays as the
+// fallback when the arg is absent.
+const forgeHomeArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.forge_home === 'string' && a.forge_home.trim()
+  ? a.forge_home.trim().replace(/[\\/]+$/, '') : null
 
 let features = []
 let context = ''
@@ -61,6 +68,7 @@ const PREFLIGHT = {
     hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
     isControlCenter: { type: 'boolean', description: 'target looks like an agent harness / control-center repo rather than a product: .claude/workflows/ or .claude/agents/ present, a .claude-plugin/plugin.json, or a CLAUDE.md describing a harness' },
     cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
+    cwd: { type: 'string', description: 'the exact line pwd printed, verbatim' },
     scriptsDir: { type: 'string', description: 'Absolute path (in the shell\'s own path format, as `pwd` prints it) of a directory containing forge-worktree.sh, if reachable: resolve the forge plugin home with `forge-home` (on PATH when the plugin is enabled) or $CLAUDE_PLUGIN_ROOT and check for scripts/forge-worktree.sh there; failing that, under the current working directory. Its containing dir if found, else an empty string. Lets the build/verify agents call one deterministic script instead of hand-running git worktree plumbing.' },
     input: {
       type: 'object', additionalProperties: false,
@@ -79,9 +87,12 @@ const pre = await globalThis.agent(
     : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
   `Report per the schema: absolute target path, whether it exists, is a git repo with at least one commit, ` +
   `holds a real project, and whether it looks like an agent-harness/control-center repo instead of a product. ` +
-  `Also locate the worktree helper: run \`forge-home\` (a plugin binary on PATH; fall back to $CLAUDE_PLUGIN_ROOT, ` +
-  `then to pwd) and check whether scripts/forge-worktree.sh exists under the directory it prints. If so return ` +
-  `its containing directory's absolute path (as pwd prints it) in scriptsDir, else an empty string. ` +
+  `Return the exact pwd output in cwd. ` +
+  (forgeHomeArg
+    ? `scriptsDir: return an empty string (the scripts location is already known). `
+    : `Also locate the worktree helper: run \`forge-home\` (a plugin binary on PATH; fall back to $CLAUDE_PLUGIN_ROOT, ` +
+      `then to pwd) and check whether scripts/forge-worktree.sh exists under the directory it prints. If so return ` +
+      `its containing directory's absolute path (as pwd prints it) in scriptsDir, else an empty string. `) +
   `Additionally: if a file feature-pipeline.input.json exists in the target root, read it and return its ` +
   `{features, context, known_failures} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
   `in the JSON — if an entry is an object {feature, tier, done_criteria}, return the OBJECT unchanged; do NOT ` +
@@ -119,7 +130,13 @@ const agent = (p, o) => agent0(AT + p, o)
 // Runtime worktree isolation clones the SESSION's repo — only correct when the
 // session cwd IS the target. Otherwise the builder manages its own worktree of
 // the target repo (same semantics: isolated tree, fresh branch, branch survives).
-const runtimeIsolation = pre.cwdIsTarget
+// The equality is computed here from the raw pwd line, not judged by the preflight
+// model: a wrong `true` would clone the wrong repo (observed once in the 2026-09-11
+// eval). Path forms are normalised (C:\\x, C:/x, /c/x, trailing slash, case).
+const normPath = p => String(p || '').trim().replace(/\\/g, '/').replace(/^\/([a-zA-Z])(\/|$)/, '$1:/').replace(/\/+$/, '').toLowerCase()
+const runtimeIsolation = typeof pre.cwd === 'string' && pre.cwd.trim()
+  ? normPath(pre.cwd) === normPath(TARGET)
+  : !!pre.cwdIsTarget
 
 // Known-red baseline preamble, appended to every builder/verifier prompt. Without it a
 // verifier that runs the full suite and hits a pre-existing failure fails the feature —
@@ -137,7 +154,9 @@ const knownRedNote = knownRed && String(knownRed).trim()
 // the runtime is NOT isolating the build for us, agents call that one script instead; the
 // shell owns correctness and the entropy the workflow runtime cannot generate. WT is the
 // `bash "<path>"` prefix, or null → agents fall back to inline git (unchanged behavior).
-const SCRIPTS = pre.scriptsDir && typeof pre.scriptsDir === 'string' && pre.scriptsDir.trim() ? pre.scriptsDir.trim() : null
+const SCRIPTS = forgeHomeArg
+  ? `${forgeHomeArg}/scripts`
+  : pre.scriptsDir && typeof pre.scriptsDir === 'string' && pre.scriptsDir.trim() ? pre.scriptsDir.trim() : null
 const WT = SCRIPTS ? `bash "${SCRIPTS}/forge-worktree.sh"` : null
 
 const buildWorktree = i => runtimeIsolation
@@ -249,6 +268,9 @@ const combineT1 = (fn, sec) => {
     pr_title: fn.pr_title,
     pr_body: fn.pr_body,
     evidence: `${fn.evidence}${sec ? ` | security: ${sec.evidence}` : ' | security pass did not complete'}`,
+    // Kept separately so a FAILED feature still reports its security verdict + evidence
+    // (the failed[] entry used to drop it — 2026-09-11 eval).
+    security: sec ? { verdict: sec.verdict, evidence: sec.evidence } : { verdict: 'missing', evidence: 'security pass agent failed' },
   }
 }
 
@@ -279,7 +301,7 @@ const securityCheck = (i, branch, feature, doneCriteria, pitfalls, escalatedFrom
   `escapes (cross-tenant read or write), injection, secrets committed to code, unsafe deserialization, ` +
   `path traversal / SSRF on external input, missing signature or idempotency checks on webhooks, session/token ` +
   `handling flaws. Verdict 'fail' with the concrete attack path if you find one; 'pass' only after an honest ` +
-  `look that found none.\n\nFEATURE: ${feature}\nDONE CRITERIA:\n${JSON.stringify(doneCriteria)}\n` +
+  `look that found none.\n` + knownRedNote + `\nFEATURE: ${feature}\nDONE CRITERIA:\n${JSON.stringify(doneCriteria)}\n` +
   `KNOWN PITFALLS FROM THE BRIEF (probe these first):\n${JSON.stringify(pitfalls || [])}`,
   { label: `security:${i + 1}`, phase: 'Verify', effort: 'high', schema: SECCHECK },
 )
@@ -326,7 +348,9 @@ const results = await pipeline(
     `Do NOT re-open the full spec, architecture, or memory. Follow "conventions", heed "pitfalls":\n` +
     `${JSON.stringify(plan, null, 2)}\n\n` +
     `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
-    `run the project's full relevant test suite. Match existing code style exactly. ` + knownRedNote +
+    `then run typecheck, lint and the tests covering YOUR diff — not the full suite (it belongs to the merge gate ` +
+    `and starves sibling builds). Match existing code style exactly. Do NOT tick PROGRESS.md or any tracker ` +
+    `checkbox on your branch — the merge step ticks them with verified evidence. ` + knownRedNote +
     `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
     `Commit with a clear message before finishing. INTEGRATION BOUNDARY: commit to your feature branch only — ` +
     `do NOT git push, do NOT create or edit pull requests, do NOT merge. The orchestrator owns all integration ` +
@@ -366,7 +390,8 @@ const results = await pipeline(
     const funcPrompt =
       `Fresh-context verification. ${detachedWorktree('verify', i, branch)} ` +
       `Verify the feature against its done-criteria in that worktree. ` +
-      `Run the tests yourself — do not trust the builder's report. ` +
+      `Run typecheck, lint and the tests covering this feature's diff yourself — do not trust the builder's report; ` +
+      `the full suite belongs to the merge gate. ` +
       `If a test fails, re-run just that test once before concluding — a failure that clears on the re-run is flaky: ` +
       `note it in the evidence, do NOT fail the feature on it. ` +
       (f.tier === 'T1'
@@ -376,6 +401,8 @@ const results = await pipeline(
       `Besides the verdict, return a ready-to-use PR title (imperative, <= 72 chars) and PR body ` +
       `(markdown: what & why, the done-criteria as a checklist, the test evidence YOU produced in this run), ` +
       `plus the evidence summary itself. On a fail verdict the body states what is broken instead. ` +
+      `EVIDENCE RULE: a done-criterion you could not prove in this environment (a fallback path with no test, an ` +
+      `external program, a manual step) stays OPEN in the checklist with the reason — never ticked. ` +
       `INTEGRATION BOUNDARY: return the PR title/body as DATA — do NOT git push, do NOT run gh, do NOT open a PR ` +
       `or merge yourself; the orchestrator creates the PR from what you return.\n\n` +
       `The brief's done-criteria and pitfalls below are your spec — verify against them; you need not re-open ` +
@@ -391,7 +418,8 @@ const results = await pipeline(
       `build/render/happy-path break — not on style, edge cases, or missing depth (out of scope for T3). ` +
       `If a check fails, re-run it once before concluding — a failure that clears on the re-run is flaky: note it, do not fail on it. ` +
       `Return the verdict, a ready-to-use PR title + body (what & why, done-criteria checklist, the smoke evidence ` +
-      `YOU produced), and the evidence summary.\n` + knownRedNote + `\n` +
+      `YOU produced), and the evidence summary. EVIDENCE RULE: a criterion you did not exercise (an untested fallback, ` +
+      `an external program) stays OPEN in the checklist with the reason — never ticked.\n` + knownRedNote + `\n` +
       `FEATURE: ${f.feature}\nDONE CRITERIA:\n${JSON.stringify(done)}\nBUILDER REPORT:\n${JSON.stringify(r.build)}`,
       { label: `smoke:${i + 1}`, phase: 'Verify', model: 'sonnet', effort: 'medium', schema: CHECK },
     )
@@ -437,10 +465,12 @@ if (spend) log(`spend: ${Math.round(spend.output_tokens / 1000)}k output tokens`
 return {
   target: TARGET,
   spend,
-  passed: passed.map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence })),
+  passed: passed.map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build.branch, summary: r.build.summary, pr_title: r.check.pr_title, pr_body: r.check.pr_body, evidence: r.check.evidence, security: r.check.security || null })),
   failed: [
     ...done.filter(r => !r.check || r.check.verdict === 'fail')
-      .map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'] })),
+      // A failed feature keeps its verifier evidence, write-up and security verdict — the
+      // human deciding what to do next needs what was proven, not only what broke.
+      .map(r => ({ feature: r.feature, tier: r.tier, escalated: !!r.escalated, security_surfaces: r.surfaces || [], branch: r.build && r.build.branch, issues: r.check ? r.check.issues : ['verification agent failed'], evidence: r.check ? r.check.evidence : null, pr_body: r.check ? r.check.pr_body : null, security: (r.check && r.check.security) || null })),
     ...lost,
   ],
   note: 'Branches are unmerged. Review and merge in the main session: git merge --no-ff <branch> per feature, resolving conflicts in merge order of least → most files touched, then RUN THE FULL SUITE ON THE MERGED RESULT — each branch was verified in isolation; the merged whole has not been tested by any agent. When driven by /forge, the skill handles push → PR → merge per its approved integration mode instead. Delete feature-pipeline.input.json if it was used. If the run was interrupted: git worktree prune, then inspect feature/wf-* branches for committed work before deleting any.',

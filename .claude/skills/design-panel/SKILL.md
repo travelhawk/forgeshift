@@ -11,7 +11,7 @@ design iterated (iteration anchors on the first idea). Default is the **lean** p
 (3 designers + 1 judge-synthesizer); `panel: "wide"` runs 4 designers + 3 voting judges +
 a separate synthesis — reserve it for the most expensive decisions.
 
-1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`. Pass
+1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`. Pass
    the target repo as `dir` (absolute) — workflows do NOT follow the shell `cd`.
 2. Parse `$ARGUMENTS` into the brief (problem, constraints, context), or an object
    `{dir, brief, panel}`. If the brief may not arrive intact, write it to

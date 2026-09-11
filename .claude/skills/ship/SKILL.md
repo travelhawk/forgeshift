@@ -17,7 +17,7 @@ real commands there. Ambiguous which product? Ask.
 
 Harness assets (templates, playbooks) and the workflow scripts ship with the plugin, not
 the product. Resolve their home once and reuse it this session:
-`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — then read e.g.
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"` — then read e.g.
 `$FORGE_HOME/templates/RELEASE-CHECKLIST.md`.
 
 ## 1. Prepare the release commit (before any gate — the gate checks these)

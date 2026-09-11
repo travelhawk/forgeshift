@@ -50,7 +50,7 @@ build from — you do not write product code.
   the file, the library, or the mechanism.
 - Reference material ships with the forge plugin, not the product: `docs/MODEL-ROUTING.md`,
   `docs/playbooks/`, and `templates/`. Your working directory is the product, so resolve the
-  plugin home once — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` — and read them as
+  plugin home once — `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"` — and read them as
   `$FORGE_HOME/docs/…` and `$FORGE_HOME/templates/…`.
 
 ## Output contract

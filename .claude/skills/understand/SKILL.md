@@ -35,7 +35,7 @@ A focus question → make sure the subsystems relevant to it are separated out.
 Fan out one **Sonnet** read-only mapper per subsystem (spawn them in parallel). Each is
 **scope-boxed** to its own paths — this is the deliberate mapper exception to the
 scope-box rule (`$FORGE_HOME/docs/ORCHESTRATION.md`, where
-`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`): a mapper's job *is* the broad read,
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`): a mapper's job *is* the broad read,
 but only of *its* subsystem, not the whole tree. Give each mapper:
 
 - Its subsystem name, paths, and hypothesis; the focus question if any.

@@ -1,12 +1,12 @@
 {
   "name": "forge",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering. A control center for building software products from idea to shipped, with quality gates that gate. Install once, use in any folder.",
   "author": {
     "name": "Michael Falk"
   },
-  "homepage": "https://github.com/FalkTechLab/forgeshift",
-  "repository": "https://github.com/FalkTechLab/forgeshift",
+  "homepage": "https://github.com/travelhawk/forgeshift",
+  "repository": "https://github.com/travelhawk/forgeshift",
   "keywords": ["orchestration", "agents", "skills", "workflows", "review", "lifecycle"],
   "skills": ["./.claude/skills/"],
   "agents": [

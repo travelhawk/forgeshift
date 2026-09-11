@@ -12,7 +12,7 @@ verify, T3 smoke-only on Sonnet). Dependent features belong in ONE entry (built
 sequentially inside it). Usually driven by `/forge:build`; run it directly only for a raw
 independent batch.
 
-1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`. Pass
+1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`. Pass
    the target repo as `dir` (absolute) — workflows do NOT follow the shell `cd`, and this
    one needs a git repo with ≥1 commit.
 2. Parse `$ARGUMENTS`: an array of feature entries (a string, optionally with a `[T1]`
@@ -23,7 +23,9 @@ independent batch.
    not arrive intact, write `{features, context, known_failures}` to
    `feature-pipeline.input.json` in the product root first (fallback); delete it after.
 3. Invoke: Workflow tool, `scriptPath: "$FORGE_HOME/.claude/workflows/feature-pipeline.js"`,
-   `args: {dir: "<abs product root>", features: [...], context, known_failures}`.
+   `args: {dir: "<abs product root>", forge_home: "$FORGE_HOME", features: [...], context, known_failures}`
+   — `forge_home` lets the workflow derive `scripts/forge-worktree.sh` in code instead of
+   having a preflight agent hunt for it.
 4. Branches are verified **in isolation** — after merging, run the full suite on the merged
    result before calling the batch done (integration breaks surface there). Relay
    `pr_title`/`pr_body`/`evidence` per feature.

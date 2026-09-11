@@ -10,7 +10,7 @@ Fire the `deep-review` workflow against the target repo: three review lenses in 
 then every finding is adversarially verified by independent refuters, returned fail-closed
 (confirmed vs. unverified vs. rejectedBlockers).
 
-1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`. The
+1. Resolve the plugin home once: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`. The
    **target repo is the product you're in** — pass it as `dir` (absolute path); workflows do
    NOT follow the shell `cd`, so `dir` is required.
 2. Parse `$ARGUMENTS`: empty → review the current diff; `all` → whole repo; a path list →

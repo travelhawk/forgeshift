@@ -11,7 +11,7 @@ Adopt "$ARGUMENTS" (a path; if omitted, ask which repo). Nothing here scaffolds 
 rewrites code — adoption only ADDS the harness artifacts the lifecycle skills anchor on.
 
 Harness assets (templates, references) ship with the plugin, not the product. Resolve
-their home once in a Bash step and reuse it: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`
+their home once in a Bash step and reuse it: `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`
 — then read e.g. `$FORGE_HOME/templates/PROJECT-CLAUDE.md`. Everything written below lands
 in the adopted product (relative to its root), never under `$FORGE_HOME`.
 

@@ -18,7 +18,7 @@ becomes the product root; a cwd that already holds unrelated work gets a new
 `/forge:adopt`, not kickoff. **Create nothing yet** — scaffolders require an empty directory
 and step 4 creates everything in order.
 
-`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"` for harness assets; product files stay
+`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"` for harness assets; product files stay
 relative to the product dir.
 
 ## 1. Interview (AskUserQuestion, batched)

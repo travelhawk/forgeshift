@@ -8,3 +8,4 @@
 - [Claimed-green review heuristic](review-heuristic-claimed-green.md) — re-run and reconcile the test COUNT; a non-loading test file hides as one bare SyntaxError (shebang + vite SSR)
 - [Scan-surface gap heuristic](review-heuristic-scan-surface-gap.md) — prove a drift guard's teeth AND enumerate its file walk; import-shaped detectors miss bare-string references
 - [Strip-tag validity heuristic](review-heuristic-strip-tag-validity.md) — line-tag "strippable" transforms: guard checks tag placement, not output syntax; strip EVERY variant + node --check, no gate catches broken-but-token-clean output
+- [Workflow pin-test heuristic](review-heuristic-workflow-pin-tests.md) — CI YAML regex-pins must assert fragile preconditions (fetch-depth/concurrency), not just feature tokens

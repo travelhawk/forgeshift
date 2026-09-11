@@ -4,7 +4,9 @@ You are running inside a **product**, not inside this plugin repo. Two roots, ne
 them:
 
 - **Harness assets** (templates, playbooks, workflow scripts):
-  `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then `$FORGE_HOME/<path>`.
+  `FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`, then `$FORGE_HOME/<path>`.
+  (`forge-home` is not on the Bash PATH on every install; the newest plugin-cache version is
+  the fallback. Workflows take `forge_home: "$FORGE_HOME"` in args so they never re-resolve it.)
 - **Product files** (`docs/SPEC.md`, `PROGRESS.md`, the product's own `CLAUDE.md`): relative
   to the product directory.
 

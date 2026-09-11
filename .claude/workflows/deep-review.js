@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>", mode: "integration"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md); mode: "integration" swaps the 3 lenses for ONE integration-seam lens, for reviewing a merge of features that each already passed an isolated per-feature verify (the /forge:build finish on a clean run).',
   phases: [
     { title: 'Review', detail: 'three merged lenses in parallel: bugs, boundaries, craft' },
-    { title: 'Verify', detail: 'crit/high refuted individually, all medium/low by one batch refuter' },
+    { title: 'Verify', detail: 'findings clustered by root cause (Sonnet), then crit/high refuted individually, all medium/low by one batch refuter' },
   ],
 }
 
@@ -134,22 +134,72 @@ const all = await parallel(DIMENSIONS.map(d => () =>
     `Do NOT read the full spec, PROGRESS, ADRs, docs, or unrelated modules; everything you need is in ` +
     `the scope and the code around it. ` +
     `Report every issue you find, including ones you are uncertain about — a separate verification step filters. ` +
-    `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario.`,
+    `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario. ` +
+    `SEVERITY RUBRIC: critical = data/money loss, auth bypass, or a crash on a realistic path; high = wrong result or ` +
+    `security gap on realistic input, bounded blast radius; medium = concrete edge case or contract break; low = hygiene ` +
+    `with a real but minor consequence. ONE finding per root cause — never the same defect at every line it surfaces.`,
     { label: `review:${d.key}`, phase: 'Review', effort: 'high', schema: FINDINGS },
   ),
 ))
 
 // Barrier is deliberate: dedup across dimensions before paying for verification.
 const seen = new Set()
-const findings = []
+const raw = []
 for (const r of all.filter(Boolean)) {
   for (const f of r.findings) {
     const key = `${f.file}:${f.line ?? 'file'}:${f.summary.slice(0, 60).toLowerCase()}`
-    if (!seen.has(key)) { seen.add(key); findings.push(f) }
+    if (!seen.has(key)) { seen.add(key); raw.push(f) }
+  }
+}
+if (!raw.length) return { target: TARGET, confirmed: [], message: 'No findings survived the review pass.' }
+
+// Root-cause clustering (2026-09-11). The exact key above only catches verbatim repeats;
+// three lenses anchor one defect to different lines and wordings — the live eval paid
+// 3x refuters for it and listed each defect three times. One cheap Sonnet pass groups
+// the findings by root cause; verification runs on one representative per group and the
+// report keeps the other sightings as `also_reported`. Fail-open: a dead or invalid
+// cluster response leaves the exact-key list untouched (more refuters, never fewer facts).
+const CLUSTERS = {
+  type: 'object', additionalProperties: false, required: ['clusters'],
+  properties: {
+    clusters: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false, required: ['ids'],
+        properties: { ids: { type: 'array', items: { type: 'integer' }, description: 'ids of findings that describe the SAME root cause (one fix closes all of them); the clearest statement first' } },
+      },
+    },
+  },
+}
+const order = { critical: 0, high: 1, medium: 2, low: 3 }
+let findings = raw
+if (raw.length >= 3 && DIMENSIONS.length > 1) {
+  const numbered = raw.map((f, id) => ({ id, file: f.file, line: f.line ?? null, severity: f.severity, summary: f.summary }))
+  // Sonnet, not Haiku: "same root cause" is a judgment call and one wrong merge hides a
+  // finding; one compact call costs less than the refuters it removes.
+  const cl = await globalThis.agent(
+    `Group these code-review findings by ROOT CAUSE, from the text alone — do not open the repository. Two findings ` +
+    `belong together only when ONE fix closes both (the same defect seen from different lines, lenses, or wordings); ` +
+    `a different defect in the same file is a separate cluster. Every id appears in exactly one cluster, the clearest ` +
+    `statement first. When unsure, keep them apart.\n\nFINDINGS:\n${JSON.stringify(numbered)}`,
+    { label: 'cluster:root-cause', phase: 'Verify', model: 'sonnet', effort: 'low', schema: CLUSTERS },
+  )
+  const ids = cl && Array.isArray(cl.clusters) ? cl.clusters.flatMap(c => (Array.isArray(c.ids) ? c.ids : [])) : null
+  const valid = !!ids && ids.length === raw.length && new Set(ids).size === raw.length &&
+    ids.every(i => Number.isInteger(i) && i >= 0 && i < raw.length)
+  if (valid) {
+    findings = cl.clusters.map(c => {
+      const members = c.ids.map(i => raw[i])
+      const top = members.reduce((s, f) => (order[f.severity] < order[s] ? f.severity : s), members[0].severity)
+      const also = members.slice(1).map(f => `${f.file}:${f.line ?? 'file'} — ${f.summary}`)
+      return { ...members[0], severity: top, ...(also.length ? { also_reported: also } : {}) }
+    })
+    log(`${raw.length} findings → ${findings.length} root causes after clustering`)
+  } else {
+    log(`cluster pass ${cl ? 'returned an invalid grouping' : 'failed'} — verifying all ${raw.length} findings individually`)
   }
 }
 log(`${findings.length} unique findings across ${DIMENSIONS.length} dimensions`)
-if (!findings.length) return { target: TARGET, confirmed: [], message: 'No findings survived the review pass.' }
 
 phase('Verify')
 // Refute cost scales with stakes: each ship-blocker (critical/high) gets its own
@@ -216,7 +266,6 @@ if (batchRes && batchRes.__batch) for (const v of batchRes.__batch.verdicts) bma
 const batched = restF.map(f => toVerdict(f, bmap.get(f.id)))
 
 const done = [...singles, ...batched]
-const order = { critical: 0, high: 1, medium: 2, low: 3 }
 const bySeverity = (a, b) => order[a.severity] - order[b.severity]
 const confirmed = done.filter(f => f.verdict === 'CONFIRMED').sort(bySeverity)
 const unverified = done.filter(f => f.verdict === 'UNVERIFIED').sort(bySeverity)
@@ -231,4 +280,9 @@ log(`${confirmed.length}/${findings.length} findings confirmed after adversarial
   (unverified.length ? `; ${unverified.length} unverified (verifier agents failed — treat as open, do not discard)` : '') +
   (rejectedBlockers.length ? `; ${rejectedBlockers.length} crit/high refuted — spot-check the dismissals` : ''))
 
-return { target: TARGET, confirmed, unverified, rejectedBlockers, rejected: done.filter(f => f.verdict === 'REFUTED').length }
+// Actual output-token spend (Workflow budget API) so the caller can report cost, not guess it.
+const spend = (typeof budget !== 'undefined' && budget && typeof budget.spent === 'function')
+  ? { output_tokens: budget.spent(), target: budget.total ?? null }
+  : null
+
+return { target: TARGET, confirmed, unverified, rejectedBlockers, rejected: done.filter(f => f.verdict === 'REFUTED').length, spend }

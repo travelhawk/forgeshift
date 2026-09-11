@@ -5,7 +5,7 @@
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  loadSource, runWorkflow, SCENARIOS, preflightWithScripts,
+  loadSource, runWorkflow, SCENARIOS, preflightWithScripts, preflightOK,
   deepReviewResponder, featurePipelineResponder, designPanelResponder, releaseGateResponder,
 } from '../evals/sim.mjs'
 
@@ -13,9 +13,10 @@ const run = (wf, scenario, responder) =>
   runWorkflow(loadSource(`.claude/workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
 
 suite('orchestration shape (agent budgets)', () => {
-  test('deep-review: 12 findings cost 9 agents (1 preflight + 3 lenses + 4 refuters + 1 batch)', async () => {
+  test('deep-review: 12 findings cost 10 agents (1 preflight + 3 lenses + 1 cluster + 4 refuters + 1 batch)', async () => {
     const { result, calls } = await run('deep-review', 'deep-review', deepReviewResponder())
-    assert.equal(calls.length, 9)
+    assert.equal(calls.length, 10)
+    assert.equal(calls.filter(c => c.label === 'cluster:root-cause').length, 1, 'one Sonnet cluster pass')
     assert.equal(result.confirmed.length, 12, 'all findings confirmed on the happy path')
     assert.equal(calls.filter(c => c.label.startsWith('review:')).length, 3, '3 lenses')
     assert.equal(calls.filter(c => c.label === 'verify:batch').length, 1, 'one batch refuter for all med/low')
@@ -73,6 +74,92 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(calls.length, 4)
     assert.equal(result.verdict, 'SHIP')
     assert.equal(result.gates.length, 6, 'all six gates reported evidence')
+  })
+})
+
+suite('2026-09-11 eval fixes (behaviour)', () => {
+  test('deep-review: clustering merges same-root-cause findings -> fewer refuters, sightings kept', async () => {
+    // ids 0-1 (critical) are one defect, 2-3 (high) another; the 8 med/low stay separate.
+    const merge = { clusters: [{ ids: [0, 1] }, { ids: [2, 3] }, ...[4, 5, 6, 7, 8, 9, 10, 11].map(id => ({ ids: [id] }))] }
+    const { result, calls } = await run('deep-review', 'deep-review', deepReviewResponder({ 'cluster:root-cause': merge }))
+    assert.equal(calls.filter(c => c.label.startsWith('verify:') && c.label !== 'verify:batch').length, 2, '2 refuters instead of 4')
+    assert.equal(result.confirmed.length, 10, '10 root causes reported, not 12 lines')
+    const merged = result.confirmed.filter(f => f.also_reported)
+    assert.equal(merged.length, 2)
+    assert.ok(merged.every(f => f.also_reported.length === 1), 'each merged finding lists its other sighting')
+  })
+
+  test('deep-review: dead or invalid cluster pass falls back to verifying every finding', async () => {
+    const dead = await run('deep-review', 'deep-review', deepReviewResponder({ 'cluster:root-cause': null }))
+    assert.equal(dead.result.confirmed.length, 12, 'nothing lost when the cluster agent dies')
+    assert.equal(dead.calls.filter(c => c.label.startsWith('verify:') && c.label !== 'verify:batch').length, 4)
+    const bad = await run('deep-review', 'deep-review', deepReviewResponder({ 'cluster:root-cause': { clusters: [{ ids: [0, 0, 1] }] } }))
+    assert.equal(bad.result.confirmed.length, 12, 'an invalid grouping (missing/duplicate ids) is ignored')
+  })
+
+  test('deep-review: cluster severity is the highest of its members', async () => {
+    const merge = { clusters: [{ ids: [11, 0] }, ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id => ({ ids: [id] }))] }
+    const { result } = await run('deep-review', 'deep-review', deepReviewResponder({ 'cluster:root-cause': merge }))
+    const rep = result.confirmed.find(f => f.file === 'src/f11.js')
+    assert.equal(rep.severity, 'critical', 'a low sighting merged with a critical one is reported critical')
+  })
+
+  test('feature-pipeline: a failed T1 feature still reports evidence and its security verdict', async () => {
+    const base = featurePipelineResponder()
+    const { result } = await run('feature-pipeline', 'feature-pipeline', (p, o) => {
+      const r = base(p, o)
+      if (o.label === 'verify:1') return { ...r, verdict: 'fail', issues: ['404 path crashes the server'] }
+      return r
+    })
+    assert.equal(result.failed.length, 1)
+    const f = result.failed[0]
+    assert.equal(f.tier, 'T1')
+    assert.equal(f.evidence, 'e | security: e', 'verifier + security evidence kept')
+    assert.deepEqual(f.security, { verdict: 'pass', evidence: 'e' }, 'security verdict reported separately')
+    assert.equal(f.pr_body, 'b')
+    assert.ok(result.passed.every(x => 'security' in x), 'passed entries carry the field too (null for T2/T3)')
+  })
+
+  test('feature-pipeline: forge_home arg pins the worktree script without a preflight hunt', async () => {
+    const prompts = []
+    const base = featurePipelineResponder({ preflight: { ...preflightWithScripts, scriptsDir: '' } })
+    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const { result } = await runWorkflow(src, {
+      args: { ...SCENARIOS['feature-pipeline'].args, forge_home: 'T:/harness/' },
+      responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) },
+    })
+    assert.equal(result.passed.length, 6)
+    const pre = prompts.find(([l]) => l === 'preflight:target')[1]
+    assert.match(pre, /scriptsDir: return an empty string/, 'preflight told not to hunt for the script')
+    const build = prompts.find(([l]) => l === 'build:1')[1]
+    assert.match(build, /bash "T:\/harness\/scripts\/forge-worktree\.sh" new-build 1/, 'builder calls the script under forge_home (trailing slash stripped)')
+  })
+
+  test('feature-pipeline: runtime isolation follows the pwd line, not the preflight boolean', async () => {
+    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const firstBuild = async pre => {
+      const prompts = []
+      const base = featurePipelineResponder({ preflight: pre })
+      await runWorkflow(src, { args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) } })
+      return prompts.find(([l]) => l === 'build:1')[1]
+    }
+    // Haiku said "cwd is the target" but pwd shows another directory: no runtime clone.
+    const wrongTrue = await firstBuild({ ...preflightOK, cwdIsTarget: true, cwd: '/d/somewhere/else' })
+    assert.match(wrongTrue, /Work in an ISOLATED git worktree you create yourself/, 'pwd mismatch overrides a wrong true')
+    // pwd matches the target in MSYS form while Haiku said false: runtime isolation is used.
+    const wrongFalse = await firstBuild({ ...preflightOK, cwdIsTarget: false, cwd: '/t/fake-product/' })
+    assert.match(wrongFalse, /You are in an ISOLATED git worktree/, 'MSYS-form pwd equal to the target enables runtime isolation')
+  })
+
+  test('release-gate: a skipped tests gate yields a blocker that cites the gate evidence', async () => {
+    const base = releaseGateResponder()
+    const { result } = await run('release-gate', 'release-gate', (p, o) => {
+      const r = base(p, o)
+      if (o.label === 'gate:tests+build+runtime') r.gates[0] = { ...r.gates[0], status: 'skipped', evidence: 'package.json has no test script' }
+      return r
+    })
+    assert.equal(result.verdict, 'NO-SHIP')
+    assert.ok(result.blockers.some(b => b.startsWith('[tests]') && b.includes('skipped: package.json has no test script')), result.blockers.join(' | '))
   })
 })
 

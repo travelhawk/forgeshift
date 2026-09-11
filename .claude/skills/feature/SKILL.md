@@ -17,7 +17,7 @@ whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent ite
 - Find the feature in `docs/SPEC.md` / `PROGRESS.md` and use its done-criteria. Ad-hoc →
   write 2–5 checkable ones now and get a nod.
 - **Read its risk tier** (`T?` on the feature's row). Untagged → classify by capability
-  signal (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"`, then
+  signal (`FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}"`, then
   `$FORGE_HOME/docs/RISK-TIERS.md`; ties up). `/forge:feature F3 as tier 1` overrides for this
   run — state the tier you're using and why.
 - Run the suite. Starting red means fixing it first, or recording explicitly that the red is
