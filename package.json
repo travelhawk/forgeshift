@@ -4,11 +4,12 @@
   "version": "0.0.0",
   "license": "MIT",
   "type": "module",
-  "description": "F.O.R.G.E. harness — regression tests for the skills/agents/workflows contract. Run npm test after every harness change.",
+  "description": "F.O.R.G.E. — Fleet-Orchestrated, Review-Gated Engineering. Cross-agent harness for Claude Code, Codex CLI and OpenCode; npm test guards the skills/agents/workflows contract.",
   "scripts": {
     "test": "node --test \"tests/*.test.mjs\"",
     "eval": "node evals/run-evals.mjs",
     "eval:gate": "node evals/gate.mjs",
-    "install-forge": "node scripts/install.mjs"
+    "install-forge": "node scripts/install.mjs",
+    "forge-run": "node bin/forge-run.mjs"
   }
 }

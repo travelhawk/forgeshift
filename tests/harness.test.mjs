@@ -22,9 +22,9 @@ const stripJsonc = (s) =>
   s.replace(/"(?:[^"\\]|\\.)*"|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (m) => (m[0] === '"' ? m : ''))
 
 // --- inventory -------------------------------------------------------------
-const workflowDir = p('.claude', 'workflows')
-const skillDir = p('.claude', 'skills')
-const agentDir = p('.claude', 'agents')
+const workflowDir = p('workflows')
+const skillDir = p('skills')
+const agentDir = p('agents')
 const workflows = readdirSync(workflowDir).filter(f => f.endsWith('.js'))
 const skills = readdirSync(skillDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
 const agents = readdirSync(agentDir).filter(f => f.endsWith('.md'))
@@ -91,7 +91,7 @@ suite('workflows', () => {
 suite('skills', () => {
   for (const s of skills) {
     test(`skill ${s}: SKILL.md frontmatter (name matches dir, description present)`, () => {
-      const src = read('.claude', 'skills', s, 'SKILL.md')
+      const src = read('skills', s, 'SKILL.md')
       const fm = frontmatter(src)
       assert.ok(fm, 'frontmatter block present')
       assert.equal(fm.name, s, 'frontmatter name matches directory')
@@ -116,9 +116,9 @@ suite('agents', () => {
 
 // --- cross-references ------------------------------------------------------
 suite('cross-references', () => {
-  const claudeMd = read('CLAUDE.md')
+  const claudeMd = read('AGENTS.md')
 
-  test('every command in the CLAUDE.md command map resolves to a /forge: skill', () => {
+  test('every command in the AGENTS.md command map resolves to a /forge: skill', () => {
     // Plugin commands are namespaced /forge:<name>; the map lists them that way.
     const cmds = [...claudeMd.matchAll(/^\| `\/forge:([a-z-]+)[ `]/gm)].map(m => m[1])
     assert.ok(cmds.length >= 10, `command map found (${cmds.length} commands)`)
@@ -129,14 +129,16 @@ suite('cross-references', () => {
     }
   })
 
-  test('every forge-* agent referenced anywhere exists in .claude/agents/', () => {
+  test('every forge-* agent referenced anywhere exists in agents/', () => {
     // Terms that look like agent names but are prose (or shell scripts), not agents.
     const NON_AGENT_TERMS = new Set([
-      'forge-agents', 'forge-themed', 'forge-home', 'forge-worktree', 'forge-pr',
+      'forge-agents', 'forge-themed', 'forge-home', 'forge-worktree', 'forge-pr', 'forge-run',
+      // Portable command names (forge-build, forge-deep-review): the regex stops at the 2nd hyphen.
+      ...skills.map(n => 'forge-' + n.split('-')[0]),
     ])
     const sources = [
-      ['CLAUDE.md', claudeMd],
-      ...skills.map(s => [`skills/${s}`, read('.claude', 'skills', s, 'SKILL.md')]),
+      ['AGENTS.md', claudeMd],
+      ...skills.map(s => [`skills/${s}`, read('skills', s, 'SKILL.md')]),
       ...workflows.map(w => [`workflows/${w}`, readFileSync(join(workflowDir, w), 'utf8')]),
       ...readdirSync(p('docs')).filter(f => f.endsWith('.md')).map(f => [`docs/${f}`, read('docs', f)]),
     ]
@@ -150,7 +152,7 @@ suite('cross-references', () => {
 
   test('every templates/*.md referenced by a skill exists', () => {
     for (const s of skills) {
-      const src = read('.claude', 'skills', s, 'SKILL.md')
+      const src = read('skills', s, 'SKILL.md')
       for (const m of src.matchAll(/templates\/([A-Z-]+\.md)/g)) {
         assert.ok(existsSync(p('templates', m[1])), `skill ${s} references templates/${m[1]} which exists`)
       }
@@ -175,7 +177,7 @@ suite('cross-references', () => {
   test('/understand is a skill, not a workflow (demoted — no gate to justify the runtime)', () => {
     assert.ok(skills.includes('understand'), '/understand exists as a skill')
     assert.ok(!workflows.includes('understand.js'), 'understand.js workflow removed')
-    const src = read('.claude', 'skills', 'understand', 'SKILL.md')
+    const src = read('skills', 'understand', 'SKILL.md')
     assert.match(src, /scratchpad/i, 'readers hand off maps via scratchpad files (context hygiene)')
     assert.match(src, /Refuse to map the forge plugin/i, 'keeps the target sanity check the preflight did')
   })
@@ -199,19 +201,19 @@ suite('safety invariants', () => {
   })
 
   test('/feature integrates via PR — never straight to main', () => {
-    const src = read('.claude', 'skills', 'feature', 'SKILL.md')
+    const src = read('skills', 'feature', 'SKILL.md')
     assert.match(src, /never commit a\s+feature straight to main/i)
     assert.match(src, /gh pr create/, 'PR flow present')
   })
 
   test('/forge keeps its hard stops (no force-push, no merging failed features)', () => {
-    const src = read('.claude', 'skills', 'build', 'SKILL.md')
+    const src = read('skills', 'build', 'SKILL.md')
     assert.match(src, /force-push/i)
     assert.match(src, /never merges a feature that failed verification/i)
   })
 
   test('/forge finish includes a docs pass: forge-etcher writes the README, commands verified', () => {
-    const src = read('.claude', 'skills', 'build', 'SKILL.md')
+    const src = read('skills', 'build', 'SKILL.md')
     assert.match(src, /## 5c\. Documentation pass/, 'the docs pass is its own finish section')
     assert.match(src, /forge-etcher/, 'the docs pass is delegated to forge-etcher')
     assert.match(src, /README/, 'the docs pass owns the README')
@@ -225,7 +227,7 @@ suite('safety invariants', () => {
   })
 
   test('all lifecycle templates exist', () => {
-    for (const t of ['SPEC.md', 'PROGRESS.md', 'PROJECT-CLAUDE.md', 'ADR.md', 'FEATURE.md', 'RELEASE-CHECKLIST.md', 'RELEASE-KIT.md']) {
+    for (const t of ['SPEC.md', 'PROGRESS.md', 'PROJECT-AGENTS.md', 'ADR.md', 'FEATURE.md', 'RELEASE-CHECKLIST.md', 'RELEASE-KIT.md']) {
       assert.ok(existsSync(p('templates', t)), `templates/${t} exists`)
     }
   })
@@ -236,8 +238,8 @@ suite('safety invariants', () => {
   })
 
   test('reviewers are read-only; quench treats contract-surface changes as first-class', () => {
-    const q = read('.claude', 'agents', 'forge-quench.md')
-    const w = read('.claude', 'agents', 'forge-warden.md')
+    const q = read('agents', 'forge-quench.md')
+    const w = read('agents', 'forge-warden.md')
     assert.match(q, /read-only/i, 'quench is declared read-only — closes the Bash-write hole')
     assert.match(w, /read-only/i, 'warden is declared read-only')
     assert.match(q, /Contract-surface/i, 'quench flags public signature/route/schema/CLI/config changes')
@@ -247,8 +249,8 @@ suite('safety invariants', () => {
     const spec = read('templates', 'SPEC.md')
     assert.match(spec, /## Decision policy/, 'every spec carries the decision policy')
     assert.match(spec, /two-way door/i, 'reversible calls are decided-and-logged, not asked mid-run')
-    assert.match(read('.claude', 'agents', 'forge-blueprint.md'), /one-way door/i, 'blueprint escalates only one-way doors')
-    assert.match(read('.claude', 'skills', 'build', 'SKILL.md'), /Autonomous decisions/i, 'forge report surfaces the autonomous calls for review')
+    assert.match(read('agents', 'forge-blueprint.md'), /one-way door/i, 'blueprint escalates only one-way doors')
+    assert.match(read('skills', 'build', 'SKILL.md'), /Autonomous decisions/i, 'forge report surfaces the autonomous calls for review')
   })
 })
 
@@ -268,21 +270,21 @@ suite('cost optimizations', () => {
   })
 
   test('/forge:build: waves of 1-2 features run the direct lane, 3+ fire the pipeline', () => {
-    const src = read('.claude', 'skills', 'build', 'SKILL.md')
+    const src = read('skills', 'build', 'SKILL.md')
     assert.match(src, /Small-wave shortcut \(1–2 features\)/, 'shortcut documented in Execute step')
     assert.match(src, /Waves of 3\+/, 'pipeline threshold is 3 — the point where prose bookkeeping starts to slip')
     assert.match(src, /build in PARALLEL, never serially/, 'disjoint-footprint features fan out as parallel worktree subagents')
-    assert.match(read('.claude', 'skills', 'feature', 'SKILL.md'), /\(3\+\) independent items/, 'feature skill points at the same threshold')
+    assert.match(read('skills', 'feature', 'SKILL.md'), /\(3\+\) independent items/, 'feature skill points at the same threshold')
   })
 
   test('/kickoff hands off to /forge in the SAME session', () => {
-    const src = read('.claude', 'skills', 'kickoff', 'SKILL.md')
+    const src = read('skills', 'kickoff', 'SKILL.md')
     assert.match(src, /same session/i, 'same-session continuation offered')
     assert.match(src, /no new session needed/i, 'new session is the exception, not the rule')
   })
 
   test('hard rules include slim output + regression-suite gate', () => {
-    const src = read('CLAUDE.md')
+    const src = read('AGENTS.md')
     assert.match(src, /\*\*Slim output\.\*\*/, 'output-discipline hard rule present')
     assert.match(src, /npm test/, 'regression suite wired into the hard rules')
   })
@@ -311,14 +313,14 @@ suite('cost optimizations', () => {
     assert.ok(!/Explore the target repository if you need ground truth/.test(dp), 'unbounded judge exploration removed')
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(fp, /do NOT re-open the full spec/i, 'builders live off the brief')
-    assert.match(read('CLAUDE.md'), /Scope-box every subagent/, 'delegation rule present')
+    assert.match(read('AGENTS.md'), /Scope-box every subagent/, 'delegation rule present')
     assert.match(read('docs', 'ORCHESTRATION.md'), /Scope-box the context/, 'orchestration contract rule present')
   })
 
   test('test volume is budgeted — builders capped at behavior-level tests', () => {
-    assert.match(read('CLAUDE.md'), /Tests are load-bearing — and budgeted/, 'hard rule 1 carries the budget')
-    assert.match(read('CLAUDE.md'), /never a unit\s+test per function/, 'anti-padding clause in hard rules')
-    assert.match(read('.claude', 'agents', 'forge-hammer.md'), /Tests first, tests budgeted/, 'hammer has the budget')
+    assert.match(read('AGENTS.md'), /Tests are load-bearing — and budgeted/, 'hard rule 1 carries the budget')
+    assert.match(read('AGENTS.md'), /never a unit\s+test per function/, 'anti-padding clause in hard rules')
+    assert.match(read('agents', 'forge-hammer.md'), /Tests first, tests budgeted/, 'hammer has the budget')
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(fp, /not a unit test per function/, 'plan schema bounds the test plan')
   })
@@ -333,7 +335,7 @@ suite('cost optimizations', () => {
   })
 
   test('/ship produces a release kit for user-facing products', () => {
-    const src = read('.claude', 'skills', 'ship', 'SKILL.md')
+    const src = read('skills', 'ship', 'SKILL.md')
     assert.match(src, /Release kit/, 'release-kit step present')
     assert.match(src, /RELEASE-KIT\.md/, 'wired to the template')
     assert.match(src, /incomplete kit blocks the\s+release/i, 'store products fail closed')
@@ -353,14 +355,14 @@ suite('cost optimizations', () => {
       assert.ok(wt.includes(cmd), `script defines the ${cmd} subcommand`)
       assert.match(fp, new RegExp(`\\$\\{WT\\} ${cmd}`), `workflow WT branch invokes forge-worktree.sh with ${cmd}`)
     }
-    assert.match(read('CLAUDE.md'), /Deterministic work is a script/, 'the principle is a hard rule')
+    assert.match(read('AGENTS.md'), /Deterministic work is a script/, 'the principle is a hard rule')
   })
 
   test('a stalled run is resumable: /forge:build writes run-state, /forge:resume reconciles it', () => {
     assert.ok(skills.includes('resume'), '/resume skill exists')
-    assert.match(read('.claude', 'skills', 'build', 'SKILL.md'), /\.forge\/run\.json/, '/forge writes .forge/run.json at boundaries')
-    assert.match(read('.claude', 'skills', 'next', 'SKILL.md'), /\.forge\/run\.json/, '/next writes it too')
-    assert.match(read('.claude', 'skills', 'resume', 'SKILL.md'), /reconcile/i, '/resume reconciles run-state against git ground truth')
+    assert.match(read('skills', 'build', 'SKILL.md'), /\.forge\/run\.json/, '/forge writes .forge/run.json at boundaries')
+    assert.match(read('skills', 'next', 'SKILL.md'), /\.forge\/run\.json/, '/next writes it too')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /reconcile/i, '/resume reconciles run-state against git ground truth')
     assert.match(read('.gitignore'), /^\.forge\/$/m, 'run-state is local-only (gitignored)')
   })
 })
@@ -401,7 +403,7 @@ suite('boundary-audit optimizations', () => {
   // P10: every skill closes with a Next-line so the next action is always one command away.
   test('every skill closes with a **Next →** pointer', () => {
     for (const s of skills) {
-      assert.match(read('.claude', 'skills', s, 'SKILL.md'), /Next →/, `skill ${s} names the next command`)
+      assert.match(read('skills', s, 'SKILL.md'), /Next →/, `skill ${s} names the next command`)
     }
   })
 
@@ -412,7 +414,7 @@ suite('boundary-audit optimizations', () => {
     assert.match(src, /knownRedNote/, 'known-red preamble is defined and appended to prompts')
     assert.match(src, /BASELINE \(KNOWN-RED\)/, 'baseline note is surfaced to the agents')
     assert.match(src, /known_failures/, 'known_failures is a first-class arg, not buried in context')
-    assert.match(read('.claude', 'skills', 'build', 'SKILL.md'), /known_failures/, '/forge passes it as its own field')
+    assert.match(read('skills', 'build', 'SKILL.md'), /known_failures/, '/forge passes it as its own field')
   })
 
   // Bug #2: crit/high findings are the highest-stakes filter — they stand unless disproven,
@@ -422,7 +424,7 @@ suite('boundary-audit optimizations', () => {
     assert.match(src, /refuted=true ONLY when/, 'crit/high refuter does not default to refuted')
     assert.match(src, /it STANDS/, 'unprovable crit/high scenario stands')
     assert.match(src, /rejectedBlockers/, 'refuted crit/high returned with reasoning')
-    assert.match(read('.claude', 'skills', 'build', 'SKILL.md'), /rejectedBlockers/, '/forge:build spot-checks the dismissals')
+    assert.match(read('skills', 'build', 'SKILL.md'), /rejectedBlockers/, '/forge:build spot-checks the dismissals')
   })
 })
 
@@ -435,7 +437,7 @@ suite('plugin packaging', () => {
     assert.equal(manifest.name, 'forge', 'plugin name is the /forge: command namespace')
     assert.ok(manifest.version, 'version present')
     assert.ok(manifest.description && manifest.description.length > 20, 'description present')
-    assert.deepEqual(manifest.skills, ['./.claude/skills/'], 'skills point at the existing skills dir')
+    assert.deepEqual(manifest.skills, ['./skills/'], 'skills point at the existing skills dir')
     // the agents field takes individual files, not a directory (validator-enforced)
     assert.ok(Array.isArray(manifest.agents) && manifest.agents.length === agents.length,
       `every agent file is declared (${agents.length})`)
@@ -459,7 +461,7 @@ suite('plugin packaging', () => {
 
   test('skills read harness assets through $FORGE_HOME — no bare (harness root) path', () => {
     for (const s of skills) {
-      const src = read('.claude', 'skills', s, 'SKILL.md')
+      const src = read('skills', s, 'SKILL.md')
       assert.ok(!/\(harness root\)/.test(src), `skill ${s} has no stale "(harness root)" ref`)
       // Every harness-asset read is anchored: FORGE_HOME sits in the 12 chars before it.
       for (const m of src.matchAll(/templates\/|docs\/playbooks\/|docs\/RISK-TIERS\.md|references\//g)) {
@@ -474,12 +476,12 @@ suite('plugin packaging', () => {
   })
 
   test('each workflow has a launcher skill firing it by $FORGE_HOME scriptPath', () => {
-    // Plugins do not auto-register .claude/workflows/*.js as commands — the launcher
+    // Plugins do not auto-register workflows/*.js as commands — the launcher
     // skills are what keep /forge:deep-review etc. invocable.
     for (const wf of ['deep-review', 'design-panel', 'feature-pipeline', 'release-gate']) {
       assert.ok(skills.includes(wf), `${wf} launcher skill exists`)
-      const src = read('.claude', 'skills', wf, 'SKILL.md')
-      assert.match(src, new RegExp(`\\$FORGE_HOME/\\.claude/workflows/${wf}\\.js`),
+      const src = read('skills', wf, 'SKILL.md')
+      assert.match(src, new RegExp(`\\$FORGE_HOME/\\workflows/${wf}\\.js`),
         `${wf} launcher builds scriptPath from $FORGE_HOME`)
     }
   })
@@ -487,7 +489,7 @@ suite('plugin packaging', () => {
   test('the backlog builder invokes as /forge:build (avoids the /forge:forge collision)', () => {
     assert.ok(skills.includes('build'), 'build skill dir present')
     assert.ok(!skills.includes('forge'), 'no forge skill dir (would collide with the plugin name)')
-    assert.equal(frontmatter(read('.claude', 'skills', 'build', 'SKILL.md')).name, 'build')
+    assert.equal(frontmatter(read('skills', 'build', 'SKILL.md')).name, 'build')
   })
 
   // Every merge to main must grow the version — installed plugins update by it.
@@ -537,7 +539,7 @@ suite('plugin packaging', () => {
 
 // --- review improvements (2026-07-21) — each fix locks its shape here ----------
 suite('review improvements', () => {
-  const build = () => read('.claude', 'skills', 'build', 'SKILL.md')
+  const build = () => read('skills', 'build', 'SKILL.md')
   const fp = () => readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
 
   // #1 Flaky tests must not halt an unattended run — a NEW failure is re-run once and
@@ -605,7 +607,7 @@ suite('review improvements', () => {
 
 // --- lane consistency + speed (2026-07-21) — one tier contract, both lanes -----
 suite('lane consistency + speed', () => {
-  const build = () => read('.claude', 'skills', 'build', 'SKILL.md')
+  const build = () => read('skills', 'build', 'SKILL.md')
 
   // The gate depth a feature gets depends on tier + diff, never on which lane built it:
   // the post-build tier re-check runs in the pipeline AND in the direct loop.
@@ -613,7 +615,7 @@ suite('lane consistency + speed', () => {
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(fp, /label: `tier-recheck:\$\{i \+ 1\}`/, 'pipeline re-check stage present')
     for (const s of ['build', 'feature']) {
-      const src = read('.claude', 'skills', s, 'SKILL.md')
+      const src = read('skills', s, 'SKILL.md')
       assert.match(src, /git diff --merge-base HEAD/, `${s} lane re-checks the built diff`)
       assert.match(src, /[Rr]aises depth only, never lowers it/, `${s} lane escalation is one-directional`)
     }
@@ -649,7 +651,7 @@ suite('lane consistency + speed', () => {
 // --- retro swarm loop (2026-07-21) — local apply + opt-in upstream PR ----------
 suite('retro swarm loop', () => {
   test('retro applies locally, asks before an upstream PR, and never merges it', () => {
-    const src = read('.claude', 'skills', 'retro', 'SKILL.md')
+    const src = read('skills', 'retro', 'SKILL.md')
     assert.match(src, /FORGE_HOME/, 'changes land in the local plugin install first')
     assert.match(src, /Propose these changes upstream as a PR\?/, 'the PR offer is one explicit question')
     assert.match(src, /never assume yes/i, 'PR creation is opt-in, never automatic')
@@ -667,7 +669,7 @@ suite('retro swarm loop', () => {
 
   // A retro repairs damage, it does not collect wishes (2026-09-04).
   test('retro admits only blockers and observed defects, each cited and verified', () => {
-    const src = read('.claude', 'skills', 'retro', 'SKILL.md')
+    const src = read('skills', 'retro', 'SKILL.md')
     assert.match(src, /damage that already happened/i, 'the scope is past failures, not future improvements')
     assert.match(src, /Inadmissible/i, 'the skill names what it refuses to change')
     assert.match(src, /A new capability, command, agent or stage/, 'feature wishes are inadmissible in a retro')
@@ -719,7 +721,7 @@ suite('2026-09-11 eval fixes', () => {
     assert.match(src, /: !!pre\.cwdIsTarget/, 'model judgement only as the fallback when pwd is missing')
     assert.match(src, /const SCRIPTS = forgeHomeArg\s*\? `\$\{forgeHomeArg\}\/scripts`/, 'scripts dir derived from forge_home')
     for (const s of ['feature-pipeline', 'build']) {
-      assert.match(read('.claude', 'skills', s, 'SKILL.md'), /forge_home: "\$FORGE_HOME"/, `${s} launcher passes forge_home`)
+      assert.match(read('skills', s, 'SKILL.md'), /forge_home: "\$FORGE_HOME"/, `${s} launcher passes forge_home`)
     }
   })
 
@@ -760,11 +762,11 @@ suite('2026-09-11 eval fixes', () => {
   // falls back to the newest plugin-cache version instead of an empty FORGE_HOME.
   test('FORGE_HOME idiom falls back to the plugin cache when forge-home is not on PATH', () => {
     const FALLBACK = /forge-home 2>\/dev\/null \|\| ls -d ~\/\.claude\/plugins\/cache\/forge\/forge\/\*\/ \| sort -V \| tail -1/
-    assert.match(read('CLAUDE.md'), FALLBACK, 'CLAUDE.md carries the fallback')
+    assert.match(read('AGENTS.md'), FALLBACK, 'AGENTS.md carries the fallback')
     for (const s of skills) {
-      const src = read('.claude', 'skills', s, 'SKILL.md')
+      const src = read('skills', s, 'SKILL.md')
       if (/CLAUDE_PLUGIN_ROOT:-/.test(src)) assert.match(src, FALLBACK, `skill ${s} carries the fallback`)
     }
-    assert.ok(!/CLAUDE_PLUGIN_ROOT:-\$\(forge-home\)\}/.test(read('.claude', 'agents', 'forge-blueprint.md')), 'blueprint agent uses the fallback idiom')
+    assert.ok(!/CLAUDE_PLUGIN_ROOT:-\$\(forge-home\)\}/.test(read('agents', 'forge-blueprint.md')), 'blueprint agent uses the fallback idiom')
   })
 })

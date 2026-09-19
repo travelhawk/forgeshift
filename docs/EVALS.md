@@ -23,7 +23,7 @@ tokens, and fork PRs need no secrets.
 | Any quality metric drops (findings confirmed, features passed, SHIP verdict, design doc) | **fail** |
 | A scenario errors or its workflow is missing at HEAD | **fail** |
 | Total agents or prompt volume rises past +30% vs merge-base | **fail** |
-| CLAUDE.md (always-loaded) grows > +2500 bytes AND > +20% | **fail** |
+| AGENTS.md (always-loaded) grows > +2500 bytes AND > +20% | **fail** |
 | Any smaller cost/prose increase | warn (listed, not blocking) |
 | Baseline incomparable (new workflow, old result shape) | warn — absolute suite still applies |
 | Quality up, cost down, prose slimmer | listed as improvements |

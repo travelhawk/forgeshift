@@ -1,22 +1,22 @@
 {
   "name": "forge",
-  "version": "0.3.0",
-  "description": "F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering. A control center for building software products from idea to shipped, with quality gates that gate. Install once, use in any folder.",
+  "version": "0.4.0",
+  "description": "F.O.R.G.E. — Fleet-Orchestrated, Review-Gated Engineering. A control center for building software products from idea to shipped, with quality gates that gate. Install once, use in any folder.",
   "author": {
     "name": "Michael Falk"
   },
   "homepage": "https://github.com/travelhawk/forgeshift",
   "repository": "https://github.com/travelhawk/forgeshift",
   "keywords": ["orchestration", "agents", "skills", "workflows", "review", "lifecycle"],
-  "skills": ["./.claude/skills/"],
+  "skills": ["./skills/"],
   "agents": [
-    "./.claude/agents/forge-blueprint.md",
-    "./.claude/agents/forge-etcher.md",
-    "./.claude/agents/forge-hammer.md",
-    "./.claude/agents/forge-proof.md",
-    "./.claude/agents/forge-prospector.md",
-    "./.claude/agents/forge-quench.md",
-    "./.claude/agents/forge-temper.md",
-    "./.claude/agents/forge-warden.md"
+    "./agents/forge-blueprint.md",
+    "./agents/forge-etcher.md",
+    "./agents/forge-hammer.md",
+    "./agents/forge-proof.md",
+    "./agents/forge-prospector.md",
+    "./agents/forge-quench.md",
+    "./agents/forge-temper.md",
+    "./agents/forge-warden.md"
   ]
 }

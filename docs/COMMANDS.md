@@ -1,6 +1,6 @@
 # Command Guide — how skills, workflows, and agents interlock
 
-`CLAUDE.md` lists what each command does. This is what each one *costs*, where it runs, and
+`AGENTS.md` lists what each command does. This is what each one *costs*, where it runs, and
 when it will stop to ask you.
 
 ![Command architecture: you type a command; skills run as playbooks in the main session and delegate to forge agents or fire workflows; workflows run as JS scripts outside the chat and spawn agent fleets](diagrams/command-architecture.svg)
@@ -9,13 +9,14 @@ when it will stop to ask you.
 
 | | Where it runs | Keeps your context? | Cost |
 |---|---|---|---|
-| **Skill** `.claude/skills/<name>/SKILL.md` | Injected into your running session; the main-session Claude follows the playbook, pausing at defined gates | Yes — choreography, not a program | ~a normal session |
-| **Agent** `.claude/agents/forge-*.md` | Delegated to by skills; own system prompt, tool allowlist, pinned model | No — **empty context**, sees only its brief | 1 turn each |
-| **Workflow** `.claude/workflows/<name>.js` | JavaScript the runtime executes *outside* the chat | No | 5–30x |
+| **Skill** `skills/<name>/SKILL.md` | Injected into your running session; the main-session agent follows the playbook, pausing at defined gates | Yes — choreography, not a program | ~a normal session |
+| **Agent** `agents/forge-*.md` | Delegated to by skills; own system prompt, tool allowlist, pinned model | No — **empty context**, sees only its brief | 1 turn each |
+| **Workflow** `workflows/<name>.js` | JavaScript the runtime executes *outside* the chat — Claude's Workflow tool, or `bin/forge-run.mjs` on any other host | No | 5–30x |
 
 Agents' empty context is the point: `forge-quench` judges a diff without seeing the builder's
 reasoning, so it cannot inherit the builder's blind spots. Blueprint, quench, temper and warden
-additionally carry persistent memory (`.claude/agent-memory/`) and sharpen across projects.
+additionally carry persistent memory on Claude Code (`.claude/agent-memory/`) and sharpen
+across projects.
 Workflow code decides deterministically which agents start when, on which model, at which
 effort, with which output schema, and what happens to the results (dedup, refuter voting,
 fail-closed verdicts) — orchestration as code, therefore reproducible.
@@ -78,7 +79,7 @@ the one-at-a-time lane. So: **one feature → `/forge:feature`; a new batch of i
 1. **Triggering.** `/forge:kickoff`, `/forge:adopt`, `/forge:next`, `/forge:build`,
    `/forge:ship`, `/forge:retro` are user-only (`disable-model-invocation`) — their consequences
    belong to you. `/forge:feature`, `/forge:fix`, `/forge:harden`, `/forge:status`,
-   `/forge:debug-hard` may also be invoked by Claude when the situation matches.
+   `/forge:debug-hard` may also be invoked by the agent when the situation matches.
 2. **Cost.** Workflows cost 5–30x a skill because they launch agent fleets — which is why they
    sit at gates (review, release) and at genuine breadth (feature batches), never at 20-line
    changes. Ladder in [ORCHESTRATION.md](ORCHESTRATION.md); unsure → one rung lower.
@@ -86,6 +87,7 @@ the one-at-a-time lane. So: **one feature → `/forge:feature`; a new batch of i
    approval, stack approval, finding triage, manual ship checklist). Building, testing,
    verifying, collecting evidence runs without you.
 
-**Run `claude` inside your product** — the plugin is global, so its skills, agents, and
-workflows are available in every folder. Workflows still need the product passed as their `dir`
+**Start your agent inside your product** — `claude`, `codex` or `opencode`. The install is
+global, so skills, agents, and workflows are available in every folder; command syntax per
+host is in [HOSTS.md](HOSTS.md). Workflows still need the product passed as their `dir`
 arg; they do not follow the shell `cd`.

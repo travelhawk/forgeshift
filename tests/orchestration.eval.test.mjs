@@ -10,7 +10,7 @@ import {
 } from '../evals/sim.mjs'
 
 const run = (wf, scenario, responder) =>
-  runWorkflow(loadSource(`.claude/workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
+  runWorkflow(loadSource(`workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
 
 suite('orchestration shape (agent budgets)', () => {
   test('deep-review: 12 findings cost 10 agents (1 preflight + 3 lenses + 1 cluster + 4 refuters + 1 batch)', async () => {
@@ -23,7 +23,7 @@ suite('orchestration shape (agent budgets)', () => {
   })
 
   test('deep-review mode:integration -> ONE seam lens instead of three, verify unchanged', async () => {
-    const src = loadSource('.claude/workflows/deep-review.js')
+    const src = loadSource('workflows/deep-review.js')
     const { result, calls } = await runWorkflow(src, {
       args: { ...SCENARIOS['deep-review'].args, mode: 'integration' },
       responder: deepReviewResponder(),
@@ -123,7 +123,7 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
   test('feature-pipeline: forge_home arg pins the worktree script without a preflight hunt', async () => {
     const prompts = []
     const base = featurePipelineResponder({ preflight: { ...preflightWithScripts, scriptsDir: '' } })
-    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const src = loadSource('workflows/feature-pipeline.js')
     const { result } = await runWorkflow(src, {
       args: { ...SCENARIOS['feature-pipeline'].args, forge_home: 'T:/harness/' },
       responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) },
@@ -136,7 +136,7 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
   })
 
   test('feature-pipeline: runtime isolation follows the pwd line, not the preflight boolean', async () => {
-    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const src = loadSource('workflows/feature-pipeline.js')
     const firstBuild = async pre => {
       const prompts = []
       const base = featurePipelineResponder({ preflight: pre })

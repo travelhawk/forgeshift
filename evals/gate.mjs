@@ -11,35 +11,42 @@ import { loadSource, runWorkflow, SCENARIOS, CASES, ROOT } from './sim.mjs'
 
 export const THRESHOLDS = {
   costUpFrac: 0.30,      // total agents or prompt chars: fail beyond +30% vs base
-  claudeMdUpChars: 2500, // CLAUDE.md (always-loaded) fails only when it grows by
-  claudeMdUpFrac: 0.20,  // BOTH more than this many bytes AND this fraction
+  manualUpChars: 2500, // AGENTS.md (always-loaded) fails only when it grows by
+  manualUpFrac: 0.20,  // BOTH more than this many bytes AND this fraction
 }
 
-const PROSE_DIRS = ['.claude/skills', '.claude/agents']
+// The harness moved out of .claude/ on 2026-09-19 (cross-agent layout). A base revision
+// from before the move still holds the legacy paths, so both are listed: whichever
+// exists at the rev counts.
+const PROSE_DIRS = ['skills', 'agents']
+const LEGACY_PROSE_DIRS = ['.claude/skills', '.claude/agents']
+const MANUALS = ['AGENTS.md', 'CLAUDE.md'] // the first one present is the operating manual
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', cwd: ROOT })
 
 // --- metric collection ---------------------------------------------------------
 
-// Byte sizes of the prose surfaces: CLAUDE.md alone (always loaded into every
-// session) and the skills+agents .md total. rev = null reads the working tree.
+// Byte sizes of the prose surfaces: the operating manual alone (always loaded into
+// every session) and the skills+agents .md total. rev = null reads the working tree.
 export function proseSizes(rev) {
-  const sizes = { claudeMd: 0, harnessMd: 0 }
+  const sizes = { manualMd: 0, harnessMd: 0 }
   if (rev) {
-    const out = git('ls-tree', '-r', '-l', rev, '--', 'CLAUDE.md', ...PROSE_DIRS)
+    const out = git('ls-tree', '-r', '-l', rev, '--', ...MANUALS, ...PROSE_DIRS, ...LEGACY_PROSE_DIRS)
+    const manuals = {}
     for (const line of out.split('\n')) {
       // <mode> <type> <sha> <size>\t<path>
       const m = line.match(/^\d+ blob \S+ +(\d+)\t(.+)$/)
       if (!m || !m[2].endsWith('.md')) continue
-      if (m[2] === 'CLAUDE.md') sizes.claudeMd = Number(m[1])
+      if (MANUALS.includes(m[2])) manuals[m[2]] = Number(m[1])
       else sizes.harnessMd += Number(m[1])
     }
+    sizes.manualMd = manuals[MANUALS.find(f => f in manuals)] || 0
     return sizes
   }
   // LF-normalized byte count so a CRLF editor save can't skew the working-tree
   // side against the LF git blobs the baseline is measured from.
   const mdBytes = p => Buffer.byteLength(readFileSync(p, 'utf8').replace(/\r\n/g, '\n'))
-  sizes.claudeMd = mdBytes(join(ROOT, 'CLAUDE.md'))
+  sizes.manualMd = mdBytes(join(ROOT, 'AGENTS.md'))
   for (const dir of PROSE_DIRS) {
     for (const f of readdirSync(join(ROOT, dir), { recursive: true, withFileTypes: true })) {
       if (f.isFile() && f.name.endsWith('.md')) sizes.harnessMd += mdBytes(join(f.parentPath, f.name))
@@ -54,7 +61,7 @@ export async function collectMetrics(rev) {
   const scenarios = {}
   for (const c of CASES) {
     let src
-    try { src = loadSource(`.claude/workflows/${c.wf}.js`, rev) }
+    try { src = loadSource(`workflows/${c.wf}.js`, rev) }
     catch { scenarios[c.scenario] = { missing: true }; continue }
     try {
       const { args, responder } = SCENARIOS[c.scenario]
@@ -135,11 +142,11 @@ export function compare(base, head) {
   }
 
   // Always-loaded prose: every product session pays for CLAUDE.md.
-  const bMd = base.prose.claudeMd, hMd = head.prose.claudeMd
-  if (hMd - bMd > THRESHOLDS.claudeMdUpChars && hMd > bMd * (1 + THRESHOLDS.claudeMdUpFrac)) {
-    failures.push(`CLAUDE.md grew ${bMd} -> ${hMd} bytes (${pct(bMd, hMd)}) — always-loaded prose budget is +${THRESHOLDS.claudeMdUpChars} bytes / +${THRESHOLDS.claudeMdUpFrac * 100}%`)
-  } else if (hMd > bMd) warnings.push(`CLAUDE.md grew ${bMd} -> ${hMd} bytes (always loaded)`)
-  else if (hMd < bMd) improvements.push(`CLAUDE.md shrank ${bMd} -> ${hMd} bytes`)
+  const bMd = base.prose.manualMd, hMd = head.prose.manualMd
+  if (hMd - bMd > THRESHOLDS.manualUpChars && hMd > bMd * (1 + THRESHOLDS.manualUpFrac)) {
+    failures.push(`AGENTS.md grew ${bMd} -> ${hMd} bytes (${pct(bMd, hMd)}) — always-loaded prose budget is +${THRESHOLDS.manualUpChars} bytes / +${THRESHOLDS.manualUpFrac * 100}%`)
+  } else if (hMd > bMd) warnings.push(`AGENTS.md grew ${bMd} -> ${hMd} bytes (always loaded)`)
+  else if (hMd < bMd) improvements.push(`AGENTS.md shrank ${bMd} -> ${hMd} bytes`)
   const bHm = base.prose.harnessMd, hHm = head.prose.harnessMd
   if (bHm > 0 && hHm > bHm * 1.10) warnings.push(`skills+agents prose grew ${pct(bHm, hHm)} (${k(bHm)} -> ${k(hHm)} bytes)`)
   else if (hHm < bHm) improvements.push(`skills+agents prose shrank ${k(bHm)} -> ${k(hHm)} bytes`)

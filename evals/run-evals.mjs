@@ -7,7 +7,7 @@ const BASELINE = process.argv[2] || '9156741' // last commit before the optimiza
 
 const runAt = async (wf, scenario, rev) => {
   const { args, responder } = SCENARIOS[scenario]
-  const src = loadSource(`.claude/workflows/${wf}.js`, rev)
+  const src = loadSource(`workflows/${wf}.js`, rev)
   const { result, calls } = await runWorkflow(src, { args, responder: responder() })
   if (result && result.error) throw new Error(`${wf}@${rev || 'HEAD'} returned error: ${result.error}`)
   return { agents: calls.length, kchars: Math.round(calls.reduce((s, c) => s + c.chars, 0) / 1000) }
