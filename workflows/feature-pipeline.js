@@ -9,16 +9,22 @@ export const meta = {
   ],
 }
 
-// --- Target-directory + input contract (2026-07-06) ----------------------------
-// Two failure modes observed live in the 2026-07-05 harness eval:
-// (1) Workflow agents run in the SESSION's working directory — not necessarily
-//     the product repo. Accept {dir}, verify it, pin every prompt to it.
-// (2) Workflow args can arrive mangled (an object reached the script as a
-//     non-object → the old guard errored with 0 agents run). Coerce stringified
-//     args, and fall back to feature-pipeline.input.json in the target repo.
+// >>> forge:args-guard — generated; edit lib/workflow-preamble.mjs, then: node scripts/sync-workflow-preamble.mjs
+// Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
+// both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
+// (1) workflow agents run in the SESSION's working directory — not necessarily the product
+//     this workflow should operate on. So the target arrives as {dir}, is verified by the
+//     preflight agent below, and every later prompt is pinned to the verified path.
+// (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
+// `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
+// identical on every host, so the guard rides along. Each workflow reads its own fields
+// from `a` after this block.
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
 const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+// <<< forge:args-guard
+// The features themselves fall back to feature-pipeline.input.json in the target repo
+// (read by the preflight agent below) when args did not survive intact.
 // forge_home (2026-09-11): the launcher skill already resolved $FORGE_HOME to build this
 // scriptPath, so it hands the same path over and the scripts dir is derived in code —
 // deterministic. The Haiku preflight locating it via `forge-home` on PATH missed in 1 of
@@ -127,6 +133,12 @@ const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working dir
   `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
+// A runtime-isolated builder already starts INSIDE its own worktree of the target. The
+// cd-into-target line above would walk it back into the shared main tree (observed live:
+// a Codex builder did exactly that and branched in place), so it gets this preamble instead.
+const agentIsolated = (p, o) => agent0(`TARGET REPOSITORY: ${TARGET}. You are running in an isolated git ` +
+  `worktree of it — your current directory. Stay there: do NOT cd into the target path, that is the shared ` +
+  `main tree other agents rely on.\n\n` + p, o)
 // Runtime worktree isolation clones the SESSION's repo — only correct when the
 // session cwd IS the target. Otherwise the builder manages its own worktree of
 // the target repo (same semantics: isolated tree, fresh branch, branch survives).
@@ -179,17 +191,19 @@ const buildWorktree = i => runtimeIsolation
       `needs them). Report the exact branch name. When done — always, also on failure — remove the worktree from ` +
       `the main repo (git worktree remove --force <path>); the branch survives.`
 
+const NO_FALLBACK = ` If the branch cannot be checked out at all, return verdict fail with the error as the issue — ` +
+  `NEVER verify the target's main working tree or uncommitted files instead.`
 const detachedWorktree = (role, i, branch) => WT
   ? `Check out the branch in a throwaway DETACHED worktree with ONE command (the script prunes, picks a ` +
     `unique path, and checks it out): ${WT} new-detached ${role} ${i + 1} "${branch}". It prints ` +
     `WORKTREE=<abs path>; cd there and work (install dependencies there first if the project needs them). When ` +
     `done — always, even on failure — cd back to the target repo and run: ${WT} clean "<that WORKTREE path>". ` +
     `Only if the script is missing or errors, fall back to: git worktree prune, then git worktree add --detach ` +
-    `../wf-${role}-${i + 1}-<suffix> "${branch}", removed afterwards with git worktree remove --force.`
+    `../wf-${role}-${i + 1}-<suffix> "${branch}", removed afterwards with git worktree remove --force.` + NO_FALLBACK
   : `In the target repo run "git worktree prune", then check out the branch DETACHED at a unique sibling path: ` +
     `git worktree add --detach ../wf-${role}-${i + 1}-<random suffix> "${branch}" (install dependencies in the ` +
     `worktree first if the project needs them). Afterwards ALWAYS remove the temp worktree, also on failure: ` +
-    `git worktree remove --force <path>.`
+    `git worktree remove --force <path>.` + NO_FALLBACK
 
 // The PLAN is the per-feature BRIEF: produced once by the plan agent (which already
 // reads the code), it is the ONLY context the downstream builder + verifier get. One
@@ -336,7 +350,7 @@ const results = await pipeline(
     { label: `plan:${i + 1}`, phase: 'Plan', effort: f.tier === 'T1' ? 'high' : 'medium', schema: PLAN },
   ),
   // 2. Build — isolated worktree; model/effort follow the tier (T3 → Sonnet/medium).
-  (plan, f, i) => plan && agent(
+  (plan, f, i) => plan && (runtimeIsolation ? agentIsolated : agent)(
     `Implement this feature following the plan.\n` + buildWorktree(i) + `\n` +
     `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\n` +
     `BRIEF — your complete context. ` +
@@ -386,6 +400,14 @@ const results = await pipeline(
     const done = r.plan.done_criteria
     // Attach the escalation trail to every result so the orchestrator can surface it.
     const tag = check => ({ feature: f.feature, tier: f.tier, escalated: !!r.secEscalated, surfaces: r.recheckSurfaces || [], ...r, check })
+    // No committed branch = nothing to verify or merge (e.g. a sandbox blocked git). A verifier
+    // sent after it would only check whatever sits uncommitted in the target tree.
+    if (!/^feature\/wf-\S+$/.test(branch || '')) {
+      return tag({
+        verdict: 'fail', pr_title: '', pr_body: '', evidence: 'none — the builder committed nothing',
+        issues: [`builder reported no feature/wf-* branch (got "${branch || ''}"): the work was not committed`, ...(r.build.deviations || [])],
+      })
+    }
 
     const funcPrompt =
       `Fresh-context verification. ${detachedWorktree('verify', i, branch)} ` +

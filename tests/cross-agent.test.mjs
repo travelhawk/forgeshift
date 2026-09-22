@@ -3,13 +3,15 @@
 // the real CLIs (claude 2.1.272, codex-cli 0.154.0, opencode 1.18.31, 2026-09-19).
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { HOSTS, TIERS, tierOf, callingHost, pickHost, resolveModel } from '../lib/hosts.mjs'
-import { extractJson, validate, runWorkflow } from '../lib/runtime.mjs'
+import { HOSTS, TIERS, tierOf, callingHost, pickHost, resolveModel, everyNodeTyped } from '../lib/hosts.mjs'
+import { extractJson, validate, runWorkflow, makeHostAgent } from '../lib/runtime.mjs'
 import { renderSkill, renderCodexAgent, renderOpencodeAgent, renderOpencodeCommand, portableBody, splitFrontmatter } from '../lib/render.mjs'
+import { ARGS_GUARD } from '../lib/workflow-preamble.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const p = (...s) => join(root, ...s)
@@ -114,18 +116,30 @@ describe('hosts — tiers, detection, model resolution', () => {
     assert.ok(codex.includes('--output-schema') && codex.includes('s.json'), 'codex gets the schema as a file')
     assert.deepEqual(codex.slice(codex.indexOf('-s'), codex.indexOf('-s') + 2), ['-s', 'workspace-write'])
     assert.ok(codex.includes('--add-dir'), 'sibling worktrees need the parent dir')
+    assert.ok(HOSTS.claude.command({ ...opts, shell: false }).includes('--add-dir'), 'claude reaches sibling worktrees too')
     assert.ok(!HOSTS.claude.command(opts).includes('--json-schema'), 'inline JSON never passes through a shell')
     assert.ok(HOSTS.claude.command({ ...opts, shell: false }).includes('--json-schema'))
     assert.ok(HOSTS.opencode.command(opts).includes('--auto'))
   })
 
-  test('readonly mode removes write access on every host', () => {
+  test('readonly: Codex sandboxes, Claude denies the write tools, OpenCode only drops --auto', () => {
     const ro = { mode: 'readonly', outFile: 'o', cwd: '/x' }
     assert.ok(HOSTS.codex.command(ro).includes('read-only'))
-    assert.ok(!HOSTS.opencode.command(ro).includes('--auto'))
+    assert.ok(!HOSTS.opencode.command(ro).includes('--auto'), 'OpenCode has no read-only switch — documented limit')
     const tools = HOSTS.claude.command(ro)
     assert.doesNotMatch(tools[tools.indexOf('--allowedTools') + 1], /Write|Edit/)
     assert.match(tools[tools.indexOf('--allowedTools') + 1], /Bash/, 'readonly still runs tests')
+    assert.match(tools[tools.indexOf('--disallowedTools') + 1], /Write/, "a deny rule beats the user's own allow rules")
+  })
+
+  test('codex gets --output-schema only when every schema node is typed (OpenAI rejects the rest)', () => {
+    const typed = { type: 'object', properties: { a: { type: 'array', items: { type: 'string' } } } }
+    const untyped = { type: 'object', properties: { a: { type: 'array', items: {} } } }
+    assert.equal(everyNodeTyped(typed), true)
+    assert.equal(everyNodeTyped(untyped), false)
+    const base = { schemaFile: 's.json', outFile: 'o', mode: 'workspace' }
+    assert.ok(HOSTS.codex.command({ ...base, schema: typed }).includes('--output-schema'))
+    assert.ok(!HOSTS.codex.command({ ...base, schema: untyped }).includes('--output-schema'), 'the prompt contract carries it instead')
   })
 })
 
@@ -153,6 +167,10 @@ describe('adapters — parse() against recorded CLI output', () => {
       ].join('\n')
       assert.deepEqual(HOSTS.codex.parse({ stdout, outFile }), { text: '{"sum":42}', structured: null, outputTokens: 150 })
       assert.throws(() => HOSTS.codex.parse({ stdout: '{"type":"turn.failed","error":{"message":"quota"}}', outFile: join(dir, 'none.txt') }), /quota/)
+      // A failed last turn can leave an earlier message in the -o file: a fragment, not an answer.
+      assert.throws(() => HOSTS.codex.parse({ stdout: '{"type":"turn.failed","error":{"message":"out of credits"}}', outFile }), /credits/)
+      const retried = '{"type":"turn.failed","error":{"message":"x"}}\n{"type":"turn.completed","usage":{"output_tokens":5}}'
+      assert.equal(HOSTS.codex.parse({ stdout: retried, outFile }).text, '{"sum":42}', 'a later completed turn clears the failure')
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 
@@ -166,6 +184,11 @@ describe('adapters — parse() against recorded CLI output', () => {
     ].join('\n')
     assert.deepEqual(HOSTS.opencode.parse({ stdout }), { text: '{"sum":43}', structured: null, outputTokens: 20 })
     assert.throws(() => HOSTS.opencode.parse({ stdout: '{"type":"error","error":{"name":"ProviderAuthError"}}' }), /ProviderAuthError/)
+    // Died mid-answer: the narration before the error must not come back as the reply.
+    const died = '{"type":"text","part":{"messageID":"m1","text":"Let me run the tests first."}}\n{"type":"error","error":{"name":"APIError"}}'
+    assert.throws(() => HOSTS.opencode.parse({ stdout: died }), /APIError/)
+    const recovered = '{"type":"error","error":{"name":"APIError"}}\n{"type":"text","part":{"messageID":"m2","text":"done"}}'
+    assert.equal(HOSTS.opencode.parse({ stdout: recovered }).text, 'done')
   })
 })
 
@@ -238,6 +261,45 @@ describe('runtime — the workflow surface off Claude', () => {
       assert.ok(result && result.error, `${w}: a dead host yields an error result, not a pass`)
     }
   })
+
+  test('the shared args guard normalizes what every host hands a workflow', async () => {
+    // One guard, four scripts (lib/workflow-preamble.mjs). The pin in harness.test.mjs keeps
+    // the four copies identical; this is what the text has to DO.
+    const src = 'export const meta = {}\n' + ARGS_GUARD +
+      '\nreturn { dir: dirArg, parsed: a && typeof a === "object" && !Array.isArray(a) ? Object.keys(a) : null }'
+    const run = async args => (await runWorkflow(src, { args, agentFn: async () => null })).result
+    assert.equal((await run({ dir: 'D:/p' })).dir, 'D:/p')
+    assert.equal((await run('{"dir":"D:/p"}')).dir, 'D:/p', 'args arriving JSON-stringified are parsed')
+    assert.equal((await run({ dir: '  D:/p  ' })).dir, 'D:/p', 'a padded path is trimmed')
+    assert.equal((await run({ dir: '' })).dir, null, 'an empty dir is no dir')
+    assert.equal((await run({})).dir, null)
+    assert.equal((await run(['D:/p'])).dir, null, 'an array carries no target')
+    assert.equal((await run('just a brief')).parsed, null, 'a plain-text brief stays a string')
+  })
+
+  test('an off-schema reply is reformatted once; a reply holding no answer fails closed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-fmt-'))
+    const schema = { type: 'object', required: ['verdict'], properties: { verdict: { type: 'string' } } }
+    let turns = 0
+    const answers = []
+    HOSTS.fake = { bin: 'node', models: { judge: null, build: null, execute: null, sweep: null },
+      command: () => ['-e', `process.stdin.resume();process.stdin.on('end',()=>console.log(${JSON.stringify(JSON.stringify(answers[turns++] ?? ''))}))`],
+      parse: ({ stdout }) => ({ text: JSON.parse(stdout.trim()), structured: null, outputTokens: 1 }) }
+    try {
+      answers.push('Looks fine to me, honestly.', '{"verdict":"pass"}')
+      const ok = makeHostAgent({ host: 'fake', dir, runDir: join(dir, 'a'), forgeHome: root, config: {} })
+      const out = await ok('review it', { label: 'r', schema })
+      assert.deepEqual(out.value, { verdict: 'pass' }, 'the repaired reply is the value')
+      assert.equal(turns, 2, 'exactly one reformat pass, never a redo')
+      assert.equal(out.outputTokens, 2, 'the repair is counted, not hidden')
+
+      // A reply that never reached an answer must not be reshaped into one.
+      turns = 0; answers.length = 0
+      answers.push('I will start by reading the diff.', 'NO_ANSWER')
+      const dead = makeHostAgent({ host: 'fake', dir, runDir: join(dir, 'b'), forgeHome: root, config: {} })
+      await assert.rejects(dead('review it', { label: 'r', schema }), /no answer/)
+    } finally { delete HOSTS.fake; rmSync(dir, { recursive: true, force: true }) }
+  })
 })
 
 describe('render — canonical files → other hosts', () => {
@@ -291,5 +353,94 @@ describe('render — canonical files → other hosts', () => {
     assert.match(r.content, /Load the `forge-build` skill/)
     assert.match(r.content, /\$ARGUMENTS/)
     assert.ok(r.content.length < 1200, 'a pointer, not a copy')
+  })
+})
+
+describe('runner + installer — safety', () => {
+  test('--resume replays two identical agent() calls as two results, without re-running either', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-cache-'))
+    const counter = join(dir, 'launches.txt')
+    // A stand-in host: node itself, answering with how often it has been launched.
+    const script = `const fs=require('fs');fs.appendFileSync(${JSON.stringify(counter)},'x');` +
+      `process.stdin.resume();process.stdin.on('end',()=>console.log(fs.readFileSync(${JSON.stringify(counter)},'utf8').length))`
+    HOSTS.fake = { bin: 'node', models: { judge: null, build: null, execute: null, sweep: null },
+      command: () => ['-e', script], parse: ({ stdout }) => ({ text: stdout.trim(), structured: null, outputTokens: 1 }) }
+    try {
+      const make = () => makeHostAgent({ host: 'fake', dir, runDir: join(dir, 'run'), forgeHome: root, config: {} })
+      const first = make()
+      const a = await first('same prompt', { label: 'x' })
+      const b = await first('same prompt', { label: 'x' })
+      assert.deepEqual([a.value, b.value], ['1', '2'], 'two launches, two answers')
+      const resumed = make()
+      const ra = await resumed('same prompt', { label: 'x' })
+      const rb = await resumed('same prompt', { label: 'x' })
+      assert.deepEqual([ra.value, rb.value], ['1', '2'], 'each call replays its own answer')
+      assert.equal(readFileSync(counter, 'utf8').length, 2, 'nothing re-ran on resume')
+    } finally { delete HOSTS.fake; rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('an isolated agent is granted its worktree admin dir, and the worktree is removed after', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-iso-'))
+    const repo = join(dir, 'repo')
+    mkdirSync(repo)
+    const g = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' })
+    g('init', '-q'); g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'init')
+    const seen = []
+    HOSTS.fake = { bin: 'node', models: { judge: null, build: null, execute: null, sweep: null },
+      command: ({ cwd, extraDirs }) => { seen.push({ cwd, extraDirs }); return ['-e', 'process.stdin.resume();process.stdin.on("end",()=>console.log("ok"))'] },
+      parse: ({ stdout }) => ({ text: stdout.trim(), structured: null, outputTokens: 1 }) }
+    try {
+      const agent = makeHostAgent({ host: 'fake', dir: repo, runDir: join(dir, 'run'), forgeHome: root, config: {} })
+      await agent('build it', { label: 'b', isolation: 'worktree' })
+      const [{ cwd, extraDirs }] = seen
+      const norm = s => s.replace(/\\/g, '/').toLowerCase()
+      assert.match(norm(cwd), /\/wf-iso-[^/]+$/)
+      assert.ok(extraDirs.some(d => norm(d).endsWith(`/.git/worktrees/${norm(cwd).split('/').pop()}`)), `worktree admin dir granted: ${extraDirs}`)
+      assert.ok(extraDirs.some(d => norm(d).endsWith('/repo/.git')), 'the shared git dir too')
+      assert.ok(!existsSync(cwd), 'the throwaway worktree is gone')
+    } finally { delete HOSTS.fake; rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  // PATH holds node only: no agent CLI is reachable, so even a regressed installer cannot
+  // touch the real Claude/Codex/OpenCode setup of whoever runs the suite.
+  const install = (...args) => {
+    const env = { ...process.env, PATH: dirname(process.execPath), Path: dirname(process.execPath) }
+    try { return { code: 0, out: execFileSync(process.execPath, [p('scripts', 'install.mjs'), ...args], { encoding: 'utf8', stdio: 'pipe', env }) } }
+    catch (e) { return { code: e.status, out: String(e.stdout) + String(e.stderr) } }
+  }
+
+  test('installer refuses a harness home that overlaps the repo or is not a forge install', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-inst-'))
+    try {
+      for (const home of [root, p('lib'), dirname(root)]) {
+        const r = install('--project', dir, '--host', 'codex', '--home', home)
+        assert.equal(r.code, 1, home)
+        assert.match(r.out, /overlaps the forge repo/)
+      }
+      const foreign = join(dir, 'mine')
+      mkdirSync(foreign); writeFileSync(join(foreign, 'keep.txt'), 'x')
+      assert.match(install('--project', dir, '--host', 'codex', '--home', foreign).out, /not a forge install/)
+      assert.ok(existsSync(join(foreign, 'keep.txt')))
+      assert.ok(!existsSync(join(dir, '.codex')), 'nothing written before the refusal')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('a manifest shipped inside a repo can only remove forge files in that repo', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-evil-'))
+    try {
+      mkdirSync(join(dir, '.forge')); mkdirSync(join(dir, '.codex', 'agents'), { recursive: true })
+      mkdirSync(join(dir, '.agents', 'skills', 'my-skill'), { recursive: true })
+      writeFileSync(join(dir, '.forge-install.json'), '{}')
+      writeFileSync(join(dir, 'important.txt'), 'x')
+      const ours = join(dir, '.codex', 'agents', 'forge-quench.toml')
+      writeFileSync(ours, 'x')
+      writeFileSync(join(dir, '.forge', 'install.json'), JSON.stringify({
+        hosts: { codex: ['..', dir, join(dir, '.agents', 'skills', 'my-skill'), ours] },
+        shared: [join(dir, '.agents')], ownsHome: true, home: dir,
+      }))
+      assert.equal(install('--project', dir, '--uninstall').code, 0)
+      assert.ok(!existsSync(ours), 'a real forge file in scope is removed')
+      assert.ok(existsSync(join(dir, 'important.txt')) && existsSync(join(dir, '.agents', 'skills', 'my-skill')), 'nothing else is')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })

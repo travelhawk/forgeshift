@@ -8,15 +8,20 @@ export const meta = {
   ],
 }
 
-// --- Target-directory contract (2026-07-06) -----------------------------------
-// Workflow agents run in the SESSION's working directory — not necessarily the
-// product this workflow should operate on (observed live in the 2026-07-05
-// harness eval). Accept an explicit target via args {dir}, verify it before
-// any work, pin every agent prompt to the verified absolute path. args may
-// also arrive JSON-stringified (observed) — coerce before use.
+// >>> forge:args-guard — generated; edit lib/workflow-preamble.mjs, then: node scripts/sync-workflow-preamble.mjs
+// Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
+// both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
+// (1) workflow agents run in the SESSION's working directory — not necessarily the product
+//     this workflow should operate on. So the target arrives as {dir}, is verified by the
+//     preflight agent below, and every later prompt is pinned to the verified path.
+// (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
+// `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
+// identical on every host, so the guard rides along. Each workflow reads its own fields
+// from `a` after this block.
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
-const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+// <<< forge:args-guard
 const scopeArg = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.scope === 'string' && a.scope.trim() ? a.scope.trim() : null
 const scope = scopeArg || 'the current uncommitted diff plus commits not yet on the default branch (git status / git diff / git log)'

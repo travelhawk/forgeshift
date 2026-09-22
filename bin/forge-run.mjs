@@ -12,8 +12,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } fr
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { runWorkflow, makeHostAgent, runsHome, nativePath } from '../lib/runtime.mjs'
-import { HOSTS, TIERS, installedHosts, pickHost, loadConfig, resolveModel } from '../lib/hosts.mjs'
+import { runWorkflow, makeHostAgent, runsHome, nativePath, killAll } from '../lib/runtime.mjs'
+import { HOSTS, TIERS, installedHosts, pickHost, loadConfig, resolveModel, which } from '../lib/hosts.mjs'
 
 const FORGE_HOME = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const die = msg => { console.error(`forge-run: ${msg}`); process.exit(2) }
@@ -41,12 +41,18 @@ if (positional[0] === 'hosts') {
   process.exit(0)
 }
 
-const host = pickHost(typeof flags.host === 'string' ? flags.host : null, config)
+let host
+try { host = pickHost(typeof flags.host === 'string' ? flags.host : null, config) } catch (e) { die(e.message) }
+if (!which(HOSTS[host].bin)) die(`the ${host} CLI (${HOSTS[host].bin}) is not on PATH. Found: ${installedHosts().join(', ') || 'none'} — pass --host, or fix PATH.`)
 const runId = typeof flags.resume === 'string' ? flags.resume : `run_${Date.now().toString(36)}${randomBytes(2).toString('hex')}`
 const runDir = join(runsHome(), runId)
 if (flags.resume && !existsSync(runDir)) die(`no such run to resume: ${runId}`)
 mkdirSync(runDir, { recursive: true })
 const log = msg => { console.error(msg); appendFileSync(join(runDir, 'log.txt'), msg + '\n') }
+// Agents must not outlive the runner: a Ctrl-C would leave them working with write access.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => { log(`${sig} — stopping every agent`); killAll(); process.exit(130) })
+}
 const common = {
   host, runDir, forgeHome: FORGE_HOME, config, log,
   mode: typeof flags.mode === 'string' ? flags.mode : 'workspace',
@@ -85,6 +91,8 @@ if (typeof flags['args-file'] === 'string') {
 }
 if (args && typeof args === 'object' && !Array.isArray(args)) {
   if (typeof flags.dir === 'string' && !args.dir) args.dir = flags.dir
+  // The agents see this path in their prompts; a Git Bash /d/x means nothing to PowerShell.
+  if (typeof args.dir === 'string') args.dir = nativePath(args.dir)
   if (!args.forge_home) args.forge_home = FORGE_HOME.replace(/\\/g, '/')
 }
 const dir = (args && typeof args === 'object' && args.dir) || (typeof flags.dir === 'string' ? flags.dir : process.cwd())

@@ -9,15 +9,22 @@ export const meta = {
   ],
 }
 
-// --- Target-directory + input contract (2026-07-06) ----------------------------
-// Workflow agents run in the SESSION's working directory — not necessarily the
-// product this workflow should explore (observed live in the 2026-07-05 harness
-// eval), and args can arrive mangled (also observed). Accept {dir, brief},
-// coerce stringified args, verify the target, fall back to
-// design-panel.input.md in the target root for the brief.
+// >>> forge:args-guard — generated; edit lib/workflow-preamble.mjs, then: node scripts/sync-workflow-preamble.mjs
+// Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
+// both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
+// (1) workflow agents run in the SESSION's working directory — not necessarily the product
+//     this workflow should operate on. So the target arrives as {dir}, is verified by the
+//     preflight agent below, and every later prompt is pinned to the verified path.
+// (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
+// `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
+// identical on every host, so the guard rides along. Each workflow reads its own fields
+// from `a` after this block.
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
-const dirArg = a && typeof a === 'object' && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+// <<< forge:args-guard
+// The brief itself falls back to design-panel.input.md in the target root (read by the
+// preflight agent below) when args did not carry it.
 let brief = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.brief === 'string' && a.brief.trim() ? a.brief.trim() : null
 // Lean by default: 3 designers + 1 judge-synthesizer (5 agents incl. preflight).
