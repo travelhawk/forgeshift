@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { HOSTS, TIERS, tierOf, callingHost, pickHost, resolveModel, everyNodeTyped } from '../lib/hosts.mjs'
-import { extractJson, validate, runWorkflow, makeHostAgent } from '../lib/runtime.mjs'
+import { extractJson, validate, runWorkflow, makeHostAgent, liveAgents } from '../lib/runtime.mjs'
 import { renderSkill, renderCodexAgent, renderOpencodeAgent, renderOpencodeCommand, portableBody, splitFrontmatter } from '../lib/render.mjs'
 import { ARGS_GUARD } from '../lib/workflow-preamble.mjs'
 
@@ -107,6 +107,10 @@ describe('hosts — tiers, detection, model resolution', () => {
     const cfg = { hosts: { codex: { models: { sweep: 'cheap-model' } } } }
     assert.equal(resolveModel('codex', 'haiku', 'low', cfg).model, 'cheap-model')
     assert.equal(resolveModel('codex', 'haiku', 'bogus', cfg).effort, null, 'an unknown effort is dropped, not passed on')
+    // One tier, one run, without editing the config file.
+    process.env.FORGE_MODEL_SWEEP = 'just-for-this-run'
+    try { assert.equal(resolveModel('codex', 'haiku', 'low', cfg).model, 'just-for-this-run', 'the env override wins over the config') }
+    finally { delete process.env.FORGE_MODEL_SWEEP }
   })
 
   test('nothing free-form rides the command line: no adapter takes the prompt as an argument', () => {
@@ -300,6 +304,22 @@ describe('runtime — the workflow surface off Claude', () => {
       await assert.rejects(dead('review it', { label: 'r', schema }), /no answer/)
     } finally { delete HOSTS.fake; rmSync(dir, { recursive: true, force: true }) }
   })
+
+  test('a hung agent times out, and the CLI it left running is killed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-hang-'))
+    // A stub that never exits on its own: if the runtime does not kill it, it runs forever.
+    HOSTS.fake = { bin: 'node', models: { judge: null, build: null, execute: null, sweep: null },
+      command: () => ['-e', 'setInterval(() => {}, 50)'],
+      parse: ({ stdout }) => ({ text: stdout.trim(), structured: null, outputTokens: 0 }) }
+    try {
+      const agent = makeHostAgent({ host: 'fake', dir, runDir: join(dir, 'run'), forgeHome: root, config: {}, timeoutMs: 250 })
+      await assert.rejects(agent('hang', { label: 'h' }), /timed out/)
+      // Killing costs a process spawn (taskkill on Windows), so wait for it instead of racing it.
+      const deadline = Date.now() + 30000
+      while (liveAgents() > 0 && Date.now() < deadline) await new Promise(r => setTimeout(r, 100))
+      assert.equal(liveAgents(), 0, 'no CLI is left running after a timeout')
+    } finally { delete HOSTS.fake; rmSync(dir, { recursive: true, force: true }) }
+  })
 })
 
 describe('render — canonical files → other hosts', () => {
@@ -441,6 +461,145 @@ describe('runner + installer — safety', () => {
       assert.equal(install('--project', dir, '--uninstall').code, 0)
       assert.ok(!existsSync(ours), 'a real forge file in scope is removed')
       assert.ok(existsSync(join(dir, 'important.txt')) && existsSync(join(dir, '.agents', 'skills', 'my-skill')), 'nothing else is')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('one host at a time: a second install leaves the first alone, stale files go, the shared parts go last', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-life-'))
+    const home = join(dir, 'harness')
+    const codexAgent = join(dir, '.codex', 'agents', 'forge-quench.toml')
+    const ocAgent = join(dir, '.opencode', 'agents', 'forge-quench.md')
+    const skill = join(dir, '.agents', 'skills', 'forge-build', 'SKILL.md')
+    const manifest = join(dir, '.forge', 'install.json')
+    try {
+      assert.equal(install('--project', dir, '--host', 'codex', '--home', home).code, 0)
+      assert.ok(existsSync(codexAgent) && existsSync(skill), 'codex agents and the shared skills are written')
+
+      // An agent file that existed in the previous version must not survive the upgrade.
+      const ghost = join(dir, '.codex', 'agents', 'forge-ghost.toml')
+      writeFileSync(ghost, 'x')
+      const m = JSON.parse(readFileSync(manifest, 'utf8'))
+      m.hosts.codex.push(ghost)
+      writeFileSync(manifest, JSON.stringify(m))
+      assert.equal(install('--project', dir, '--host', 'codex', '--home', home).code, 0)
+      assert.ok(!existsSync(ghost), 'a file the previous install wrote and this one does not is removed')
+      assert.ok(existsSync(codexAgent), 'the current files stay')
+
+      assert.equal(install('--project', dir, '--host', 'opencode', '--home', home).code, 0)
+      assert.ok(existsSync(ocAgent), 'the second host is installed')
+      assert.ok(existsSync(codexAgent), 'installing one host never touches another host s files')
+
+      assert.equal(install('--project', dir, '--uninstall', '--host', 'codex').code, 0)
+      assert.ok(!existsSync(codexAgent), 'the named host is removed')
+      assert.ok(existsSync(ocAgent) && existsSync(skill), 'the other host and the shared skills stay')
+
+      const last = install('--project', dir, '--uninstall', '--host', 'opencode')
+      assert.equal(last.code, 0)
+      assert.ok(!existsSync(skill), 'the shared skills go with the last host')
+      assert.ok(existsSync(join(home, '.forge-install.json')), 'a project uninstall never removes the shared harness copy')
+      assert.match(last.out, /kept the shared harness copy/)
+      assert.ok(!existsSync(manifest), 'an empty manifest is removed, not left behind')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+})
+
+
+describe('forge-run — the portable entry point', () => {
+  // A stand-in `claude` on PATH: it records the prompt it was handed on stdin and answers
+  // with one result line, so the whole runner is exercised without a model. PATH holds
+  // nothing else, so no real agent CLI can be reached from here either.
+  const stub = dir => {
+    const binDir = join(dir, 'bin')
+    mkdirSync(binDir, { recursive: true })
+    writeFileSync(join(binDir, 'stub.mjs'), [
+      "import { appendFileSync } from 'node:fs'",
+      "let seen = ''",
+      "process.stdin.setEncoding('utf8')",
+      "process.stdin.on('data', d => { seen += d })",
+      "process.stdin.on('end', () => {",
+      "  appendFileSync(process.env.FORGE_STUB_TAP, seen + '\\n--- end of prompt ---\\n')",
+      "  console.log(JSON.stringify({ type: 'result', is_error: false, result: 'ok', usage: { output_tokens: 3 } }))",
+      '})',
+    ].join('\n'))
+    if (process.platform === 'win32') writeFileSync(join(binDir, 'claude.cmd'), '@echo off\r\nnode "%~dp0stub.mjs"\r\n')
+    else { writeFileSync(join(binDir, 'claude'), '#!/bin/sh\nexec node "$(dirname "$0")/stub.mjs"\n'); chmodSync(join(binDir, 'claude'), 0o755) }
+    return dir
+  }
+  // HOME points at the temp dir too, so run state and ~/.forge/config.json stay out of the
+  // way of whoever runs the suite.
+  const forgeRun = (dir, args) => {
+    // The stub, node, and the system folder that holds `where`/`sh` — which() shells out to
+    // those. No agent CLI is reachable from this PATH, so a real install cannot be touched.
+    const sys = process.platform === 'win32' ? [join(process.env.SystemRoot || 'C:\Windows', 'System32')] : ['/bin', '/usr/bin']
+    const PATH = [join(dir, 'bin'), dirname(process.execPath), ...sys].join(process.platform === 'win32' ? ';' : ':')
+    const env = { ...process.env, PATH, Path: PATH, HOME: dir, USERPROFILE: dir, FORGE_HOST: 'claude', FORGE_STUB_TAP: join(dir, 'tap.txt') }
+    try { return { code: 0, out: execFileSync(process.execPath, [p('bin', 'forge-run.mjs'), ...args], { encoding: 'utf8', stdio: 'pipe', env }) } }
+    catch (e) { return { code: e.status, out: String(e.stdout) + String(e.stderr) } }
+  }
+  const workflow = (dir, name, lines) => { const f = join(dir, name); writeFileSync(f, lines.join('\n')); return f }
+  const norm = v => String(v).replace(/\\/g, '/').toLowerCase()
+
+  test('a workflow runs end to end: args reach the script, the prompt rides stdin, the run is saved', () => {
+    const dir = stub(mkdtempSync(join(tmpdir(), 'forge-run-')))
+    try {
+      const wf = workflow(dir, 'stub-wf.js', [
+        "export const meta = { name: 'stub-wf', description: 'end-to-end stub', phases: [{ title: 'Check' }] }",
+        "phase('Check')",
+        "const reply = await agent('review the thing', { label: 'one' })",
+        'return { dir: args.dir, forge_home: args.forge_home, note: args.note, reply }',
+      ])
+      writeFileSync(join(dir, 'args.json'), JSON.stringify({ note: 'hello' }))
+      const r = forgeRun(dir, [wf, '--args-file', join(dir, 'args.json'), '--dir', dir])
+      assert.equal(r.code, 0, r.out)
+      const out = JSON.parse(r.out.slice(r.out.indexOf('{')))
+      assert.equal(out.result.reply, 'ok', 'the host reply reaches the script')
+      assert.equal(out.result.note, 'hello', '--args-file is read')
+      assert.equal(norm(out.result.dir), norm(dir), '--dir fills args.dir')
+      assert.equal(out.result.forge_home, root.replace(/\\/g, '/'), 'the harness path is injected for the prompts')
+      assert.equal(out.output_tokens, 3, 'output tokens are counted from the host reply')
+      assert.ok(existsSync(join(dir, '.forge', 'runs', out.run_id, 'result.json')), 'the run is saved, so --resume has something to replay')
+      assert.match(readFileSync(join(dir, 'tap.txt'), 'utf8'), /review the thing/, 'the prompt arrived on stdin, never on the command line')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('a workflow that reports an error exits 1; an unknown workflow exits 2', () => {
+    const dir = stub(mkdtempSync(join(tmpdir(), 'forge-run-err-')))
+    try {
+      const wf = workflow(dir, 'bad-wf.js', [
+        "export const meta = { name: 'bad-wf', description: 'reports a blocked gate' }",
+        "return { error: 'gate blocked' }",
+      ])
+      const bad = forgeRun(dir, [wf, '--dir', dir])
+      assert.equal(bad.code, 1, 'a blocked gate is a failing exit code, not a silent pass')
+      assert.match(bad.out, /gate blocked/)
+      const missing = forgeRun(dir, ['definitely-not-a-workflow', '--dir', dir])
+      assert.equal(missing.code, 2)
+      assert.match(missing.out, /no such workflow/)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('one specialist, fresh context: the agent file becomes the prompt and the task rides with it', () => {
+    const dir = stub(mkdtempSync(join(tmpdir(), 'forge-agent-')))
+    try {
+      writeFileSync(join(dir, 'brief.md'), 'Review the diff on branch feat/x.')
+      const r = forgeRun(dir, ['agent', 'forge-quench', '--dir', dir, '--prompt-file', join(dir, 'brief.md')])
+      assert.equal(r.code, 0, r.out)
+      assert.match(r.out, /^ok/, 'the reply goes to stdout, plain')
+      const sent = readFileSync(join(dir, 'tap.txt'), 'utf8')
+      assert.ok(!sent.startsWith('---'), 'the frontmatter is stripped; the host gets the playbook, not the file')
+      assert.match(sent, /# YOUR TASK/, 'the task is separated from the playbook')
+      assert.match(sent, /Review the diff on branch feat\/x\./)
+      assert.equal(forgeRun(dir, ['agent', 'forge-nobody', '--dir', dir]).code, 2, 'an unknown specialist is refused')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+
+  test('hosts: every adapter is listed with what each tier resolves to', () => {
+    const dir = stub(mkdtempSync(join(tmpdir(), 'forge-hosts-')))
+    try {
+      const r = forgeRun(dir, ['hosts'])
+      assert.equal(r.code, 0, r.out)
+      for (const h of Object.keys(HOSTS)) assert.match(r.out, new RegExp(`[✔✘] ${h}\\s`), `${h} is listed`)
+      assert.match(r.out, /judge=.*build=.*execute=.*sweep=/, 'the four tiers are shown, not model guesses')
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })

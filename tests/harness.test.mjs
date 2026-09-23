@@ -4,7 +4,7 @@
 // invariant here so a later edit can't silently regress it.
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, basename } from 'node:path'
@@ -93,6 +93,30 @@ suite('workflows', () => {
       assert.ok(!/new Date\(\)/.test(src), 'argless new Date() is banned in workflow scripts')
     })
   }
+
+  test('the sync script catches a hand-edited args guard and repairs it', () => {
+    // Against a copy of workflows/, so the failing case cannot leave this repo broken.
+    const dir = mkdtempSync(join(tmpdir(), 'forge-guard-'))
+    const wfDir = join(dir, 'wf')
+    const sync = (...a) => {
+      const cmd = `node "${p('scripts', 'sync-workflow-preamble.mjs')}" ${a.join(' ')} "${wfDir}"`
+      try { return { code: 0, out: execSync(cmd, { encoding: 'utf8', stdio: 'pipe' }) } }
+      catch (e) { return { code: e.status, out: String(e.stdout) + String(e.stderr) } }
+    }
+    try {
+      cpSync(p('workflows'), wfDir, { recursive: true })
+      const target = join(wfDir, workflows[0])
+      writeFileSync(target, readFileSync(target, 'utf8').replace('let a = args', 'let a = args // hand edit'))
+      const drift = sync('--check')
+      assert.equal(drift.code, 1, 'a hand-edited copy fails the check')
+      assert.match(drift.out, /args guard differs/)
+      assert.equal(sync().code, 0, 'and running it without --check repairs the copy')
+      assert.ok(!readFileSync(target, 'utf8').includes('// hand edit'))
+      // A script that lost its sentinels is an error, never a silent skip.
+      writeFileSync(join(wfDir, 'no-sentinels.js'), 'const x = 1\n')
+      assert.equal(sync('--check').code, 1)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
 })
 
 // --- skills ------------------------------------------------------------------
