@@ -3,7 +3,7 @@
 // the real CLIs (claude 2.1.272, codex-cli 0.154.0, opencode 1.18.31, 2026-09-19).
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, chmodSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
