@@ -10,7 +10,7 @@ import {
 } from '../evals/sim.mjs'
 
 const run = (wf, scenario, responder) =>
-  runWorkflow(loadSource(`.claude/workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
+  runWorkflow(loadSource(`workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
 
 suite('orchestration shape (agent budgets)', () => {
   test('deep-review: 12 findings cost 10 agents (1 preflight + 3 lenses + 1 cluster + 4 refuters + 1 batch)', async () => {
@@ -23,7 +23,7 @@ suite('orchestration shape (agent budgets)', () => {
   })
 
   test('deep-review mode:integration -> ONE seam lens instead of three, verify unchanged', async () => {
-    const src = loadSource('.claude/workflows/deep-review.js')
+    const src = loadSource('workflows/deep-review.js')
     const { result, calls } = await runWorkflow(src, {
       args: { ...SCENARIOS['deep-review'].args, mode: 'integration' },
       responder: deepReviewResponder(),
@@ -123,7 +123,7 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
   test('feature-pipeline: forge_home arg pins the worktree script without a preflight hunt', async () => {
     const prompts = []
     const base = featurePipelineResponder({ preflight: { ...preflightWithScripts, scriptsDir: '' } })
-    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const src = loadSource('workflows/feature-pipeline.js')
     const { result } = await runWorkflow(src, {
       args: { ...SCENARIOS['feature-pipeline'].args, forge_home: 'T:/harness/' },
       responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) },
@@ -136,7 +136,7 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
   })
 
   test('feature-pipeline: runtime isolation follows the pwd line, not the preflight boolean', async () => {
-    const src = loadSource('.claude/workflows/feature-pipeline.js')
+    const src = loadSource('workflows/feature-pipeline.js')
     const firstBuild = async pre => {
       const prompts = []
       const base = featurePipelineResponder({ preflight: pre })
@@ -149,6 +149,22 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
     // pwd matches the target in MSYS form while Haiku said false: runtime isolation is used.
     const wrongFalse = await firstBuild({ ...preflightOK, cwdIsTarget: false, cwd: '/t/fake-product/' })
     assert.match(wrongFalse, /You are in an ISOLATED git worktree/, 'MSYS-form pwd equal to the target enables runtime isolation')
+  })
+
+  test('feature-pipeline: a runtime-isolated builder is never told to cd into the shared main tree', async () => {
+    // Observed live (Codex, 2026-09-21): the cd-into-target preamble walked an isolated
+    // builder back into the main tree, where it branched in place.
+    const seen = []
+    const base = featurePipelineResponder({ preflight: { ...preflightOK, cwd: preflightOK.path } })
+    await runWorkflow(loadSource('workflows/feature-pipeline.js'), {
+      args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { seen.push({ p, o }); return base(p, o) },
+    })
+    const build = seen.find(c => c.o.label === 'build:1')
+    assert.equal(build.o.isolation, 'worktree')
+    assert.doesNotMatch(build.p, /FIRST shell command/)
+    assert.match(build.p, /do NOT cd into the target path/)
+    const verify = seen.find(c => /^(verify|smoke):/.test(c.o.label))
+    assert.match(verify.p, /FIRST shell command/, 'agents without runtime isolation keep the cd line')
   })
 
   test('release-gate: a skipped tests gate yields a blocker that cites the gate evidence', async () => {
@@ -164,6 +180,19 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
 })
 
 suite('fail-closed behavior (quality kept under agent death)', () => {
+  test('feature-pipeline: a build that committed no branch fails before any verifier runs', async () => {
+    // Observed live (Codex, 2026-09-21): the sandbox blocked .git, the builder left files
+    // uncommitted and reported branch "", and the smoke check passed the main tree instead.
+    const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
+      'build:1': { branch: '', summary: 's', tests_passing: true, deviations: ['Sandbox denied .git writes'] },
+    }))
+    const f = result.failed.find(x => x.issues.some(i => /no feature\/wf-\* branch/.test(i)))
+    assert.ok(f, JSON.stringify(result.failed))
+    assert.ok(f.issues.includes('Sandbox denied .git writes'), "the builder's own reason is kept")
+    assert.ok(!calls.some(c => /^(verify|smoke|security):1$/.test(c.label)), 'no verifier is sent to check the wrong tree')
+    assert.equal(result.passed.length, 5, 'the other features are unaffected')
+  })
+
   test('deep-review: dead batch refuter -> med/low UNVERIFIED, never silently confirmed', async () => {
     const { result } = await run('deep-review', 'deep-review',
       deepReviewResponder({ 'verify:batch': null }))

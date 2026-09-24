@@ -10,7 +10,7 @@ ready-for-`/forge:ship`. Both run only on a completed, green, integrated result
 ## Visual walkthrough (UI products only)
 
 Delegate to `forge-proof` with the product path, the dev-server command (product
-`CLAUDE.md`), and the core journey + shipped features from `docs/SPEC.md`:
+`AGENTS.md`), and the core journey + shipped features from `docs/SPEC.md`:
 
 1. **Applicability.** No runnable web UI (CLI, API, library) → report "no UI to capture"
    and stop. UI present → ensure Playwright is available (`npx playwright install
