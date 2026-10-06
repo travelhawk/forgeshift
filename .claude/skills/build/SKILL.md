@@ -116,6 +116,16 @@ per ~3 links plus one at the chain's end, over the combined diff, not a fresh re
 link. **Scope every review to the diff it covers**; an unscoped audit over a whole subsystem
 can cost more wall-clock than the feature took to build.
 
+**A failed verify gets two fix rounds, not more.** Put this criterion in every reviewer brief:
+a verify blocks only on a finding that breaks normal operation — data loss, a security or
+privacy hole, a crash, a wrong result in a normal case. Findings that need a degraded
+dependency, throttling, resource exhaustion or unusual load go to the report's open list, not
+into a fix round. A re-review checks only the findings the fix addressed; it does not re-audit
+the feature or hunt new edge cases in the fix. Still failing after round two → the feature is
+FAILED (below); a third round needs the user's explicit go. Measured: two features of one wave
+ran 8 and 10 fix rounds, ~20 h each, almost every finding a rare failure mode — each fix handed
+the next fresh reviewer new code to find something in.
+
 **Post-build tier re-check:** per T2/T3 feature, a cheap Haiku pass reads
 `git diff --merge-base HEAD <branch>` and escalates to the security pass if the built diff
 touched a sensitive surface the seed under-budgeted. Raises depth only, never lowers it.
@@ -192,6 +202,12 @@ genuine surprise, ≤ 15 lines, not a diary of every choice.
 
 1–2 lines per feature during the run; no mid-run recap tables. The final report is compact —
 verdict in 10 seconds, detail behind links:
+
+**Every message to the user — status lines, decision questions, the final report — names a
+feature by what it does for the user** ("import contacts from CSV"), never by its ID alone; an
+ID may follow in brackets. Harness vocabulary — wave, round, tier, gate, trial branch, agent
+names, BLOCKING/OPEN — stays internal; when one is needed, say in plain words what it means.
+Measured: the user said twice they could not follow ID-and-wave status messages.
 
 - Table: feature → branch → PR → verdict → merged. Suite state on integrated main (pasted).
 - Flaky tests (failed, then cleared on a targeted re-run). Security tier escalations, with the
