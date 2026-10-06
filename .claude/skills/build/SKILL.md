@@ -203,6 +203,12 @@ genuine surprise, ≤ 15 lines, not a diary of every choice.
 1–2 lines per feature during the run; no mid-run recap tables. The final report is compact —
 verdict in 10 seconds, detail behind links:
 
+**Every message to the user — status lines, decision questions, the final report — names a
+feature by what it does for the user** ("import contacts from CSV"), never by its ID alone; an
+ID may follow in brackets. Harness vocabulary — wave, round, tier, gate, trial branch, agent
+names, BLOCKING/OPEN — stays internal; when one is needed, say in plain words what it means.
+Measured: the user said twice they could not follow ID-and-wave status messages.
+
 - Table: feature → branch → PR → verdict → merged. Suite state on integrated main (pasted).
 - Flaky tests (failed, then cleared on a targeted re-run). Security tier escalations, with the
   surface named.
