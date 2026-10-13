@@ -22,7 +22,7 @@ gates.
 ## 1. Kickoff (`/forge:kickoff`)
 
 Idea → interview → `docs/SPEC.md` → stack from a playbook → scaffolded repo with its own git
-history, CLAUDE.md, and CI-ready test setup. Wide-open design questions go to the
+history, AGENTS.md, and CI-ready test setup. Wide-open design questions go to the
 `design-panel` workflow rather than being guessed.
 **Gate: you approve spec and stack before scaffolding.**
 
@@ -82,5 +82,5 @@ hands the slice to the build under a single approval. **`/forge:kickoff` births 
 `/forge:next` grows it, `/forge:build` is the builder both hand off to.** Bug-shaped feedback
 goes to `/forge:fix`.
 
-Cross-stage rules live in `CLAUDE.md` § Hard rules. The bolded gates above are the only points
+Cross-stage rules live in `AGENTS.md` § Hard rules. The bolded gates above are the only points
 where a skill stops and waits for you; everywhere else it runs.

@@ -1,0 +1,154 @@
+# F.O.R.G.E. — operating manual
+
+You are running inside a **product**, not inside this plugin repo. Two roots, never confuse
+them:
+
+- **Harness assets** (templates, playbooks, workflow scripts):
+  `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`, then `$FORGE_HOME/<path>`.
+  (`forge-home` is not on the Bash PATH on every install; the newest plugin-cache version is
+  the fallback. Workflows take `forge_home: "$FORGE_HOME"` in args so they never re-resolve it.
+  On Codex and OpenCode the installer puts the harness at `~/.forge/home`.)
+- **Product files** (`docs/SPEC.md`, `PROGRESS.md`, the product's own `AGENTS.md`): relative
+  to the product directory.
+
+## The loop
+
+Idea → `/forge:kickoff` → spec + scaffold → `/forge:feature` loop + `/forge:deep-review` — or
+`/forge:build` for the whole backlog hands-off → `/forge:harden` before exposure → `/forge:ship`.
+`/forge:next` is kickoff's iteration sibling for a product that already exists.
+Details: `docs/LIFECYCLE.md`
+
+Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
+on it, identically in every lane. Full scheme: `docs/RISK-TIERS.md`
+
+## Commands
+
+Mechanics and worked examples: `docs/COMMANDS.md`. Forge is **host-neutral**: the same
+commands run on Claude Code (`/forge:build`), Codex (`$forge-build`) and OpenCode
+(`/forge-build`) — `docs/HOSTS.md`.
+
+| Command | What it does |
+|---|---|
+| `/forge:kickoff <idea>` | New product: interview → SPEC.md → stack from playbook → verified scaffold |
+| `/forge:adopt <path>` | Existing codebase → as-built spec + PROGRESS + project AGENTS.md |
+| `/forge:next <ideas>` | Next version: clarify ideas → tiered features → build them |
+| `/forge:feature <F#>` | One feature: plan → failing test → build → fresh-context verify |
+| `/forge:build [scope]` | Whole backlog: one approval → parallel waves → merge → review finish |
+| `/forge:fix <bug>` | Reproduce → regression test → fix → review |
+| `/forge:harden [scope]` | Security audit + robustness sweep + gated fixes |
+| `/forge:ship [version]` | Release commit → release-gate → checklist → tag → deploy |
+| `/forge:debug-hard <symptom>` | Escalation to the hard-bug debugger |
+| `/forge:status` · `/forge:resume` | Ground-truth report · recover a stalled run |
+| `/forge:retro` | Harness retrospective: cited blockers/defects → verified, approved fixes |
+| `/forge:understand` · `/forge:design-panel` · `/forge:feature-pipeline` · `/forge:deep-review` · `/forge:release-gate` | Workflows |
+
+## Model routing (full policy: `docs/MODEL-ROUTING.md`)
+
+Four **tiers**, written on disk as Claude aliases and mapped per host (`docs/HOSTS.md`).
+Judgment — architecture, specs, hard bugs, review verdicts — rides the **session model**
+(agents run `model: inherit`), so gates keep working when the top model is capped. Opus =
+the build tier: all real building. Sonnet = docs, research, executing written plans,
+command-running gates. Haiku = mechanical sweeps. Route by decision density, not task size. When work loops, raise the
+session model and re-run rather than burning a third same-tier attempt. Never downgrade a
+review gate below the build tier.
+
+## Delegation (full guide: `docs/ORCHESTRATION.md`)
+
+Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implementer),
+`forge-quench` (reviewer), `forge-temper` (debugger), `forge-proof` (tester), `forge-warden`
+(security), `forge-prospector` (scout), `forge-etcher` (docs).
+
+- Lowest orchestration level that works; escalate on demonstrated failure.
+- Subagent prompts are **self-contained** (paths, context, done-definition) and
+  **scope-boxed**: Scope-box every subagent to the slice it needs, plus an explicit
+  do-NOT-read line. Mappers are the exception.
+- **Brief the contract, not the procedure.** State done-criteria, forbidden surfaces, and the
+  traps you already know. Prescribing steps to a model that can see the code you can't is how
+  a brief ships a wrong instruction — and an agent that follows it loses more time than one
+  that had to think. Tell agents to override a prescribed step and say so.
+- Parallel agents get **isolated worktrees**. Two agents in one tree is a merge conflict with
+  extra steps.
+- The agent that built something never verifies it. Demand evidence, never "looks done".
+
+## Hard rules (every `/forge:*` command, every repo)
+
+1. **Tests are load-bearing — and budgeted.** Never delete, weaken or skip a test to get
+   green; a newly failing test is a finding, not an obstacle. But volume is a cost bug: cover
+   behavior at the public surface — happy path, realistic failures, risky boundaries, a
+   regression test per real bug — never a unit test per function.
+2. **E2E is the expensive tier.** At most one spec per feature, often none — only for what no
+   other layer can reach. Written after the feature works, never e2e-first. It runs **once per
+   merge gate**, not per agent and not only at the end of a backlog: e2e is where wiring bugs
+   live, and a wave's worth is far cheaper to repair than a whole product's.
+3. **A feature agent's gate is typecheck + lint + the tests covering its diff.** The full suite
+   belongs to the merge gate. Running it from inside a feature agent starves its siblings and
+   proves nothing its own files didn't.
+4. **Leave no process behind.** Whatever an agent starts — dev server, watcher, database — it
+   kills by process tree before reporting; helpers close handles in teardown. Leaked workers
+   don't fail anything, they silently halve the machine for everyone after.
+5. **Evidence before claims.** Reports cite tool results from this session. Unverified work is
+   reported unverified — and a criterion the environment cannot prove is reported **open**,
+   never ticked.
+6. **Two strikes → change approach.** A third identical attempt is banned; escalate.
+7. **Spec sync.** Legitimate deviation from `docs/SPEC.md` updates the spec in the same
+   change — the **contract**, not the reasoning. The row says what the user gets; *why* it was
+   built that way goes in the PR body or an ADR. A row that absorbs every review finding stops
+   being a spec and becomes a changelog nobody can approve from.
+   PROGRESS.md checkboxes turn `[x]` only with pasted evidence.
+8. **Secrets never in code or commits.** `.env` + committed `.env.example`.
+9. **Simplest thing that works.** No speculative abstraction, no unrequested refactors,
+   validation only at boundaries.
+10. **Slim output.** Verbosity is a cost bug, and so are docs. Reports are tables and evidence, never
+    prose restating inputs. An ADR is for a one-way door or a genuine surprise — ≤ 15 lines,
+    not a diary. Context is never cut; only words about words.
+11. **Harness changes run the regression suite.** `npm test` green in the plugin repo before
+    any commit touching skills/agents/workflows/docs; new invariants get a test. PRs also
+    face the CI eval gate (`npm run eval:gate`): quality may not drop vs the merge-base,
+    cost may not jump past budget — `docs/EVALS.md`. Every merge to main must grow the
+    plugin version (installed plugins update by it): bump deliberately with
+    `node scripts/bump-version.mjs minor|major` when warranted; CI patch-bumps any PR
+    that lands without one.
+12. **Deterministic work is a script, never an agent turn.** Git plumbing, worktree lifecycle,
+    PR assembly, version bumps — anything with one correct answer — lives in
+    `$FORGE_HOME/scripts/`. It is cheaper *and* deletes a failure class. Reviewers are
+    read-only.
+13. **Write for the product owner.** Every surface a user approves or reads from — gate
+    tables, `docs/SPEC.md` feature rows, `PROGRESS.md`, run reports — names the user-visible
+    outcome in the product's own vocabulary. No file paths, no library or framework names, and
+    no internal taxonomy (tier codes, wave numbers, file footprints) in the columns someone
+    decides from. Someone who does not read code must be able to tell what they are getting
+    and check afterwards whether they got it. Internal detail is not deleted, it moves: into a
+    clearly separate execution block, the PR body, or an ADR.
+
+## Working in a product
+
+Start the session **in your product**; its `AGENTS.md` auto-loads once you read its files.
+Products are their own git repos. Read `PROGRESS.md` → "Next session should" before anything
+else. Ambiguous target → ask.
+
+**Workflows do NOT follow your shell `cd`** — always pass `args: {dir: "<absolute product
+path>"}`. **Invoke by `scriptPath`, not `name`**: `Workflow({scriptPath:
+"$FORGE_HOME/workflows/<wf>.js", args: {dir, ...}})` — name resolution can fail the
+permission check on CRLF and can corrupt args. No Workflow tool on your host? Same script:
+`node "$FORGE_HOME/bin/forge-run.mjs" <wf> --args-file <json>`. If args arrive mangled, `feature-pipeline` and
+`design-panel` fall back to an input file in the product root; write it before invoking,
+delete it after.
+
+**Run state.** `/forge:build` and `/forge:next` write `.forge/run.json` (gitignored) at each
+wave boundary; `/forge:resume` reads it. It accelerates recovery — git and `PROGRESS.md` stay
+authoritative, so staleness costs a reconcile, never a break.
+
+**Coexistence.** The user's global agent config (`~/.claude`, `~/.codex`,
+`~/.config/opencode`) has its own agents and hooks. Forge is namespaced (`/forge:*`,
+`forge-*`) and must not shadow or duplicate them.
+
+## Playbooks and references
+
+`docs/playbooks/` — stack defaults per product type (web-app, static-site, api-service,
+cli-tool, mobile-app, desktop-app, browser-extension, library). **Verify major versions and
+scaffold flags at kickoff; playbooks age and CLIs drift.**
+
+`references/` (gitignored, local) holds private product-type reference playbooks. Consumed
+**at intake only** (`kickoff`/`next`/`adopt`): read `INDEX.md`, pull in the *single* matching
+file, fold it into the spec. Never loaded into build agents. Absent or no match → skip
+silently.

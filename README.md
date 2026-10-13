@@ -7,13 +7,14 @@
  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
  ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
  ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
- F.O.R.G.E. — Fable-Orchestrated, Review-Gated Engineering
+ F.O.R.G.E. — Fleet-Orchestrated, Review-Gated Engineering
 ```
 
-**Where products get hammered into shape.** A Claude Code plugin for building any
+**Where products get hammered into shape.** A cross-agent harness — **Claude Code, Codex CLI,
+OpenCode** — for building any
 software product — web app, SaaS, API, CLI, mobile, desktop, extension, or library — from
 idea to shipped: brief the crew once (spec, wave plan, design), and a whole shift runs without you
-until the ship decisions. A build lane which is focused on long-autonomous runs with quality gates which actually gates, risk-tiered validation and model routing. Install once; use in any folder.
+until the ship decisions. A build lane which is focused on long-autonomous runs with quality gates which actually gates, risk-tiered validation and model routing. Install once; use in any folder, on whichever agent you run.
 
 *Built by Michael Falk, forged with Claude Fable 5 (architecture) and Opus 4.8 (build).*
 
@@ -21,7 +22,7 @@ until the ship decisions. A build lane which is focused on long-autonomous runs 
 
 ## Quick start
 
-Install once — the `/forge:*` commands then work in every folder. Pick whichever fits you:
+Install once — the forge commands then work in every folder. Pick whichever fits you:
 
 **In the Claude app — no terminal, no git needed.** In the sidebar, click
 **Customize → Plugins → Add marketplace**, and paste this Git URL:
@@ -46,11 +47,23 @@ Or, inside an interactive `claude` session, type them as slash commands:
 /plugin install forge@forge
 ```
 
+**Codex CLI, OpenCode — or every agent on your machine at once.** Clone, then run the installer:
+
+```bash
+git clone https://github.com/travelhawk/forgeshift && cd forgeshift
+node scripts/install.mjs            # every agent CLI it finds; --host codex|opencode|claude to pick
+```
+
 Then kick off your first product — just describe it:
 
 ```
-> /forge:kickoff a habit tracker that guilt-trips me with charts
+> /forge:kickoff a habit tracker that guilt-trips me with charts     # Claude Code
+> $forge-kickoff a habit tracker that guilt-trips me with charts     # Codex CLI
+> /forge-kickoff a habit tracker that guilt-trips me with charts     # OpenCode
 ```
+
+The rest of this README writes commands the Claude way (`/forge:build`). On Codex read that
+as `$forge-build`, on OpenCode as `/forge-build` — same playbook, same gates.
 
 That's the whole on-ramp. Everything below explains what you just installed, the other
 commands, and how to make it yours — read it when you want the depth, not before you start.
@@ -59,8 +72,9 @@ commands, and how to make it yours — read it when you want the depth, not befo
 
 ## What this is (and isn't)
 
-F.O.R.G.E. is **not a library you import** — it's a **Claude Code plugin you install once
-and use everywhere.** Install it globally, then run `claude` inside any product folder (or use the app) and
+F.O.R.G.E. is **not a library you import** — it's a **harness you install once and use
+everywhere**: a plugin on Claude Code, skills and subagents on Codex CLI and OpenCode, from
+one source. Install it globally, then start your agent inside any product folder (or use the app) and
 drive whole products through a set of `/forge:*` commands: `/forge:kickoff` to
 spec-and-scaffold, `/forge:build` to build a backlog hands-off, `/forge:ship` to release.
 The plugin ships the parts that make that reliable:
@@ -73,7 +87,7 @@ The plugin ships the parts that make that reliable:
   gates, feature batches, and design panels that run *without you*, in breadth.
 - **8 specialist agents** — planner, implementer, reviewer, debugger, tester, security,
   scout, scribe — each fresh-context and model-routed, so the builder never grades its own work.
-- **An operating manual** (`CLAUDE.md`) + method docs + 8 stack playbooks that every command
+- **An operating manual** (`AGENTS.md`) + method docs + 8 stack playbooks that every command
   runs under.
 
 The bet: **the bottleneck in AI-built software isn't generation, it's trust.** So the plugin
@@ -82,6 +96,10 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
 
 ## Why an AI builder would want it
 
+- **No lock-in.** The fleet is whatever you run. Playbooks, specialists and the four workflow
+  scripts are written once; Claude Code runs them natively, Codex CLI and OpenCode run the
+  *same files* through a small portable runner. Switch agents mid-product, or mix them.
+  Details: [docs/HOSTS.md](docs/HOSTS.md).
 - **No babysitting.** `/forge:build` takes a whole backlog, gets one wave-plan approval from
   you, then builds feature after feature in parallel waves — a PR each, auto-merged in
   dependency order, finished with an automatic deep-review. Your touchpoints for a whole
@@ -96,9 +114,10 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
   on the dangerous 20%. Overridable per feature. Details: [docs/RISK-TIERS.md](docs/RISK-TIERS.md).
 - **The builder never verifies itself.** Every review runs in a fresh agent context that
   never saw the builder's reasoning, so it can't inherit the builder's blind spots.
-- **Model routing by decision density, not vibes.** Judgment rides your session model
-  (Opus 4.8, or Fable 5 on architecture days); building rides Opus; well-defined execution
-  drops to Sonnet; mechanical sweeps to Haiku. One session-model choice raises or lowers
+- **Model routing by decision density, not vibes.** Four tiers: judgment rides your session
+  model; building rides the build tier; well-defined execution drops a tier; mechanical
+  sweeps drop to the cheapest. On Claude that is session / Opus / Sonnet / Haiku; on other
+  hosts you map the tiers to your models once. One session-model choice raises or lowers
   the whole judgment tier. Policy: [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md).
 
 ## The self-improving loop
@@ -114,14 +133,15 @@ The same loop is community-driven: when a fix is general rather than product-spe
 retro offers to submit it upstream as an automatic PR — one explicit question (never
 assumed), forking on demand if you lack push rights, and only the diff plus a draft PR
 body ever leave your machine (product-identifying details redacted on request). Merged
-upstream, it ships back to everyone on the next `claude plugin update forge`. Every build,
+upstream, it ships back to everyone on the next update. Every build,
 by anyone, can make the next build better for all — a living harness, re-forged on every
 run.
 
 ## Requirements
 
-- **Claude Code**, current version (plugin support + the **Workflow tool** for dynamic
-  workflows — the four orchestration commands depend on it).
+- **One agent CLI**, current version: **Claude Code** (plugin support + the Workflow tool),
+  **Codex CLI**, or **OpenCode**. Off Claude, the four orchestration commands run through
+  `bin/forge-run.mjs`, which needs only Node.
 - **git**, and **Node 22+ with pnpm** (`corepack enable`) for the default playbooks.
   Per-type extras (Go, Rust for Tauri, Expo/EAS, Apple Developer) are listed in each
   playbook and only needed when you build that type.
@@ -130,10 +150,12 @@ run.
 
 ## Installation
 
-F.O.R.G.E. installs as a Claude Code plugin from the marketplace bundled in this repo —
-once, globally, so its commands are available in every folder.
+Once, globally, so the commands are available in every folder.
 
-No clone needed — the marketplace registers straight from GitHub:
+### Claude Code
+
+A plugin from the marketplace bundled in this repo. No clone needed — it registers straight
+from GitHub:
 
 ```bash
 claude plugin marketplace add travelhawk/forgeshift
@@ -153,9 +175,28 @@ Or from inside Claude Code: `/plugin marketplace add travelhawk/forgeshift` then
 - **Update / remove:** `claude plugin update forge` (pulls the latest commit from GitHub) ·
   `claude plugin uninstall forge`.
 
+### Codex CLI, OpenCode — or all of them
+
+```bash
+git clone https://github.com/travelhawk/forgeshift && cd forgeshift
+node scripts/install.mjs                  # every agent CLI found on PATH
+node scripts/install.mjs --host codex     # one host: claude | codex | opencode | all
+node scripts/install.mjs --dry-run        # list every file first
+```
+
+It copies the harness to `~/.forge/home` and registers the commands as Agent Skills
+(`~/.agents/skills/forge-*`, read by both Codex and OpenCode) plus each host's subagents.
+Everything is prefixed `forge-` and recorded in a manifest, so
+`node scripts/install.mjs --uninstall` removes exactly what was written.
+
+- **One repo only?** `--project <dir>` registers into that repo instead of your home.
+- **Models.** Off Claude, every tier starts on your host's default model. Map tiers to models
+  in `~/.forge/config.json` — [docs/HOSTS.md](docs/HOSTS.md).
+- **Update:** `git pull`, then run the installer again.
+
 ## Getting started
 
-Once installed, **run `claude` inside your product folder** (or use the Claude app) — the `/forge:*` commands are available everywhere.
+Once installed, **start your agent inside your product folder** — `claude`, `codex`, `opencode`, or the Claude app — the forge commands are available everywhere.
 
 **1. Kick off your first product.**
 
@@ -164,7 +205,7 @@ Once installed, **run `claude` inside your product folder** (or use the Claude a
 ```
 
 `/forge:kickoff` interviews you, writes `docs/SPEC.md`, picks a stack from a playbook, and
-scaffolds a **new product in the current folder** — its own git repo, its own `CLAUDE.md`, a
+scaffolds a **new product in the current folder** — its own git repo, its own `AGENTS.md`, a
 runnable test setup — then verifies the scaffold actually boots. Already have a codebase? Use
 `/forge:adopt <path>` instead, which reverse-engineers a spec and progress file from what's
 there.
@@ -195,34 +236,37 @@ That's the loop. New to it? Read [docs/LIFECYCLE.md](docs/LIFECYCLE.md) for the 
 idea-to-ship path, and [docs/COMMANDS.md](docs/COMMANDS.md) for what each command costs
 and when it pauses for you.
 
-> **The one rule:** run `claude` **inside your product** and let the plugin
+> **The one rule:** start your agent **inside your product** and let the harness
 > do the rest — its commands, agents, and workflows are available in every folder.
 
 ## What's inside
 
 | Layer | Where | What |
 |---|---|---|
-| Plugin manifest | `.claude-plugin/` | `plugin.json` + `marketplace.json` — what makes it installable and namespaces the `/forge:*` commands |
-| Asset anchor | `bin/forge-home` | Resolves the plugin's install dir so skills read bundled templates/docs/workflows from any product folder |
-| Operating manual | `CLAUDE.md` | The rules every command runs under |
-| Specialists | `.claude/agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
-| Lifecycle skills | `.claude/skills/` | `/forge:kickoff` `/forge:adopt` `/forge:next` `/forge:feature` `/forge:build` `/forge:fix` `/forge:harden` `/forge:ship` `/forge:debug-hard` `/forge:status` `/forge:retro` `/forge:understand` |
-| Orchestration | `.claude/workflows/` | `/forge:design-panel` `/forge:feature-pipeline` `/forge:deep-review` `/forge:release-gate` |
+| Plugin manifest | `.claude-plugin/` | `plugin.json` + `marketplace.json` — what makes it installable on Claude Code and namespaces the `/forge:*` commands |
+| Host layer | `lib/` · `bin/forge-run.mjs` · `scripts/install.mjs` | Host adapters, the portable workflow runtime, the renderer and the multi-host installer — what makes the same files run on Codex CLI and OpenCode |
+| Asset anchor | `bin/forge-home` | Resolves the harness install dir so skills read bundled templates/docs/workflows from any product folder |
+| Operating manual | `AGENTS.md` | The rules every command runs under (`CLAUDE.md` is a one-line `@AGENTS.md` stub) |
+| Specialists | `agents/forge-*.md` | blueprint/quench/temper — planner/reviewer/debugger (session model); hammer/proof/warden — implementer/tester/security (Opus); prospector/etcher — scout/scribe (Sonnet) |
+| Lifecycle skills | `skills/` | `/forge:kickoff` `/forge:adopt` `/forge:next` `/forge:feature` `/forge:build` `/forge:fix` `/forge:harden` `/forge:ship` `/forge:debug-hard` `/forge:status` `/forge:retro` `/forge:understand` |
+| Orchestration | `workflows/` | `/forge:design-panel` `/forge:feature-pipeline` `/forge:deep-review` `/forge:release-gate` |
 | Playbooks | `docs/playbooks/` | Verified 2026-07 default stacks per product type |
-| Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project CLAUDE.md |
-| Method docs | `docs/` | COMMANDS (guide + diagram), LIFECYCLE, ORCHESTRATION, MODEL-ROUTING |
+| Templates | `templates/` | SPEC, FEATURE, ADR, PROGRESS, release checklist, project AGENTS.md |
+| Method docs | `docs/` | COMMANDS (guide + diagram), LIFECYCLE, ORCHESTRATION, MODEL-ROUTING, HOSTS |
 
 ## Make it yours
 
 The harness is meant to be forked and shaped to how *you* build:
 
-- **`CLAUDE.md`** is the operating manual — the highest-leverage file. Loosen or tighten
+- **`AGENTS.md`** is the operating manual — the highest-leverage file. Loosen or tighten
   the hard rules, change the model-routing defaults, add your own conventions.
-- **`.claude/agents/forge-*.md`** — each specialist's system prompt, tool allowlist, and
+- **`agents/forge-*.md`** — each specialist's system prompt, tool allowlist, and
   model pin. Rename, re-scope, or add your own.
+- **`lib/hosts.mjs`** — one entry per agent CLI. Adding a host is a small adapter:
+  [docs/HOSTS.md](docs/HOSTS.md#adding-a-host).
 - **`docs/playbooks/`** — the default stack per product type. Swap in your framework of
   choice; they carry an as-of date and are meant to be re-verified.
-- **`.claude/settings.json`** — the permission allowlist. Scoped by design (force-push is
+- **`.claude/settings.json`** — the Claude Code permission allowlist. Scoped by design (force-push is
   hard-denied, deploys sit on the ask-list); adjust to your risk tolerance.
 
 Nothing here is load-bearing infrastructure you can't touch — it's a starting point with
@@ -233,24 +277,27 @@ strong opinions. Disagree with an opinion? Edit the file and commit the reason.
 1. **Two invariants under everything:** protect the attention budget (fresh context for
    verification, subagents for bulk reading, state on disk not in chat) and close every
    loop with a runnable check (tests, gates, evidence — never "looks done").
-2. **Judgment up, execution down.** The session model decides, Opus builds, Sonnet
-   executes plans, Haiku sweeps. Raise the session model after two failures; never
-   downgrade a review gate below Opus.
+2. **Judgment up, execution down.** The session model decides, the build tier builds, the
+   execute tier runs plans, the sweep tier sweeps. Raise the session model after two
+   failures; never downgrade a review gate below the build tier.
 3. **The spec is the contract.** `docs/SPEC.md` per product, checkable done-criteria,
    drift fixed in the same change that causes it.
 4. **Adversarial by default.** Review findings survive only if independent refuters fail
    to kill them (two for critical/high, one below); builders never grade their own work.
 5. **Playbooks age.** Stack defaults carry an as-of date and get re-verified at kickoff.
+6. **One source, many hosts.** Skills, agents and workflows exist once. Hosts get rendered
+   copies or a runtime shim — never a fork of the content.
 
 ## Maintenance
 
 - **The coding workflow is a git repo — treat changes like code.** Every edit to
-  CLAUDE.md, playbooks, skills, or workflows gets committed with a one-line why;
+  AGENTS.md, playbooks, skills, or workflows gets committed with a one-line why;
   that's your rollback when an agent (or you) breaks the operating manual.
-- Quarterly (or when models change): re-check `docs/MODEL-ROUTING.md` pricing/IDs.
+- Quarterly (or when models change): re-check `docs/MODEL-ROUTING.md` pricing/IDs, and the
+  CLI flags pinned in `docs/HOSTS.md` when an agent CLI ships a major.
 - At each kickoff: verify the playbook's major versions against the live ecosystem.
 - When a session teaches you something durable about how you want to build: it goes in
-  `CLAUDE.md` (tersely), and something stale comes out — commit both.
+  `AGENTS.md` (tersely), and something stale comes out — commit both.
 - After each milestone: `/forge:retro` — mines the build for friction and turns it into
   committed harness improvements, optionally PR'd upstream (see
   [The self-improving loop](#the-self-improving-loop)). This is what keeps "best" true

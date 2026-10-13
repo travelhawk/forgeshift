@@ -42,7 +42,7 @@ alone is not a signal; T2's "side effects" means effects that outlive the tab or
 
 **Tier sets test *depth*, never *who runs what*.** At every tier the build agent's own gate is
 `typecheck` + `lint` + the tests covering its diff. The full suite and the single e2e run
-belong to the merge gate, once per wave (`CLAUDE.md` hard rules 2–3). A T1 feature is not a
+belong to the merge gate, once per wave (`AGENTS.md` hard rules 2–3). A T1 feature is not a
 licence for its agent to run the whole suite.
 
 **The seeded tier is a pre-build guess — the built diff gets a second look.** After a T2/T3

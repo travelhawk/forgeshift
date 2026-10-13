@@ -1,9 +1,27 @@
 # Model Routing Policy
 
-Depth behind `CLAUDE.md` § Model routing. Verified against the Claude API reference on
+Depth behind `AGENTS.md` § Model routing. Verified against the Claude API reference on
 2026-07-05 — re-check pricing/IDs quarterly (`/claude-api` skill or `client.models.list()`).
 
-## The fleet
+## Tiers first, models second
+
+Routing is by **tier**. The harness writes a tier as its Claude alias, because the native
+Claude Code runtime reads those tokens; every other host maps the tier itself.
+
+| On disk | Tier | Claude Code | Codex CLI / OpenCode |
+|---|---|---|---|
+| `inherit` (or no `model:`) | **judge** | the session model | host default model, effort high/xhigh |
+| `opus` | **build** | Opus | host default, effort high — or your mapped model |
+| `sonnet` | **execute** | Sonnet | host default, effort medium — or your mapped model |
+| `haiku` | **sweep** | Haiku | host default, effort low — or your mapped model |
+
+Off Claude, forge ships no model names: they differ per account and age fast. Until you map
+them in `~/.forge/config.json`, tiers differ by reasoning effort only — correct, but the
+sweep tier costs what your default model costs. Map at least `sweep` and `execute`.
+Config format and per-host detail: `HOSTS.md`. The rest of this file is the policy — it
+holds on every host — with Claude as the worked example.
+
+## The fleet (Claude mapping)
 
 | Model | ID | Context | Max out | $/1M in | $/1M out | Role in Forge |
 |---|---|---|---|---|---|---|
@@ -72,7 +90,7 @@ Sweep effort rather than reflexively maxing.
 
 ## Where the pins live
 
-- **Subagents:** `model:` in each `.claude/agents/*.md`. Blueprint/Quench/Temper ride the session
+- **Subagents:** `model:` in each `agents/*.md`. Blueprint/Quench/Temper ride the session
   (`model: inherit`) — never blocked when Fable is capped, and as strong as your session;
   Hammer/Proof/Warden pin Opus; Prospector/Etcher ride Sonnet.
 - **Workflows:** `model:`/`effort:` per `agent()` call. Judgment stages (review dimensions,

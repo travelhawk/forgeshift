@@ -13,7 +13,7 @@ const fixture = () => ({
     agents: 10, chars: 50_000,
     quality: [{ metric: 'q', value: 5, better: 'higher' }],
   }])),
-  prose: { claudeMd: 12_000, harnessMd: 100_000 },
+  prose: { manualMd: 12_000, harnessMd: 100_000 },
 })
 const clone = m => structuredClone(m)
 const first = CASES[0].scenario
@@ -112,38 +112,38 @@ suite('eval gate: verdict semantics', () => {
     assert.deepEqual(q.map(x => x.value), [0, 0])
   })
 
-  test('CLAUDE.md budget is a compound bar: EITHER clause alone (bytes-only or %-only) never blocks', () => {
+  test('AGENTS.md budget is a compound bar: EITHER clause alone (bytes-only or %-only) never blocks', () => {
     // > +2500 bytes but only +6% — must pass with a warning.
     const bigBase = fixture()
-    bigBase.prose.claudeMd = 50_000
+    bigBase.prose.manualMd = 50_000
     const bytesOnly = clone(bigBase)
-    bytesOnly.prose.claudeMd = 53_000
+    bytesOnly.prose.manualMd = 53_000
     const r1 = compare(bigBase, bytesOnly)
     assert.equal(r1.verdict, 'pass', r1.failures.join('; '))
-    assert.ok(r1.warnings.some(w => w.includes('CLAUDE.md grew')))
+    assert.ok(r1.warnings.some(w => w.includes('AGENTS.md grew')))
     // +30% but only +1500 bytes — must pass with a warning.
     const smallBase = fixture()
-    smallBase.prose.claudeMd = 5_000
+    smallBase.prose.manualMd = 5_000
     const fracOnly = clone(smallBase)
-    fracOnly.prose.claudeMd = 6_500
+    fracOnly.prose.manualMd = 6_500
     const r2 = compare(smallBase, fracOnly)
     assert.equal(r2.verdict, 'pass', r2.failures.join('; '))
-    assert.ok(r2.warnings.some(w => w.includes('CLAUDE.md grew')))
+    assert.ok(r2.warnings.some(w => w.includes('AGENTS.md grew')))
   })
 
-  test('CLAUDE.md ballooning blocks; modest growth only warns; shrinking is an improvement', () => {
+  test('AGENTS.md ballooning blocks; modest growth only warns; shrinking is an improvement', () => {
     const base = fixture()
     const bloated = clone(base)
-    bloated.prose.claudeMd = base.prose.claudeMd + THRESHOLDS.claudeMdUpChars + 1000 // also > +20%
+    bloated.prose.manualMd = base.prose.manualMd + THRESHOLDS.manualUpChars + 1000 // also > +20%
     assert.equal(compare(base, bloated).verdict, 'fail')
     const modest = clone(base)
-    modest.prose.claudeMd += 300
+    modest.prose.manualMd += 300
     const r = compare(base, modest)
     assert.equal(r.verdict, 'pass')
-    assert.ok(r.warnings.some(w => w.includes('CLAUDE.md grew')))
+    assert.ok(r.warnings.some(w => w.includes('AGENTS.md grew')))
     const slim = clone(base)
-    slim.prose.claudeMd -= 500
-    assert.ok(compare(base, slim).improvements.some(i => i.includes('CLAUDE.md shrank')))
+    slim.prose.manualMd -= 500
+    assert.ok(compare(base, slim).improvements.some(i => i.includes('AGENTS.md shrank')))
   })
 })
 
@@ -156,7 +156,7 @@ suite('eval gate: live collection', () => {
       assert.ok(s.agents > 0 && s.chars > 0, `${c.scenario} recorded cost`)
       assert.ok(Array.isArray(s.quality) && s.quality.length > 0, `${c.scenario} recorded quality`)
     }
-    assert.ok(m.prose.claudeMd > 1000, 'CLAUDE.md size collected')
+    assert.ok(m.prose.manualMd > 1000, 'AGENTS.md size collected')
     assert.ok(m.prose.harnessMd > 10_000, 'skills+agents prose collected')
     // Self-compare must be perfectly clean — the gate never flags a no-op PR.
     const r = compare(m, structuredClone(m))

@@ -1,17 +1,21 @@
 # Orchestration Guide
 
-Depth behind `CLAUDE.md` § Delegation. Wrong-sizing the orchestration is the most common
+Depth behind `AGENTS.md` § Delegation. Wrong-sizing the orchestration is the most common
 harness failure: over-orchestration burns tokens and coherence, under-orchestration caps
 quality on wide work.
+
+The ladder is host-neutral. "Subagent" means your host's own mechanism (Claude's Agent tool,
+a Codex subagent, OpenCode's task tool); "Workflow" means the native Workflow tool on Claude
+Code and `bin/forge-run.mjs` everywhere else — `HOSTS.md`.
 
 ## The ladder
 
 | Level | Tool | Use when | Cost |
 |---|---|---|---|
 | 0 | Main session, solo | Single-file edits, questions, anything with tight feedback | 1x |
-| 1 | One subagent (`.claude/agents/`) | A bounded task with a clean interface: "review this diff", "research X", "write the tests for Y" | ~1-2x |
+| 1 | One subagent (`agents/`) | A bounded task with a clean interface: "review this diff", "research X", "write the tests for Y" | ~1-2x |
 | 2 | Parallel subagents | 2-5 independent bounded tasks | n× but wall-clock ÷n |
-| 3 | Workflow (`.claude/workflows/`) | Deterministic multi-stage fan-out: review-verify chains, judge panels, batch feature builds | 5-30x |
+| 3 | Workflow (`workflows/`) | Deterministic multi-stage fan-out: review-verify chains, judge panels, batch feature builds | 5-30x |
 
 ## When workflows earn their cost
 
@@ -55,7 +59,7 @@ log as flaky and continue. An intermittent test must not halt an unattended run.
 
 ## Subagent contract
 
-`CLAUDE.md` § Delegation states the rules; this is what they cost you to get wrong.
+`AGENTS.md` § Delegation states the rules; this is what they cost you to get wrong.
 
 Self-contained prompt (the agent sees none of your conversation) · evidence not vibes ("run the
 tests and paste the failing names") · fresh context for verification, because builders grade
@@ -101,4 +105,4 @@ structured output where a downstream step consumes it. Then:
 Long sessions rot. Fan-out is also a context strategy — subagents get clean context and return
 only conclusions. Push bulk reading (logs, big files, sweeps) into subagents and keep the main
 session for decisions; after a milestone `/forge:status` writes state to disk so the next
-session starts clean. Specs and CLAUDE.md files are the durable memory; conversations are scratch.
+session starts clean. Specs and AGENTS.md files are the durable memory; conversations are scratch.

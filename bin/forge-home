@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# forge-home — print the absolute path of the F.O.R.G.E. plugin root.
+# forge-home — print the absolute path of the F.O.R.G.E. harness root.
 #
 # The plugin root is the directory that bundles the harness assets a skill reads
 # when the plugin runs from some other product's folder: templates/, docs/ (incl.
-# playbooks/ and RISK-TIERS.md), references/, and .claude/workflows/.
+# playbooks/ and RISK-TIERS.md), references/, workflows/, and the portable runner in bin/.
 #
 # Why this exists: plugin skills run with the *product* as the session cwd, not the
 # harness. Bare relative paths like `templates/SPEC.md` would resolve against the
 # product and miss. Claude Code adds a plugin's bin/ to the Bash tool's PATH while
 # the plugin is enabled, so any skill can resolve the harness home with:
 #
-#     FORGE_HOME="${CLAUDE_PLUGIN_ROOT:-$(forge-home)}"
-#     cat "$FORGE_HOME/templates/PROJECT-CLAUDE.md"
+#     FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home)}}"
+#     cat "$FORGE_HOME/templates/PROJECT-AGENTS.md"
+#
+# Other hosts (Codex, OpenCode) get the harness copied to ~/.forge/home by
+# scripts/install.mjs; their rendered skills default FORGE_HOME to that path.
 #
 # It works whether installed from a marketplace (copied into the plugin cache) or
 # loaded via `--plugin-dir` in development: it derives the root from its own on-disk

@@ -10,9 +10,14 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 // Source at HEAD (rev = null → working tree) or any git revision.
+// A rev from before the 2026-09-19 cross-agent move keeps workflows under .claude/.
 export function loadSource(relPath, rev = null) {
   if (!rev) return readFileSync(new URL(`../${relPath}`, import.meta.url), 'utf8')
-  return execFileSync('git', ['show', `${rev}:${relPath}`], { encoding: 'utf8', cwd: ROOT })
+  const show = p => execFileSync('git', ['show', `${rev}:${p}`], { encoding: 'utf8', cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] })
+  try { return show(relPath) } catch (e) {
+    if (!relPath.startsWith('workflows/')) throw e
+    return show(`.claude/${relPath}`)
+  }
 }
 
 // Run a workflow script body with the API stubbed. responder(prompt, opts) is
