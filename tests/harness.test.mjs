@@ -417,12 +417,14 @@ suite('boundary-audit optimizations', () => {
   })
 
   // P1: T1/T2 builds pin the build tier instead of riding a top-tier session.
-  test('feature-pipeline pins Opus for T1/T2 builds; RISK-TIERS says so', () => {
+  test('feature-pipeline pins Opus for T1/T2 builds; RISK-TIERS points at the code', () => {
     const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(src, /t === 'T3' \? \{ model: 'sonnet', effort: 'medium' \} : \{ model: 'opus', effort: t === 'T1' \? 'high' : 'medium' \}/,
       'T3 → sonnet, T1/T2 → opus (pinned, not inherit); effort on the build model\'s own scale')
-    assert.match(read('docs', 'RISK-TIERS.md'), /\*\*Opus\*\* \(pinned\)/, 'RISK-TIERS build row records the pin')
-    assert.match(read('docs', 'MODEL-ROUTING.md'), /build stages pin `model: 'opus'`/, 'routing policy records the pin')
+    const tiers = read('docs', 'RISK-TIERS.md')
+    assert.match(tiers, /workflows\/feature-pipeline\.js/, 'RISK-TIERS names the code that owns per-tier stages')
+    // The code owns models and efforts; a doc that restates them drifts (it did: "six-dimension").
+    assert.doesNotMatch(tiers, /\b(Opus|Sonnet|Haiku|effort)\b/, 'RISK-TIERS does not restate pins')
   })
 
   // P7: PR title/body schema guides toward reviewable, value-named PRs.

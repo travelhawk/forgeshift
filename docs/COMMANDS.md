@@ -1,93 +1,51 @@
-# Command Guide — how skills, workflows, and agents interlock
+# Command guide
 
-`AGENTS.md` lists what each command does. This is what each one *costs*, where it runs, and
-when it will stop to ask you.
+`AGENTS.md` lists what each command does. This page says where each kind runs and what it
+costs. The behaviour itself is in the files named below.
 
 ![Command architecture: you type a command; skills run as playbooks in the main session and delegate to forge agents or fire workflows; workflows run as JS scripts outside the chat and spawn agent fleets](diagrams/command-architecture.svg)
 
-## The three building blocks
+## Three building blocks
 
 | | Where it runs | Keeps your context? | Cost |
 |---|---|---|---|
-| **Skill** `skills/<name>/SKILL.md` | Injected into your running session; the main-session agent follows the playbook, pausing at defined gates | Yes — choreography, not a program | ~a normal session |
-| **Agent** `agents/forge-*.md` | Delegated to by skills; own system prompt, tool allowlist, pinned model | No — **empty context**, sees only its brief | 1 turn each |
-| **Workflow** `workflows/<name>.js` | JavaScript the runtime executes *outside* the chat — Claude's Workflow tool, or `bin/forge-run.mjs` on any other host | No | 5–30x |
+| **Skill** `skills/<name>/SKILL.md` | In your session; the agent follows the playbook and pauses at its gates | Yes | about one session |
+| **Agent** `agents/forge-*.md` | Delegated to by skills; own prompt, tools and model | No — sees only its brief | one turn each |
+| **Workflow** `workflows/<name>.js` | Outside the chat: Claude's Workflow tool, or `bin/forge-run.mjs` on any host | No | 5–30x |
 
-Agents' empty context is the point: `forge-quench` judges a diff without seeing the builder's
-reasoning, so it cannot inherit the builder's blind spots. Blueprint, quench, temper and warden
-additionally carry persistent memory on Claude Code (`.claude/agent-memory/`) and sharpen
-across projects.
-Workflow code decides deterministically which agents start when, on which model, at which
-effort, with which output schema, and what happens to the results (dedup, refuter voting,
-fail-closed verdicts) — orchestration as code, therefore reproducible.
-
-**Skills orchestrate *with you* in context; workflows orchestrate *without you* in breadth** —
-and skills are the bridge that fires workflows at the right moment.
-
-## Three worked examples
-
-**`/forge:feature F2` — a skill conducting agents.** Sizes the work: small → the session builds
-it; medium+ → plan and done-criteria to `forge-hammer` (Opus, tests-first, on a branch), diff to
-`forge-quench` (session model, fresh context). Only after confirmed findings are fixed does it
-open a PR with evidence in the body and tick PROGRESS.md. The feature never lands straight on
-main; the PR is the review record.
-
-**`/forge:ship v0.1.0` — a skill firing a workflow.** Release commit (CHANGELOG, version bump),
-then `release-gate`: six gate agents (three inspecting in parallel, then tests → build → runtime
-smoke sequentially), aggregated fail-closed — a gate that doesn't report blocks. The SHIP/NO-SHIP
-verdict returns for the manual checklist before tag and deploy.
-
-**`/forge:build` — one gate, then the whole backlog.** `forge-blueprint` partitions unchecked
-features into waves by predicted file footprint (overlapping or dependent features never run in
-parallel); you approve wave plan + integration mode + cost **once**; then wave after wave runs,
-each verified feature getting an evidence-bearing PR and, in auto-integrate mode, a squash-merge
-so the next wave builds on it. Failures are collected, never discussed mid-run. The finish is an
-automatic `deep-review` of the integrated result: confirmed critical/high fixed on the spot in
-`/forge:fix` discipline, medium/low into the report. Per-feature depth follows the **risk tier**
-([RISK-TIERS.md](RISK-TIERS.md)) — that is what keeps this affordable on a boilerplate-heavy
-backlog while concentrating scrutiny on auth/payment/tenant code.
+An agent's empty context is the point: `forge-quench` judges a diff without the builder's
+reasoning, so it does not share the builder's blind spots. A workflow decides in code which
+agents run, on which model and effort, and how results combine — so it is reproducible.
 
 ## When to use what
 
-Two intakes and one builder: `/forge:kickoff` (new product) and `/forge:next` (next version)
-both interview you, shape tiered features, and hand off to `/forge:build`; `/forge:feature` is
-the one-at-a-time lane. So: **one feature → `/forge:feature`; a new batch of ideas →
-`/forge:next`; an already-spec'd backlog → `/forge:build`.** You rarely type
-`/forge:feature-pipeline` by hand — it's the engine the others drive.
+**One feature → `/forge:feature`. New ideas → `/forge:next`. An already-spec'd backlog →
+`/forge:build`.** `/forge:feature-pipeline` is the engine the others drive; you rarely call it.
 
-| Situation | Command | Kind |
-|---|---|---|
-| New product idea | `/forge:kickoff <idea>` | Skill (interviews you) |
-| Existing repo to bring in | `/forge:adopt <path>` | Skill |
-| Next version of an existing product | `/forge:next <ideas>` | Skill (interviews you) → forge flow |
-| Build one feature | `/forge:feature F3` | Skill → agents |
-| Whole backlog already spec'd, hands-off | `/forge:build` | Skill → waves of feature-pipeline + PRs |
-| Raw batch, no PR ceremony | `/forge:feature-pipeline` | Workflow (parallel worktrees) |
-| A bug | `/forge:fix <symptom>` | Skill |
-| Bug survived 2 attempts | `/forge:debug-hard` | Skill → hard-bug debugger (session model) |
-| Before shipping manual work (`/forge:build` fires it automatically) | `/forge:deep-review` | Workflow (review + refuters) |
-| Before first public deploy | `/forge:harden` | Skill → security agent |
-| Release | `/forge:ship v0.2.0` | Skill → release-gate workflow |
-| Understand a big/foreign codebase | `/forge:understand [question]` | Skill (fans out readers) |
-| Hard architecture decision | `/forge:design-panel <brief>` | Workflow (lean: 3 designers + 1 judge-synthesizer; `panel: "wide"` → 4+3) |
-| Session end / re-entry | `/forge:status` | Skill |
-| A `/forge:build`/`/forge:next` run died mid-way | `/forge:resume` | Skill (reads `.forge/run.json`, reconciles with git) |
-| After a milestone | `/forge:retro` | Skill (improves the harness itself) |
+| Situation | Command |
+|---|---|
+| New product idea | `/forge:kickoff <idea>` |
+| Existing repo to bring in | `/forge:adopt <path>` |
+| Next version of a product | `/forge:next <ideas>` |
+| One feature | `/forge:feature F3` |
+| Whole backlog, hands-off | `/forge:build` |
+| A bug · a bug that survived two attempts | `/forge:fix` · `/forge:debug-hard` |
+| Review manual work before shipping | `/forge:deep-review` |
+| Before first public deploy | `/forge:harden` |
+| Release | `/forge:ship v0.2.0` |
+| Understand a large codebase | `/forge:understand [question]` |
+| Hard architecture decision | `/forge:design-panel <brief>` |
+| Session end · a run died mid-way | `/forge:status` · `/forge:resume` |
+| After a milestone | `/forge:retro` |
 
-## Three rules of thumb
+## Rules of thumb
 
-1. **Triggering.** `/forge:kickoff`, `/forge:adopt`, `/forge:next`, `/forge:build`,
-   `/forge:ship`, `/forge:retro` are user-only (`disable-model-invocation`) — their consequences
-   belong to you. `/forge:feature`, `/forge:fix`, `/forge:harden`, `/forge:status`,
-   `/forge:debug-hard` may also be invoked by the agent when the situation matches.
-2. **Cost.** Workflows cost 5–30x a skill because they launch agent fleets — which is why they
-   sit at gates (review, release) and at genuine breadth (feature batches), never at 20-line
-   changes. Ladder in [ORCHESTRATION.md](ORCHESTRATION.md); unsure → one rung lower.
-3. **You stay product owner.** Every playbook pauses where taste or scope is decided (spec
-   approval, stack approval, finding triage, manual ship checklist). Building, testing,
-   verifying, collecting evidence runs without you.
+1. **Triggering.** Skills with `disable-model-invocation: true` in their frontmatter run only
+   when you type them — their consequences are yours. The agent may start the others itself.
+2. **Cost.** Workflows launch agent fleets, so they sit at gates and at real breadth, never at
+   a 20-line change. Unsure → one rung lower on the ladder in `ORCHESTRATION.md`.
+3. **You stay product owner.** Playbooks pause where taste or scope is decided. Building,
+   testing and collecting evidence run without you.
 
-**Start your agent inside your product** — `claude`, `codex` or `opencode`. The install is
-global, so skills, agents, and workflows are available in every folder; command syntax per
-host is in [HOSTS.md](HOSTS.md). Workflows still need the product passed as their `dir`
-arg; they do not follow the shell `cd`.
+Start your agent inside your product (`claude`, `codex` or `opencode`). Command syntax per
+host: `HOSTS.md`. Workflows need the product as their `dir` arg; they do not follow your `cd`.

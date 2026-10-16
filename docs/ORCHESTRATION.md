@@ -35,41 +35,25 @@ Code and `bin/forge-run.mjs` everywhere else — `HOSTS.md`.
 **Wrong tool for:** sequential work where step N+1 depends on N's judgment · tasks needing your
 taste every few minutes · shared mutable state without worktree isolation · a 20-line fix.
 
-## Workflow target contract (added 2026-07-06, after the harness eval)
+## Workflow target contract
 
-Workflow agents inherit the **session's start directory**, not your shell `cd` — a session that
-`cd`-ed into a product after starting elsewhere runs its agents against the wrong repository
-(observed live). Enforced in all four workflows:
+Workflow agents start in the session's start directory, not in your shell `cd`. Pass the
+product explicitly: `args: {dir: "<absolute product path>", ...}`. Every workflow then runs a
+preflight that refuses a missing, empty or harness repo, and pins the verified path into each
+agent prompt. Arg coercion lives in `lib/workflow-preamble.mjs`; the input-file fallback in
+`feature-pipeline.js` and `design-panel.js`.
 
-1. **Pass the target explicitly:** `args: {dir: "<absolute product path>", ...}` plus the
-   workflow's own inputs (`scope`, `brief`, `features`/`context`, `focus`, release `context`).
-2. **Preflight guard:** a Haiku agent verifies the target exists, holds a real project, and is
-   not a harness/control-center repo (feature-pipeline also requires a git repo) — otherwise
-   the workflow refuses before any real work. The verified path is pinned into every agent
-   prompt and echoed in the result.
-3. **Args can arrive mangled** (observed: an object reached a script as a non-object). All
-   workflows coerce JSON-stringified args; `feature-pipeline` and `design-panel` also read
-   `feature-pipeline.input.json` / `design-panel.input.md` from the target root as a fallback —
-   write it before invoking, delete it after.
-
-`feature-pipeline` branches are verified **in isolation**, so run the full suite on the merged
-result before calling the batch done: the merged whole has been tested by no agent. A NEW
-failure is **re-run once, targeted** before it counts — reproduces → stop the run; clears →
-log as flaky and continue. An intermittent test must not halt an unattended run.
+`feature-pipeline` verifies each branch in isolation, so the merged whole is tested by no
+agent. Run the full suite on the merged result before calling the batch done. Re-run a NEW
+failure once, targeted: it reproduces → stop the run; it clears → log it as flaky and go on.
 
 ## Subagent contract
 
-`AGENTS.md` § Delegation states the rules; this is what they cost you to get wrong.
+`AGENTS.md` § Delegation states the rules. What they cost to get wrong:
 
-Self-contained prompt (the agent sees none of your conversation) · evidence not vibes ("run the
-tests and paste the failing names") · fresh context for verification, because builders grade
-themselves generously · right-size the model ([MODEL-ROUTING.md](MODEL-ROUTING.md)) · one retry,
-then change the decomposition rather than the wording · return data, not essays, and prefer
-structured output where a downstream step consumes it. Then:
-
-1. **Brief the contract, not the procedure.** A prescribed step that is subtly wrong costs more
-   than no step: the agent follows it, detects it, then undoes it. Say explicitly that it may
-   override a step and must report the deviation.
+1. **Brief the contract, not the procedure.** A subtly wrong prescribed step costs more than
+   none: the agent follows it, notices, then undoes it. One retry, then change the
+   decomposition, not the wording. Ask for data, not essays.
 2. **Isolated worktrees for parallel agents** (`isolation: "worktree"`, or
    `scripts/forge-worktree.sh`). Two agents in one tree is a merge conflict with extra steps.
    Remove the worktrees before linting the merged result, or `lint` traverses a second copy of

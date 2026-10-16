@@ -16,14 +16,14 @@ them:
 Idea → `/forge:kickoff` → spec + scaffold → `/forge:feature` loop + `/forge:deep-review` — or
 `/forge:build` for the whole backlog hands-off → `/forge:harden` before exposure → `/forge:ship`.
 `/forge:next` is kickoff's iteration sibling for a product that already exists.
-Details: `docs/LIFECYCLE.md`
+Gates: `docs/LIFECYCLE.md`
 
 Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
 on it, identically in every lane. Full scheme: `docs/RISK-TIERS.md`
 
 ## Commands
 
-Mechanics and worked examples: `docs/COMMANDS.md`. Forge is **host-neutral**: the same
+Cost and when to use what: `docs/COMMANDS.md`. Forge is **host-neutral**: the same
 commands run on Claude Code (`/forge:build`), Codex (`$forge-build`) and OpenCode
 (`/forge-build`) — `docs/HOSTS.md`.
 
@@ -78,22 +78,22 @@ Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implement
    regression test per real bug — never a unit test per function.
 2. **E2E is the expensive tier.** At most one spec per feature, often none — only for what no
    other layer can reach. Written after the feature works, never e2e-first. It runs **once per
-   merge gate**, not per agent and not only at the end of a backlog: e2e is where wiring bugs
-   live, and a wave's worth is far cheaper to repair than a whole product's.
+   merge gate**, not per agent and not only at the end of a backlog: wiring bugs show up there,
+   and one wave's worth is cheap to repair.
 3. **A feature agent's gate is typecheck + lint + the tests covering its diff.** The full suite
    belongs to the merge gate. Running it from inside a feature agent starves its siblings and
    proves nothing its own files didn't.
 4. **Leave no process behind.** Whatever an agent starts — dev server, watcher, database — it
    kills by process tree before reporting; helpers close handles in teardown. Leaked workers
-   don't fail anything, they silently halve the machine for everyone after.
+   fail nothing; they slow every later run.
 5. **Evidence before claims.** Reports cite tool results from this session. Unverified work is
    reported unverified — and a criterion the environment cannot prove is reported **open**,
    never ticked.
 6. **Two strikes → change approach.** A third identical attempt is banned; escalate.
-7. **Spec sync.** Legitimate deviation from `docs/SPEC.md` updates the spec in the same
-   change — the **contract**, not the reasoning. The row says what the user gets; *why* it was
-   built that way goes in the PR body or an ADR. A row that absorbs every review finding stops
-   being a spec and becomes a changelog nobody can approve from.
+7. **The code is the source of truth; the spec is the contract.** `docs/SPEC.md` says what
+   the user gets and how they check it, never how it is built. Change it, in the same change,
+   only when what the user gets changes; *why* goes in the PR body or an ADR. A doc that
+   restates code drifts from it and turns into ambiguity — point to the code instead.
    PROGRESS.md checkboxes turn `[x]` only with pasted evidence.
 8. **Secrets never in code or commits.** `.env` + committed `.env.example`.
 9. **Simplest thing that works.** No speculative abstraction, no unrequested refactors,

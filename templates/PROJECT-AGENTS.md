@@ -19,7 +19,7 @@ done-criteria). State: `PROGRESS.md` (feature list + session log). Decisions:
 ```
 <pkg> install          # deps
 <pkg> run dev          # dev server → http://localhost:<port>
-<pkg> test             # full suite — must be green before and after every feature
+<pkg> test             # full suite — the merge gate runs it; a feature runs its own tests
 <pkg> run typecheck    # <or note: covered by build>
 <pkg> run lint
 <pkg> run build        # production build
@@ -28,8 +28,8 @@ done-criteria). State: `PROGRESS.md` (feature list + session log). Decisions:
 
 ## Stack
 
-<framework + version> · <db + ORM> · <auth> · <styling> · <hosting> ·
-<test: unit + e2e runners>. Rationale: `docs/adr/001-stack.md`.
+<framework> · <db + ORM> · <auth> · <hosting> · <test runners>. Versions: the manifest.
+Rationale: `docs/adr/001-stack.md`.
 
 ## Conventions (only the ones that differ from framework defaults)
 
@@ -37,11 +37,12 @@ done-criteria). State: `PROGRESS.md` (feature list + session log). Decisions:
 - <e.g. DB access only through src/db/queries/ — never raw client in routes>
 - <e.g. all times UTC in DB, localized at render>
 
-## Quality gates (inherited from Forge — enforced, not advisory)
+## Quality gates (from Forge)
 
-- Tests first; never weaken a test to pass it. Evidence before "done" claims.
+- Never weaken a test to pass it. Evidence before "done" claims.
+- A feature's gate: typecheck + lint + the tests covering its diff. The full suite is the merge gate.
 - Medium+ changes get fresh-context review (`forge-quench`) before merge.
-- Deviations from SPEC.md update SPEC.md in the same change.
+- The code is the truth for how; `docs/SPEC.md` changes only when what the user gets changes.
 - Two failed attempts → escalate, don't grind.
 
 ## Gotchas

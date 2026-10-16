@@ -93,11 +93,6 @@ as scaffolding for older models now costs quality:
 
 ## Where the pins live
 
-- **Subagents:** `model:` and `effort:` in each `agents/*.md`. Blueprint/Quench/Temper ride
-  the session (`model: inherit`) — as strong as your session, never blocked when a top model
-  is capped; Hammer/Proof/Warden pin the build tier; Prospector/Etcher ride execute.
-- **Workflows:** `model:`/`effort:` per `agent()` call. Judgment stages (review dimensions,
-  verifiers, judges, synthesis) omit `model:` to inherit the session;
-  **build stages pin `model: 'opus'`** (T1/T2 in `feature-pipeline`) so building never rides
-  a top-tier session; written-plan execution and command-running gates pin
-  `model: 'sonnet'`; preflight and inventory pin `model: 'haiku'` at `low`.
+The pins are code; this page is the policy behind them. Subagents: `model:`/`effort:` in each
+`agents/*.md`. Workflows: per `agent()` call in `workflows/*.js`. Judgment stages omit `model:`
+and inherit the session. `npm test` checks every simulated call against the four tier aliases.
