@@ -32,5 +32,8 @@ node_modules/
 .env.*
 !.env.example
 
+# Marketing drafts and generated assets — not part of the shipped harness.
+marketing/
+
 # Agent/workflow git worktrees (auto-created, ephemeral)
 .claude/worktrees/
