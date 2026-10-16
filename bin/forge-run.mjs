@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { runWorkflow, makeHostAgent, runsHome, nativePath, killAll } from '../lib/runtime.mjs'
-import { HOSTS, TIERS, installedHosts, pickHost, loadConfig, resolveModel, which } from '../lib/hosts.mjs'
+import { HOSTS, TIERS, installedHosts, pickHost, loadConfig, resolveModel, unmappedTiers, which } from '../lib/hosts.mjs'
 
 const FORGE_HOME = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const die = msg => { console.error(`forge-run: ${msg}`); process.exit(2) }
@@ -37,6 +37,10 @@ if (positional[0] === 'hosts') {
   for (const h of Object.keys(HOSTS)) {
     const tiers = TIERS.map(t => `${t}=${resolveModel(h, { judge: 'inherit', build: 'opus', execute: 'sonnet', sweep: 'haiku' }[t], null, config).model || 'host default'}`)
     console.log(`${found.includes(h) ? '✔' : '✘'} ${h.padEnd(9)} ${tiers.join('  ')}`)
+  }
+  for (const h of found) {
+    const open = unmappedTiers(h, config)
+    if (open.length) console.log(`  ${h}: ${open.join(', ')} unmapped — they run your default model, differing by effort only. Map them in ~/.forge/config.json (docs/HOSTS.md).`)
   }
   process.exit(0)
 }

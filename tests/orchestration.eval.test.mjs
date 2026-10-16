@@ -5,7 +5,7 @@
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  loadSource, runWorkflow, SCENARIOS, preflightWithScripts, preflightOK,
+  loadSource, runWorkflow, SCENARIOS, CASES, preflightWithScripts, preflightOK,
   deepReviewResponder, featurePipelineResponder, designPanelResponder, releaseGateResponder,
 } from '../evals/sim.mjs'
 
@@ -235,4 +235,21 @@ suite('fail-closed behavior (quality kept under agent death)', () => {
     assert.equal(result.verdict, 'NO-SHIP')
     assert.ok(result.blockers.some(b => b.includes('2 tests failing')))
   })
+})
+
+suite('model routing (every simulated agent call)', () => {
+  // Every stage sets its effort (an unset one inherits the session's, usually too high), none
+  // runs at max, and nothing names a model outside the four tier aliases (the top tier is
+  // opt-in through the session, never pinned in a script).
+  for (const c of CASES) {
+    test(`${c.scenario}: explicit effort below max, tier aliases only`, async () => {
+      const { calls } = await run(c.wf, c.scenario, SCENARIOS[c.scenario].responder())
+      assert.ok(calls.length > 0)
+      for (const k of calls) {
+        assert.notEqual(k.effort, 'inherit', `${k.label}: effort set explicitly`)
+        assert.notEqual(k.effort, 'max', `${k.label}: no stage pinned to max`)
+        assert.ok(['inherit', 'opus', 'sonnet', 'haiku'].includes(k.model), `${k.label}: model "${k.model}" is a tier alias`)
+      }
+    })
+  }
 })

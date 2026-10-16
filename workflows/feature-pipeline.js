@@ -100,10 +100,9 @@ const pre = await globalThis.agent(
       `then to pwd) and check whether scripts/forge-worktree.sh exists under the directory it prints. If so return ` +
       `its containing directory's absolute path (as pwd prints it) in scriptsDir, else an empty string. `) +
   `Additionally: if a file feature-pipeline.input.json exists in the target root, read it and return its ` +
-  `{features, context, known_failures} content in the input field. CRITICAL: return each features entry EXACTLY as it appears ` +
-  `in the JSON — if an entry is an object {feature, tier, done_criteria}, return the OBJECT unchanged; do NOT ` +
-  `stringify or flatten it. Stringifying an object entry silently drops its risk tier (a T1 feature would lose ` +
-  `its security pass). Preserve strings as strings and objects as objects, verbatim.`,
+  `{features, context, known_failures} content in the input field. Return each features entry verbatim: strings ` +
+  `stay strings, objects stay objects — a stringified object loses its risk tier (a T1 feature would lose its ` +
+  `security pass).`,
   { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
 )
 if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>", features: [...]} and retry.' }
@@ -263,13 +262,12 @@ const SECCHECK = {
   },
 }
 
-// Tier → build effort/model. T3 boilerplate builds fast on Sonnet (well-defined
-// execution); T1/T2 PIN Opus — building is Opus's tier (docs/MODEL-ROUTING.md: "Opus =
-// all real building", and forge-hammer pins model: opus). Pinning keeps builds off the
-// session model, so a Fable-5 session day doesn't pay 2x for boilerplate and builds stay
-// at Opus quality when the session runs below it. Build-tier escalation on looping work
-// goes through /debug-hard (session model), never a bigger build model here.
-const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { model: 'opus', effort: t === 'T1' ? 'xhigh' : 'high' })
+// Tier → build effort/model. T3 boilerplate builds fast on the execute tier; T1/T2 PIN the
+// build tier (docs/MODEL-ROUTING.md), so a top-tier session never pays its price for
+// building. Effort follows the build model's own scale: medium is Opus 5.5's and Sol's
+// default and enough for a briefed T2 build; T1 gets high. Escalation on looping work goes
+// through /debug-hard (session model), never a bigger build model here.
+const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { model: 'opus', effort: t === 'T1' ? 'high' : 'medium' })
 // Combine a T1 feature's functional + security verdicts. Fail-closed: a missing or
 // failed security pass sinks the feature (it retries), it does not pass on silence.
 const combineT1 = (fn, sec) => {
@@ -361,14 +359,13 @@ const results = await pipeline(
         `read the specific files in files_to_touch and their tests to match style. `) +
     `Do NOT re-open the full spec, architecture, or memory. Follow "conventions", heed "pitfalls":\n` +
     `${JSON.stringify(plan, null, 2)}\n\n` +
-    `Order of work: write the tests from the test plan first, watch them fail, implement until they pass, ` +
-    `then run typecheck, lint and the tests covering YOUR diff — not the full suite (it belongs to the merge gate ` +
-    `and starves sibling builds). Match existing code style exactly. Do NOT tick PROGRESS.md or any tracker ` +
-    `checkbox on your branch — the merge step ticks them with verified evidence. ` + knownRedNote +
-    `If the plan turns out wrong mid-build, fix the approach and record it in deviations — do not ship a broken plan. ` +
-    `Commit with a clear message before finishing. INTEGRATION BOUNDARY: commit to your feature branch only — ` +
-    `do NOT git push, do NOT create or edit pull requests, do NOT merge. The orchestrator owns all integration ` +
-    `(push → evidence-verified PR → merge) so the audit trail stays single-sourced.`,
+    `Tests from the test plan first, watched failing, then implement until they pass. Your gate is typecheck, lint ` +
+    `and the tests covering YOUR diff — not the full suite (it belongs to the merge gate and starves sibling builds). ` +
+    `tests_passing is true only for a test run you executed here (install dependencies first if needed); a syntax ` +
+    `check or a runner that failed to start does not count. Match existing code style. Do NOT tick PROGRESS.md or ` +
+    `any tracker checkbox on your branch — the merge step ticks them with evidence. ` + knownRedNote +
+    `If the plan proves wrong, fix the approach and record it in deviations. Commit before finishing — to your ` +
+    `feature branch only: no push, no PR, no merge; the orchestrator owns integration.`,
     { label: `build:${i + 1}`, phase: 'Build', schema: BUILD, ...buildOpts(f.tier), ...(runtimeIsolation ? { isolation: 'worktree' } : {}) },
   ).then(b => b && { plan, build: b }),
   // 3. Security re-check — cheap Haiku pass over the BUILT diff, for T2/T3 only (T1

@@ -3,7 +3,7 @@ name: forge-proof
 description: The Proof (tester) — test engineering specialist on Opus. Use to build test coverage for existing code, design an E2E test strategy, verify a feature end-to-end the way a real user would, or produce visual walkthroughs (Playwright flow videos + a screen-overview image, e.g. the /forge:build finish). Give it the behavior to cover, not the implementation to mirror.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
-effort: high
+effort: medium
 color: green
 ---
 You are the Proof — F.O.R.G.E.'s test specialist. A blade is proofed under load, not by

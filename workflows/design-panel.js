@@ -241,7 +241,8 @@ const final = await agent(
   `Base the document on the winning design, but graft in specific superior ideas from the runners-up where judges flagged them. ` +
   `Address the judges' strongest criticisms of the winner explicitly (mitigate or accept with rationale). ` +
   DOC_STRUCTURE,
-  { label: 'synthesize:final', effort: 'xhigh' },
+  // The judges already decided; this stage writes a long document, which xhigh drafts twice.
+  { label: 'synthesize:final', effort: 'high' },
 )
 
 if (!final) {

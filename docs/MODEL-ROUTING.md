@@ -1,102 +1,103 @@
 # Model Routing Policy
 
-Depth behind `AGENTS.md` § Model routing. Verified against the Claude API reference on
-2026-07-05 — re-check pricing/IDs quarterly (`/claude-api` skill or `client.models.list()`).
+Depth behind `AGENTS.md` § Model routing. Prices and IDs verified 2026-10-16 against the
+Claude API reference and the OpenAI pricing page — re-check quarterly; names age fast.
 
 ## Tiers first, models second
 
-Routing is by **tier**. The harness writes a tier as its Claude alias, because the native
-Claude Code runtime reads those tokens; every other host maps the tier itself.
+Routing is by **tier**. Files on disk name a tier by its Claude alias, because the native
+Claude Code runtime reads those tokens; every other host maps the tier itself (`HOSTS.md`).
 
-| On disk | Tier | Claude Code | Codex CLI / OpenCode |
-|---|---|---|---|
-| `inherit` (or no `model:`) | **judge** | the session model | host default model, effort high/xhigh |
-| `opus` | **build** | Opus | host default, effort high — or your mapped model |
-| `sonnet` | **execute** | Sonnet | host default, effort medium — or your mapped model |
-| `haiku` | **sweep** | Haiku | host default, effort low — or your mapped model |
+| On disk | Tier | Job | Claude | OpenAI (Codex) | $/1M in / out |
+|---|---|---|---|---|---|
+| `inherit` | **judge** | specs, architecture, review verdicts, hard bugs | the session model — **Opus 5.5** | the session model — **gpt-6-sol** | $4 / $20 · $2 / $10 |
+| `opus` | **build** | all real building | **Opus 5.5** | **gpt-6-sol** | $4 / $20 · $2 / $10 |
+| `sonnet` | **execute** | docs, research, written plans, command-running gates | **Sonnet 5.5** | **gpt-6-sol**, lower effort | $2 / $10 · $2 / $10 |
+| `haiku` | **sweep** | preflight, inventory, classification | **Haiku 5.5** | **gpt-6-luna** | $0.10 / $0.50 |
 
-Off Claude, forge ships no model names: they differ per account and age fast. Until you map
-them in `~/.forge/config.json`, tiers differ by reasoning effort only — correct, but the
-sweep tier costs what your default model costs. Map at least `sweep` and `execute`.
-Config format and per-host detail: `HOSTS.md`. The rest of this file is the policy — it
-holds on every host — with Claude as the worked example.
+**Top tier — opt-in, never a default.** Claude **Fable 5.1** and OpenAI **gpt-6-astra** cost
+$10 / $50, 2.5x Opus 5.5 and 5x Sol. Nothing in forge pins them. Raise the *session* to the
+top tier only for work that already failed on the default session — a bug that survived
+`/forge:debug-hard`, a review that keeps flip-flopping — or for one hard one-way-door
+decision. Then drop back. Opus 5.5 at its default effort matches the previous top tier on
+most coding and review work at a fraction of the cost.
 
-## The fleet (Claude mapping)
-
-| Model | ID | Context | Max out | $/1M in | $/1M out | Role in Forge |
-|---|---|---|---|---|---|---|
-| Claude Fable 5 | `claude-fable-5` | 1M | 128K | $10.00 | $50.00 | **The Architect.** Deepest reasoning, longest horizon — the *recommended session model* for judgment-heavy days, when you have the quota. |
-| Claude Opus 4.8 | `claude-opus-4-8` | 1M | 128K | $5.00 | $25.00 | **The Builder.** Default for all real engineering work, and the default session model when Fable is unavailable. |
-| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128K | $3.00 (intro $2.00 through 2026-08-31) | $15.00 (intro $10.00) | **The Workhorse.** Well-defined parallel execution. |
-| Claude Haiku 4.5 | `claude-haiku-4-5` | 200K | 64K | $1.00 | $5.00 | **The Sprinter.** Mechanical fan-out, classification. |
-
-**The session model** is the harness's top judgment tier: judgment routes to *whatever model
-your interactive session runs on*, never a pinned Fable, so gates keep working when Fable is
-capped. Run the session on **Fable 5** for architecture-, spec-, or hard-bug-heavy days,
-**Opus 4.8** otherwise. Raise the session and the whole gate layer rises with it.
+Off Claude, forge ships no model names: they differ per account. Until you map them in
+`~/.forge/config.json`, every tier runs your host default and the tiers differ by effort
+only — correct, but the sweep tier then costs Sol prices instead of Luna's. Map at least
+`sweep`. `forge-run hosts` shows the current mapping and warns about unmapped tiers.
 
 ## Routing table
 
-| Work | Model | Why |
+| Work | Tier | Why |
 |---|---|---|
-| Product spec, architecture, system design | **Session model** | Errors here are the project's most expensive — Fable if you can |
-| Technology/stack decisions with trade-offs | **Session model** | One-shot decision, long consequences |
-| Hard debugging (heisenbugs, races, "impossible" states) | **Session model** | Sustained hypothesis-driven reasoning |
-| Adversarial review verdicts / judge panels | **Session model** | Judgment quality is the whole point of the gate; never below Opus |
-| Orchestrating a large multi-agent build | **Session model** | Long-horizon coherence across workstreams |
-| Feature implementation, refactoring | **Opus 4.8** | Best coding-per-dollar at frontier quality |
-| Test writing, integration work | **Opus 4.8** | Real engineering judgment, not just syntax |
-| Security audit passes | **Opus 4.8** / session | Careful reading, moderate reasoning depth |
-| UI implementation from a settled design | **Opus 4.8** | High output volume, frequent small judgments |
-| Interactive daily driving (default session) | **Opus 4.8** | `/fast` for tight loops; Fable on architecture days |
-| Docs, READMEs, changelogs | **Sonnet 5** | Well-specified transformation of known content |
-| Parallel subagent execution of a written plan | **Sonnet 5** | The plan carries the judgment |
-| Codebase mapping / subsystem reads | **Sonnet 5** | Reading and summarizing to a schema, high volume |
-| Release gates that run a command and report | **Sonnet 5** | Mechanical; the pass/fail aggregation is code |
-| Web research fan-out | **Sonnet 5** | Volume matters more than depth per query |
-| File inventory, log scanning, mechanical sweeps | **Haiku 4.5** | Zero judgment; 5–10x cheaper |
-| Classification, triage, dedup passes | **Haiku 4.5** | Simple per-item decisions at volume |
+| Product spec, architecture, stack decisions | judge | Errors here are the project's most expensive |
+| Adversarial review verdicts, judge panels | judge | Judgment is the whole point of the gate; never below build |
+| Hard debugging, orchestrating a large build | judge | Sustained, long-horizon reasoning |
+| Feature implementation, tests, integration, security passes | build | Real engineering judgment at volume |
+| Docs, research fan-out, codebase maps, executing a written plan | execute | The brief carries the judgment |
+| Release gates that run a command and report | execute | The pass/fail aggregation is code |
+| Preflight, file inventory, log scans, triage, dedup | sweep | Per-item decisions at volume; 20–40x cheaper |
 
-**De-escalate after the plan exists** — the session model writes the spec, Sonnet-tier agents
-execute it. **Prefer one strong pass over three weak ones**; a single Opus implementation beats
-three Haiku attempts plus reconciliation.
+**De-escalate after the plan exists.** The judge writes the brief, cheaper tiers execute it.
+**One strong pass beats three weak ones.** **Before adding a model to a cascade, try the same
+model at lower effort** — on current models lower effort often matches the previous
+generation's highest, and one model keeps one prompt cache.
 
-## Operating notes (the parts that return 400)
+## Effort (within a model)
 
-**Fable 5** — thinking is always on: omit the `thinking` param, `{type: "disabled"}` returns
-400; control depth with `output_config.effort` (`low`…`max`). Long turns are normal — give the
-full spec in one well-specified turn, don't drip-feed. In API code default to
-`betas: ["server-side-fallback-2026-06-01"]` + `fallbacks: [{"model": "claude-opus-4-8"}]`;
-safety classifiers false-positive on benign security-adjacent work. **De-prescribe prompts** —
-step-by-step scaffolding written for older models *reduces* Fable output quality. Requires
-30-day data retention (unavailable under ZDR).
-
-**Opus 4.8** — adaptive thinking only (`thinking: {type: "adaptive"}`); `budget_tokens`,
-`temperature`, `top_p`, `top_k` all return 400. **Fast mode** (`/fast`; `speed: "fast"` + beta
-`fast-mode-2026-02-01`) is the same model at up to 2.5x output speed and premium pricing —
-interactive iteration only, never batch.
-
-## Effort routing (within a model)
+Opus 5.5, Haiku 5.5 and the Sol models default to `medium`; Sonnet 5.5 and Fable 5.1 to
+`high`. (`gpt-6.1-sol` is the same price as `gpt-6-sol` but needs an API key in Codex.)
+Level names do not mean the same depth across models, so forge **sets effort explicitly on
+every stage** — an unset stage inherits the session's, usually too high for mechanical work.
 
 | Effort | Use for |
 |---|---|
-| `low` | Mechanical subagent tasks, formatting, inventory |
-| `medium` | Routine implementation with a clear plan |
-| `high` | Default for real engineering work |
-| `xhigh` | Hard coding/agentic runs, final review gates |
-| `max` | Correctness-critical, latency-insensitive verification only |
+| `low` | Preflight, inventory, classification, mechanical edits |
+| `medium` | Routine building from a brief (T2/T3), plan agents, written-plan execution |
+| `high` | High-risk building (T1), review dimensions, verifiers, security passes |
+| `xhigh` | Final review gates, hard debugging, one-way-door judging |
+| `max` | Only where a measured gain shows at `xhigh` |
 
-Sweep effort rather than reflexively maxing.
+At `xhigh`/`max`, long deliverables can be drafted twice — once in thinking, once in the
+reply. Write long documents at `high`. Lower effort before prompting for brevity.
+
+## Prompting current models
+
+Current Claude and GPT-6 models follow instructions closely and literally. What worked
+as scaffolding for older models now costs quality:
+
+- **Goal, constraints, done-criteria, how to verify.** Not a step script — keep numbered
+  steps only where order is the contract. Name forbidden surfaces and known traps.
+- **Say each rule once, in the one place it applies.** Repetition and `CRITICAL`/`MUST`
+  boosters make the model reconcile wordings or over-trigger; keep strong words for true
+  invariants. Two rules that conflict make GPT-6 models stop and ask — resolve the conflict.
+- **Context the task needs, not the context that fits.** Scope-box every brief.
+- **Evidence over claims.** Ask for the command and its output. At low effort Sonnet 5.5 and
+  Haiku 5.5 can report a change done without running a check — demand a real one.
+- **No anti-laziness or "think step by step" prose.** Effort is the depth control.
+
+## API operating notes (the parts that return 400)
+
+- **Opus 5.5 / Sonnet 5.5 / Fable 5.1:** thinking is always adaptive. `budget_tokens`,
+  `temperature`/`top_p`/`top_k`, assistant prefill and forced `tool_choice` (`any`/`tool`)
+  all return 400 — use `auto` + `strict: true`, or structured outputs. On Opus 5.5,
+  `thinking: {type: "disabled"}` is also a 400: lower effort instead. Sonnet 5.5's lowest
+  setting is `{type: "between_tools"}`, effort `high` or below. Size `max_tokens` for the
+  thinking plus the reply.
+- **Refusals:** check `stop_reason: "refusal"` before reading content; opt into
+  `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) on Fable 5.1, Opus 5.5 and
+  Sonnet 5.5 API code.
+- **GPT-6 (Responses API):** effort via `reasoning.effort`; Astra and 6.1 Sol have no
+  `none`; drop `temperature`/`top_p` whenever reasoning is on.
 
 ## Where the pins live
 
-- **Subagents:** `model:` in each `agents/*.md`. Blueprint/Quench/Temper ride the session
-  (`model: inherit`) — never blocked when Fable is capped, and as strong as your session;
-  Hammer/Proof/Warden pin Opus; Prospector/Etcher ride Sonnet.
+- **Subagents:** `model:` and `effort:` in each `agents/*.md`. Blueprint/Quench/Temper ride
+  the session (`model: inherit`) — as strong as your session, never blocked when a top model
+  is capped; Hammer/Proof/Warden pin the build tier; Prospector/Etcher ride execute.
 - **Workflows:** `model:`/`effort:` per `agent()` call. Judgment stages (review dimensions,
-  verifiers, judges, synthesis) omit `model:` to inherit the session at high/xhigh;
-  **build stages pin `model: 'opus'`** (T1/T2 in `feature-pipeline`)
-  so building never rides a Fable-5 session at 2x for boilerplate; well-defined execution
-  (codebase maps, command-running gates) pins `model: 'sonnet'` at medium; preflight/inventory
-  pins `model: 'haiku'` at low. Set effort explicitly — unset stages inherit the session's
-  global effort, usually too high for mechanical work.
+  verifiers, judges, synthesis) omit `model:` to inherit the session;
+  **build stages pin `model: 'opus'`** (T1/T2 in `feature-pipeline`) so building never rides
+  a top-tier session; written-plan execution and command-running gates pin
+  `model: 'sonnet'`; preflight and inventory pin `model: 'haiku'` at `low`.

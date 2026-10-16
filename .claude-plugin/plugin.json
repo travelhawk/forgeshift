@@ -1,6 +1,6 @@
 {
   "name": "forge",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "F.O.R.G.E. — Fleet-Orchestrated, Review-Gated Engineering. A control center for building software products from idea to shipped, with quality gates that gate. Install once, use in any folder.",
   "author": {
     "name": "Michael Falk"

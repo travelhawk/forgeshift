@@ -46,10 +46,11 @@ commands run on Claude Code (`/forge:build`), Codex (`$forge-build`) and OpenCod
 
 Four **tiers**, written on disk as Claude aliases and mapped per host (`docs/HOSTS.md`).
 Judgment — architecture, specs, hard bugs, review verdicts — rides the **session model**
-(agents run `model: inherit`), so gates keep working when the top model is capped. Opus =
-the build tier: all real building. Sonnet = docs, research, executing written plans,
-command-running gates. Haiku = mechanical sweeps. Route by decision density, not task size. When work loops, raise the
-session model and re-run rather than burning a third same-tier attempt. Never downgrade a
+(agents run `model: inherit`): Opus 5.5 or gpt-6-sol by default. Opus = the build tier:
+all real building. Sonnet = docs, research, executing written plans, command-running gates.
+Haiku = mechanical sweeps. The top tier (Fable 5.1, gpt-6-astra) is opt-in, never pinned:
+raise the session to it only after work failed on the default.
+Route by decision density, not task size; set effort explicitly per stage. Never downgrade a
 review gate below the build tier.
 
 ## Delegation (full guide: `docs/ORCHESTRATION.md`)
@@ -59,13 +60,12 @@ Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implement
 (security), `forge-prospector` (scout), `forge-etcher` (docs).
 
 - Lowest orchestration level that works; escalate on demonstrated failure.
-- Subagent prompts are **self-contained** (paths, context, done-definition) and
-  **scope-boxed**: Scope-box every subagent to the slice it needs, plus an explicit
-  do-NOT-read line. Mappers are the exception.
-- **Brief the contract, not the procedure.** State done-criteria, forbidden surfaces, and the
-  traps you already know. Prescribing steps to a model that can see the code you can't is how
-  a brief ships a wrong instruction — and an agent that follows it loses more time than one
-  that had to think. Tell agents to override a prescribed step and say so.
+- Subagent prompts are **self-contained** (paths, context, done-definition).
+  Scope-box every subagent to the slice it needs, plus an explicit do-NOT-read line; mappers
+  are the exception.
+- **Brief the contract, not the procedure.** State the goal, done-criteria, forbidden surfaces
+  and known traps, each once. A step script written without the code in view ships wrong
+  instructions; tell agents to override a prescribed step and say so.
 - Parallel agents get **isolated worktrees**. Two agents in one tree is a merge conflict with
   extra steps.
 - The agent that built something never verifies it. Demand evidence, never "looks done".
@@ -124,7 +124,8 @@ Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implement
 
 Start the session **in your product**; its `AGENTS.md` auto-loads once you read its files.
 Products are their own git repos. Read `PROGRESS.md` → "Next session should" before anything
-else. Ambiguous target → ask.
+else. Ambiguous target → ask. The user's explicit instruction outranks a skill, playbook or
+this manual; name any rule you set aside for it.
 
 **Workflows do NOT follow your shell `cd`** — always pass `args: {dir: "<absolute product
 path>"}`. **Invoke by `scriptPath`, not `name`**: `Workflow({scriptPath:

@@ -118,18 +118,24 @@ Claude runtime reads those tokens. Everywhere else the alias is only a tier:
 
 Claude maps tiers to its aliases. **Codex and OpenCode default every tier to the host's own
 configured model** and separate the tiers by reasoning effort — model names there differ per
-account and age fast, so forge does not guess them. Map them once in `~/.forge/config.json`:
+account and age fast, so forge does not guess them. Map them once in `~/.forge/config.json`.
+The recommended OpenAI mapping as of 2026-10-16. Codex signed in with a ChatGPT account
+rejects `gpt-6.1-sol` (400, seen 2026-10-16) — use `gpt-6-sol` there; on an API key 6.1 is
+the same price with cheaper cache reads:
 
 ```json
 {
   "host": "codex",
   "concurrency": 4,
   "hosts": {
-    "codex":    { "models": { "judge": "<strongest>", "build": "<strong>", "execute": "<mid>", "sweep": "<cheap>" } },
+    "codex":    { "models": { "judge": "gpt-6-sol", "build": "gpt-6-sol", "execute": "gpt-6-sol", "sweep": "gpt-6-luna" } },
     "opencode": { "models": { "sweep": "<provider/cheap-model>" }, "args": [] }
   }
 }
 ```
+
+Keep the top tier (`gpt-6-astra`) out of the map: raise it for one run with
+`FORGE_MODEL_JUDGE=gpt-6-astra` when the default judge already failed (`MODEL-ROUTING.md`).
 
 `FORGE_MODEL_<TIER>` overrides one tier for one run. The installer writes the same mapping
 into the rendered subagents, so re-run it after changing the config. Full policy:

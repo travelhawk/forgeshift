@@ -43,8 +43,8 @@ whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent ite
 - Own branch `feature/<F#-or-slug>` — **never commit a feature straight to main**. Even a
   one-line fix gets a branch; the PR is the review record.
 - Implement yourself for small work, via `forge-hammer` for medium+ (give it the plan,
-  done-criteria and paths). **Effort follows the tier:** T1 tests-first at high/xhigh, T2
-  tests-first at high, T3 fast on **Sonnet** at medium with a smoke test as its test.
+  done-criteria and paths). **Effort follows the tier:** T1 tests-first at high, T2
+  tests-first at medium, T3 fast on **Sonnet** at medium with a smoke test as its test.
 - **The gate while building is `typecheck`, `lint` and the tests covering the diff** — not the
   full suite on every cycle. Full suite and e2e run once, at step 4, before integration.
 - **E2E: at most one spec for this feature, often none** — only for what no other layer can

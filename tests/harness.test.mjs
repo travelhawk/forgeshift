@@ -416,11 +416,11 @@ suite('boundary-audit optimizations', () => {
     }
   })
 
-  // P1: T1/T2 builds pin Opus (building is Opus's tier) instead of riding a Fable session at 2x.
+  // P1: T1/T2 builds pin the build tier instead of riding a top-tier session.
   test('feature-pipeline pins Opus for T1/T2 builds; RISK-TIERS says so', () => {
     const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
-    assert.match(src, /t === 'T3' \? \{ model: 'sonnet', effort: 'medium' \} : \{ model: 'opus'/,
-      'T3 → sonnet, T1/T2 → opus (pinned, not inherit)')
+    assert.match(src, /t === 'T3' \? \{ model: 'sonnet', effort: 'medium' \} : \{ model: 'opus', effort: t === 'T1' \? 'high' : 'medium' \}/,
+      'T3 → sonnet, T1/T2 → opus (pinned, not inherit); effort on the build model\'s own scale')
     assert.match(read('docs', 'RISK-TIERS.md'), /\*\*Opus\*\* \(pinned\)/, 'RISK-TIERS build row records the pin')
     assert.match(read('docs', 'MODEL-ROUTING.md'), /build stages pin `model: 'opus'`/, 'routing policy records the pin')
   })

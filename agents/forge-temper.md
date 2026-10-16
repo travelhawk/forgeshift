@@ -1,6 +1,6 @@
 ---
 name: forge-temper
-description: The Temper (debugger) — hard-bug specialist on the session model (put the session on Fable 5 for the hardest bugs when you have the quota). Use when a bug survived two fix attempts, reproduces intermittently, or involves concurrency, caching, state corruption, or "impossible" behavior. Give it the symptom, what was already tried, and how to reproduce.
+description: The Temper (debugger) — hard-bug specialist on the session model (raise the session to the top tier only when the bug already beat a default-session attempt). Use when a bug survived two fix attempts, reproduces intermittently, or involves concurrency, caching, state corruption, or "impossible" behavior. Give it the symptom, what was already tried, and how to reproduce.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: inherit
 effort: xhigh

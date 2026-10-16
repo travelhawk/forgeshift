@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { HOSTS, TIERS, tierOf, callingHost, pickHost, resolveModel, everyNodeTyped } from '../lib/hosts.mjs'
+import { HOSTS, TIERS, tierOf, callingHost, pickHost, resolveModel, unmappedTiers, everyNodeTyped } from '../lib/hosts.mjs'
 import { extractJson, validate, runWorkflow, makeHostAgent, liveAgents } from '../lib/runtime.mjs'
 import { renderSkill, renderCodexAgent, renderOpencodeAgent, renderOpencodeCommand, portableBody, splitFrontmatter } from '../lib/render.mjs'
 import { ARGS_GUARD } from '../lib/workflow-preamble.mjs'
@@ -111,6 +111,13 @@ describe('hosts — tiers, detection, model resolution', () => {
     process.env.FORGE_MODEL_SWEEP = 'just-for-this-run'
     try { assert.equal(resolveModel('codex', 'haiku', 'low', cfg).model, 'just-for-this-run', 'the env override wins over the config') }
     finally { delete process.env.FORGE_MODEL_SWEEP }
+  })
+
+  test('unmappedTiers: names the non-judge tiers that still run the host default', () => {
+    assert.deepEqual(unmappedTiers('claude', {}), [], 'Claude ships every alias')
+    assert.deepEqual(unmappedTiers('codex', {}), ['build', 'execute', 'sweep'], 'judge is the session model, never flagged')
+    const cfg = { hosts: { codex: { models: { sweep: 'gpt-6-luna', build: 'gpt-6.1-sol' } } } }
+    assert.deepEqual(unmappedTiers('codex', cfg), ['execute'])
   })
 
   test('nothing free-form rides the command line: no adapter takes the prompt as an argument', () => {
