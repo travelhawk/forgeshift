@@ -35,14 +35,14 @@ T2's "side effects" means effects that outlive the tab or cross a boundary.
 | E2E | at most one spec, only for what no other layer reaches | rarely | none |
 
 Tier sets test *depth*, never who runs what: every builder's gate is typecheck + lint + the
-tests covering its diff (`AGENTS.md` hard rules 2–3). After a T2/T3 build, in both lanes
-(`feature-pipeline` and the direct `/forge:feature` loop), a cheap re-check reads the actual diff
-and adds the security pass if it touched a sensitive surface. It only ever raises depth. Depth
-depends on tier and diff, never on which lane built it. The `/forge:build` finish review sweeps
-every tier, T1 paths first.
+tests covering its diff (`AGENTS.md` hard rules 2–3). The tag came from the description; the
+diff is the truth. So in both lanes (`feature-pipeline` and the direct `/forge:feature` loop)
+whoever verifies a T2/T3 reads the diff and names any sensitive surface in it, and a named
+surface adds the security pass. It only ever raises depth. Depth depends on tier and diff,
+never on which lane built it. The `/forge:build` finish review sweeps every tier, T1 paths
+first.
 
-Tier and `/forge:feature` sizing are separate: sizing controls planning ceremony, tier controls
-validation. A 5-line auth-cookie change is small but T1, and a T1 change never skips verify.
+A T1 change never skips verify, however small: a 5-line auth-cookie change is still T1.
 
 ## Boundary calls
 

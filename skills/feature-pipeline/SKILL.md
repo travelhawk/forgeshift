@@ -6,32 +6,24 @@ argument-hint: "[array of feature entries | {dir, features, context, known_failu
 
 # /forge:feature-pipeline — parallel build of independent features
 
-Fire the `feature-pipeline` workflow: each feature is planned, built in its own isolated
-git worktree, and verified in fresh context by risk tier (T1 verify + security pass, T2 one
-verify, T3 smoke-only on Sonnet). Dependent features belong in ONE entry (built
-sequentially inside it). Usually driven by `/forge:build`; run it directly only for a raw
-independent batch.
+Fire the `feature-pipeline` workflow: each feature is built in its own git worktree and
+verified in fresh context, at the depth its risk tier sets. Dependent features belong in ONE
+entry. Usually `/forge:build` drives it; run it directly only for a raw independent batch.
 
-1. Resolve the plugin home once: `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`. Pass
-   the target repo as `dir` (absolute) — workflows do NOT follow the shell `cd`, and this
-   one needs a git repo with ≥1 commit.
-2. Parse `$ARGUMENTS`: an array of feature entries (a string, optionally with a `[T1]`
-   marker, or `{feature, tier, done_criteria}`), or an object
-   `{dir, features, context, known_failures}`. Pass `known_failures` as its own field when
-   the repo starts from a recorded known-red baseline — it is threaded verbatim to every
-   builder/verifier so a pre-existing failure is not mistaken for a regression. If args may
-   not arrive intact, write `{features, context, known_failures}` to
-   `feature-pipeline.input.json` in the product root first (fallback); delete it after.
-3. Invoke the workflow `$FORGE_HOME/workflows/feature-pipeline.js` with
-   `args: {dir: "<abs product root>", forge_home: "$FORGE_HOME", features: [...], context, known_failures}`
-   — `forge_home` lets the workflow derive `scripts/forge-worktree.sh` in code instead of
-   having a preflight agent hunt for it.
+1. `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`.
+2. Parse `$ARGUMENTS`: an array of feature entries — a string, optionally with a `[T1]`
+   marker, or `{feature, tier, done_criteria}` — or an object
+   `{dir, features, context, known_failures}`. `known_failures` names the tests already red at
+   baseline, as its own field.
+3. Invoke `$FORGE_HOME/workflows/feature-pipeline.js` with
+   `args: {dir: "<abs product root>", forge_home: "$FORGE_HOME", features: [...], context, known_failures}`.
+   `dir` is required: workflows do not follow the shell `cd`.
    Claude Code: the Workflow tool, that file as `scriptPath`. Any other host: write the args
-   to a JSON file and run `node "$FORGE_HOME/bin/forge-run.mjs" feature-pipeline --args-file <file>`
-   — same script, same result object (`$FORGE_HOME/docs/HOSTS.md`).
-4. Branches are verified **in isolation** — after merging, run the full suite on the merged
-   result before calling the batch done (integration breaks surface there). Relay
-   `pr_title`/`pr_body`/`evidence` per feature.
+   to a JSON file and run `node "$FORGE_HOME/bin/forge-run.mjs" feature-pipeline --args-file <file>`.
+   If args may not arrive intact, also write them to `feature-pipeline.input.json` in the
+   product root (fallback); delete it after.
+4. Relay `pr_title`/`pr_body`/`evidence` per feature. The branches were verified **in
+   isolation**: merge them, then run the full suite on the merged result.
 
-**Next →** open a PR per passed feature (or let `/forge:build` do the merge machinery), then
+**Next →** open a PR per passed feature (or let `/forge:build` do the merging), then
 `/forge:deep-review` the integrated whole.

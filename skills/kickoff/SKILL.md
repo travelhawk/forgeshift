@@ -42,34 +42,24 @@ matching this product type (that file only). No index or no match → skip silen
 `forge-blueprint` drafts the spec CONTENT from the interview, following
 `$FORGE_HOME/templates/SPEC.md`. It returns markdown; hold it — it lands on disk in step 4.
 
-**Present it without making the user open an editor:** write the draft to your scratchpad and
-publish it as a Markdown **artifact** (minimal design — a document to read, not a designed
-page; load `artifact-design` first). Link it beside a short in-chat summary (scope table,
-out-of-scope, open questions) and re-publish the same artifact on each edit. No Artifact tool →
-link the scratchpad file.
+**Present it without making the user open an editor:** publish the draft as an **artifact**
+(Artifact tool; unavailable → link a scratchpad `.md`). Link it beside a short in-chat summary
+(scope table, out-of-scope, open questions) and re-publish it on each edit.
 
-**Right-size the feature list.** A feature is a slice of user value (independently buildable
-and testable, ~2–5 done-criteria), not one per requirement — a small tool has ~3–6, an MVP
-~8–15. V1 caps at ~15; a bigger backlog is phased into V2, never padded or crammed. Fewer,
-coherent features mean fewer waves and fewer subagents.
+Check the draft before you show it:
 
-**Tag every V1 feature with a risk tier** per `$FORGE_HOME/docs/RISK-TIERS.md` — classify by
-capability signal, not by the feature's noun; each tag carries a one-line justification naming
-the signal that fired; ties break **up**. Show the tiers in the scope table so the user can
-adjust before approving (seed, not verdict).
-
-**Make done-criteria checkable, and honest about the environment.** 2-5 per feature, ≤25
-words each, each one checkable by someone who does not read the code. "Contact list loads" is
-useless; "search over name/company/email returns hits in under 300 ms at 5.000 contacts, empty
-state with a create CTA" is not. Say per criterion **what the target environment can actually
-prove** — one it cannot is reported open later, never ticked.
+- **Feature count fits the product**: a small tool has ~3–6 features, an MVP ~8–15. V1 caps
+  at ~15; the rest is phased into V2.
+- **Every V1 feature carries a risk tier** per `$FORGE_HOME/docs/RISK-TIERS.md`, with the
+  signal named; ties break **up**. The tiers show in the scope table so the user can adjust.
+- **Done-criteria are checkable by someone who does not read the code**, and say what the
+  target environment can actually prove. One it cannot prove is reported open later, never
+  ticked.
 
 **Design directions** (products with a visual surface): before finalising, propose 2–3 distinct
-directions — each a named mood in one sentence, a palette by name, typography and shape
-language, motion feel, one reference touchstone. AskUserQuestion, with a cheap visual mock per
-direction where it helps (aesthetics are where react-faster-than-specify applies doubly). The
-winner lands in the spec's **Art direction** section and binds every builder and every visual
-checkpoint. No visual surface → skip silently.
+directions — a named mood, a palette, typography and shape language, motion feel, one
+reference touchstone — with a cheap visual mock where it helps. The winner lands in the spec's
+**Art direction** section and binds every builder and every visual checkpoint.
 
 A genuinely hard architecture question (wide solution space, expensive to reverse) → offer the
 `design-panel` workflow rather than guessing.
@@ -84,15 +74,13 @@ ADR-001; any deviation from a default needs a one-line reason.
 Run `--help` on every scaffold command before using it: a removed flag turns a non-interactive
 scaffold into a hang.
 
-**Present spec + stack together for explicit approval** — the spec as its artifact link
-(refreshed if it changed), the stack inline. Flag that approving grants the spec's **Decision
-policy**: the build phase then decides and logs reversible calls without interrupting, so the
-follow-on run is hands-off and their next required touch is the finish review.
+**Present spec + stack together for explicit approval** — the spec as its artifact link, the
+stack inline. Say that approving grants the spec's **Decision policy**: the build then decides
+and logs reversible calls without asking.
 
-The spec **file does not exist yet** — the scaffolder needs an empty dir, so the **artifact is
-the review surface at this gate**. Link it immediately before the approval question and point
-there. **Never** phrase the gate as "the spec is in `docs/SPEC.md`". **Do not scaffold before
-both are approved.**
+The spec file does not exist yet (the scaffolder needs an empty dir), so the **artifact is the
+review surface at this gate** — never point at `docs/SPEC.md`. **Do not scaffold before both
+are approved.**
 
 ## 4. Scaffold (order matters)
 
@@ -111,18 +99,15 @@ both are approved.**
    //PID <pid>` or `npx kill-port <port>`; a bare `kill` leaves node holding the port.
 6. Commit: `chore: scaffold <name> (<stack summary>)`.
 
-**Keep the docs short.** The scaffold ships a spec, one ADR, a PROGRESS and a project
-`AGENTS.md` — nothing else. An ADR is for a one-way door or a genuine surprise, ≤ 15 lines. A
-runbook is a checklist, not a manual. Docs are a cost like verbosity.
+The scaffold ships a spec, one ADR, a PROGRESS and a project `AGENTS.md` — no other docs.
 
 ## 5. Handoff — straight into the build, same session
 
 Report: spec location, stack + why, what was verified (with command output), the feature list.
-Then offer the continuation **in this session** — no new session needed, because everything
-the build needs is on disk in `docs/SPEC.md` + `PROGRESS.md`, not in chat context:
+Then offer the continuation **in this session**. No new session needed: everything the build
+needs is on disk in `docs/SPEC.md` + `PROGRESS.md`.
 
-- **Default: `/forge:build` now.** One word and you run it. Suggest an optional `/compact`
-  first if the interview ran long; the build re-reads its inputs from disk either way.
+- **Default: `/forge:build` now.** Suggest `/compact` first if the interview ran long.
 - `/forge:feature F1` for a supervised first slice instead.
 
 **Next →** `/forge:build` (default) or `/forge:feature F1`.

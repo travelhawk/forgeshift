@@ -37,14 +37,34 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(full.calls.filter(c => c.label.startsWith('review:')).length, 3, 'omitting mode keeps the 3-lens default')
   })
 
-  test('feature-pipeline: 6 mixed-tier features -> 4 plan agents (T3 skips), 6 builds', async () => {
+  test('feature-pipeline: 6 mixed-tier features -> 2 plan agents (T1 only), 6 builds', async () => {
     const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder())
-    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 4, 'T1/T2 planned, T3 not')
+    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 2, 'T1 planned, T2/T3 build direct')
     assert.equal(calls.filter(c => c.label.startsWith('build:')).length, 6)
     assert.equal(calls.filter(c => c.label.startsWith('security:')).length, 2, 'security pass only for T1')
     assert.equal(result.passed.length, 6)
     const t3builds = calls.filter(c => c.label.startsWith('build:') && c.model === 'sonnet')
     assert.equal(t3builds.length, 2, 'T3 builds on Sonnet')
+  })
+
+  test('feature-pipeline: a sensitive surface in a T2/T3 diff adds a security pass, fail-closed', async () => {
+    const withSurface = { verdict: 'pass', issues: [], pr_title: 't', pr_body: 'b', evidence: 'e', sensitive_surfaces: ['raw SQL in src/x.js'] }
+    // Feature 3 (T2) and feature 5 (T3) report a surface: 2 T1 passes + 2 escalations.
+    const hit = await run('feature-pipeline', 'feature-pipeline',
+      featurePipelineResponder({ 'verify:3': withSurface, 'smoke:5': withSurface }))
+    assert.equal(hit.calls.filter(c => c.label.startsWith('security:')).length, 4)
+    assert.equal(hit.result.passed.filter(p => p.escalated).length, 2, 'both escalations are reported')
+    assert.deepEqual(hit.result.passed.find(p => p.feature === 'export').security_surfaces, ['raw SQL in src/x.js'])
+    // The security pass fails: the feature fails, even though its own verify passed.
+    const blocked = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
+      'verify:3': withSurface, 'security:3': { verdict: 'fail', issues: ['injection'], evidence: 'e' },
+    }))
+    assert.equal(blocked.result.passed.length, 5)
+    assert.equal(blocked.result.failed[0].feature, 'export', 'a failed security pass blocks the feature')
+    // A failed verify gets no security pass: it is already blocked.
+    const failed = await run('feature-pipeline', 'feature-pipeline',
+      featurePipelineResponder({ 'verify:3': { ...withSurface, verdict: 'fail', issues: ['broken'] } }))
+    assert.equal(failed.calls.filter(c => c.label.startsWith('security:')).length, 2, 'T1 only')
   })
 
   test('feature-pipeline: the forge-worktree.sh (WT) branch preserves orchestration shape', async () => {
@@ -54,7 +74,7 @@ suite('orchestration shape (agent budgets)', () => {
     // is orchestration-equivalent: same agents, same passes, no crash on the new prompts.
     const { result, calls } = await run('feature-pipeline', 'feature-pipeline',
       featurePipelineResponder({ preflight: preflightWithScripts }))
-    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 4, 'T1/T2 planned, T3 not')
+    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 2, 'T1 planned, T2/T3 build direct')
     assert.equal(calls.filter(c => c.label.startsWith('build:')).length, 6)
     assert.equal(calls.filter(c => c.label.startsWith('security:')).length, 2, 'security pass only for T1')
     assert.equal(result.passed.length, 6, 'WT branch builds + verifies all 6, same as the fallback path')

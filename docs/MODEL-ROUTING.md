@@ -54,8 +54,8 @@ every stage** — an unset stage inherits the session's, usually too high for me
 | Effort | Use for |
 |---|---|
 | `low` | Preflight, inventory, classification, mechanical edits |
-| `medium` | Routine building from a brief (T2/T3), plan agents, written-plan execution |
-| `high` | High-risk building (T1), review dimensions, verifiers, security passes |
+| `medium` | Routine building (T2/T3), routine verifying, written-plan execution |
+| `high` | High-risk planning, building and verifying (T1), review dimensions, security passes |
 | `xhigh` | Final review gates, hard debugging, one-way-door judging |
 | `max` | Only where a measured gain shows at `xhigh` |
 

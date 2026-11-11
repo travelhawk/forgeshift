@@ -295,10 +295,10 @@ suite('cost optimizations', () => {
     assert.match(src, /label: 'judge\+synthesize'/, 'lean judge also synthesizes (one agent, two tasks)')
   })
 
-  test('feature-pipeline: T3 features build direct — no plan agent', () => {
+  test('feature-pipeline: only T1 gets a plan agent — T2/T3 build direct', () => {
     const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
-    assert.match(src, /f\.tier === 'T3'\s*\?\s*\{/, 'T3 gets a synthetic brief, not an agent call')
-    assert.match(src, /T3 direct build/, 'synthetic brief marks itself')
+    assert.match(src, /f\.tier !== 'T1'\s*\?\s*\{ direct: true/, 'T2/T3 get a synthetic brief, not an agent call')
+    assert.match(src, /There is no separate plan/, 'the direct builder is told to plan inline')
   })
 
   test('/forge:build: waves of 1-2 features run the direct lane, 3+ fire the pipeline', () => {
@@ -586,15 +586,14 @@ suite('review improvements', () => {
     assert.match(fp(), /re-run it once/i, 'smoke check retries a failing check')
   })
 
-  // #2 The seeded tier is re-checked against the BUILT diff; a T2/T3 that touched a
-  // security surface is escalated to a security pass (raises depth, never lowers it).
-  test('diff re-check escalates under-tiered features to a security pass', () => {
-    assert.match(fp(), /const RECHECK = \{/, 'the re-check schema exists')
-    assert.match(fp(), /label: `tier-recheck:\$\{i \+ 1\}`/, 'the re-check runs as its own labelled Haiku agent')
-    assert.match(fp(), /model: 'haiku', effort: 'low', schema: RECHECK/, 'the re-check is a cheap Haiku pass')
-    assert.match(fp(), /git diff --merge-base HEAD/, 're-check inspects the feature diff, read-only')
-    assert.match(fp(), /secEscalated/, 'escalation flag threads to verify')
-    assert.match(fp(), /if \(r\.secEscalated\)/, 'verify adds a security pass when escalated')
+  // #2 The seeded tier is checked against the BUILT diff by the verifier itself; a T2/T3
+  // that touched a security surface gets a security pass (raises depth, never lowers it).
+  test('the verifier names sensitive surfaces; a named surface adds a security pass', () => {
+    assert.match(fp(), /required: \[[^\]]*'sensitive_surfaces'\]/, 'every verify verdict must report the surfaces')
+    assert.match(fp(), /git diff --merge-base HEAD/, 'the verifier reads the feature diff')
+    assert.doesNotMatch(fp(), /tier-recheck/, 'no separate re-check agent: the verifier already reads the diff')
+    assert.match(fp(), /own\.verdict !== 'pass' \|\| !surfaces\.length\) return tag\(own, surfaces\)/, 'no surface, or already failed -> no security pass')
+    assert.match(fp(), /securityCheck\(i, branch, f\.feature, done, pitfalls, surfaces\)/, 'a named surface triggers the security pass')
     assert.match(build(), /tier escalation/i, '/forge:build report surfaces escalations')
   })
 
@@ -644,10 +643,10 @@ suite('lane consistency + speed', () => {
   const build = () => read('skills', 'build', 'SKILL.md')
 
   // The gate depth a feature gets depends on tier + diff, never on which lane built it:
-  // the post-build tier re-check runs in the pipeline AND in the direct loop.
-  test('post-build tier re-check runs in BOTH lanes', () => {
+  // the verifier checks the built diff for sensitive surfaces in the pipeline AND in the direct loop.
+  test('the diff can raise the tier in BOTH lanes', () => {
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
-    assert.match(fp, /label: `tier-recheck:\$\{i \+ 1\}`/, 'pipeline re-check stage present')
+    assert.match(fp, /sensitive_surfaces: read the diff this feature added/, 'pipeline verifier reads the diff for surfaces')
     for (const s of ['build', 'feature']) {
       const src = read('skills', s, 'SKILL.md')
       assert.match(src, /git diff --merge-base HEAD/, `${s} lane re-checks the built diff`)
@@ -765,7 +764,8 @@ suite('2026-09-11 eval fixes', () => {
     const src = wf('feature-pipeline')
     assert.match(src, /Do NOT tick PROGRESS\.md/, 'builder never ticks the tracker on its branch')
     assert.match(src, /not the full suite \(it belongs to the merge gate/, 'builder gate is typecheck + lint + diff tests (hard rule 3)')
-    assert.equal((src.match(/EVIDENCE RULE/g) || []).length, 2, 'verify and smoke prompts both carry the evidence rule')
+    assert.match(src, /const VERIFY_RETURN = [\s\S]{0,900}EVIDENCE RULE/, 'the shared verify tail carries the evidence rule')
+    assert.equal((src.match(/VERIFY_RETURN\(f\.tier, branch\)/g) || []).length, 2, 'verify and smoke prompts both use the shared tail')
     assert.ok(!/run the project's full relevant test suite/.test(src), 'old full-suite instruction removed')
   })
 

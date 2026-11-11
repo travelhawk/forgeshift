@@ -121,7 +121,7 @@ export const featurePipelineResponder = (overrides = {}) => (prompt, opts) => {
     test_plan: 't', done_criteria: ['d1'],
   }
   if (l.startsWith('build:')) return { branch: `feature/wf-${l.slice(6)}-sim`, summary: 's', tests_passing: true, deviations: [] }
-  if (l.startsWith('verify:') || l.startsWith('smoke:')) return { verdict: 'pass', issues: [], pr_title: 't', pr_body: 'b', evidence: 'e' }
+  if (l.startsWith('verify:') || l.startsWith('smoke:')) return { verdict: 'pass', issues: [], pr_title: 't', pr_body: 'b', evidence: 'e', sensitive_surfaces: [] }
   if (l.startsWith('security:')) return { verdict: 'pass', issues: [], evidence: 'e' }
   return null
 }

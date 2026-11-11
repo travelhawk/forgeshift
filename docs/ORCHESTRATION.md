@@ -58,10 +58,10 @@ failure once, targeted: it reproduces → stop the run; it clears → log it as 
    `scripts/forge-worktree.sh`). Two agents in one tree is a merge conflict with extra steps.
    Remove the worktrees before linting the merged result, or `lint` traverses a second copy of
    the source.
-3. **Distill once, don't re-read N times.** When several agents work one feature (plan → build →
-   verify), the plan agent — already reading the code — emits a self-contained *brief*: criteria
-   plus the specific files, conventions, and pitfalls this feature touches. Downstream agents
-   read that ~2k brief, not spec + architecture + memory. `feature-pipeline`'s PLAN object is it.
+3. **Plan only where a wrong design is expensive.** A separate plan agent reads the same code
+   the builder reads again. It pays off for T1, where its *brief* — criteria, files,
+   conventions, pitfalls — also arms the verifier and the security pass (`feature-pipeline`'s
+   PLAN object). T2/T3 builders get the done-criteria and plan inline.
 4. **Scope-box the context.** Name what to read (diff, brief, specific files + their
    callers/tests) AND what not to (full spec, PROGRESS, ADRs, memory, unrelated modules).
    "Explore for context" without bounds is a token leak: N subagents each crawling the repo
