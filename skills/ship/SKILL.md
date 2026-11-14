@@ -90,6 +90,11 @@ deploy URL/artifact, post-deploy check result. Add the release to PROGRESS.md se
 log. If anything was skipped or accepted as a gap, it's in the report — plainly, not
 in a footnote.
 
+**First release with a GitHub remote → leave the build phase.** Run
+`node "$FORGE_HOME/scripts/retire-progress.mjs" --dry-run`, show the user the planned issues,
+then run it without `--dry-run` and commit: `chore: move open features to issues`. Product
+`AGENTS.md`: point "State" and "Session start" at the issues. No remote → keep `PROGRESS.md`.
+
 **Next →** `/forge:status` to record the release and set the next handoff; `/forge:next`
 when the following version's scope is ready. On a NO-SHIP that was overridden into a
 partial release, name the gap-closing `/forge:fix` instead.

@@ -5,12 +5,13 @@
      apply the pruning test to every line: "would removing this cause mistakes?" -->
 
 <One sentence: what this product is.> Spec: `docs/SPEC.md` (intent, scope,
-done-criteria). State: `PROGRESS.md` (feature list + session log). Decisions:
-`docs/adr/`.
+done-criteria). State: `PROGRESS.md` (feature list + session log) until the first release,
+then GitHub issues labelled `forge` + PRs. Decisions: `docs/adr/`.
 
 ## Session start
 
-1. Read `PROGRESS.md` — especially "Next session should".
+1. Read `PROGRESS.md` — especially "Next session should". After the first release:
+   `gh issue list --label forge` and the latest PR's handoff comment.
 2. Run the smoke test: `<command>` — green before new work starts.
 3. One feature per session unless features are trivially small.
 

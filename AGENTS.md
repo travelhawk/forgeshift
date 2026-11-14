@@ -124,8 +124,17 @@ Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implement
 
 Start the session **in your product**; its `AGENTS.md` auto-loads once you read its files.
 Products are their own git repos. Read `PROGRESS.md` → "Next session should" before anything
-else. Ambiguous target → ask. The user's explicit instruction outranks a skill, playbook or
+else; in the issue phase read `gh issue list --label forge` and the latest PR instead.
+Ambiguous target → ask. The user's explicit instruction outranks a skill, playbook or
 this manual; name any rule you set aside for it.
+
+**State has two phases.** Build phase (kickoff → first release): `PROGRESS.md` is the tracker
+and the handoff. Issue phase (after the first `/forge:ship`, or an adopted repo with a GitHub
+remote): `scripts/retire-progress.mjs` has moved open features to issues labelled `forge`
+and removed `PROGRESS.md`. A second tracker beside issues only drifts. Wherever this
+harness says `PROGRESS.md` and the product has none: the issue holds the feature, tier and
+done-criteria; the PR body holds evidence and closes the issue; the handoff is a comment on
+the open PR or issue.
 
 **Workflows do NOT follow your shell `cd`** — always pass `args: {dir: "<absolute product
 path>"}`. **Invoke by `scriptPath`, not `name`**: `Workflow({scriptPath:
@@ -136,7 +145,7 @@ permission check on CRLF and can corrupt args. No Workflow tool on your host? Sa
 delete it after.
 
 **Run state.** `/forge:build` and `/forge:next` write `.forge/run.json` (gitignored) at each
-wave boundary; `/forge:resume` reads it. It accelerates recovery — git and `PROGRESS.md` stay
+wave boundary; `/forge:resume` reads it. It accelerates recovery — git and `PROGRESS.md` (or the issues) stay
 authoritative, so staleness costs a reconcile, never a break.
 
 **Coexistence.** The user's global agent config (`~/.claude`, `~/.codex`,
