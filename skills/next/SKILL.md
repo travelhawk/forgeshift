@@ -17,7 +17,7 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 ## 0. Anchor
 
 - Establish the target product (ambiguous → ask). It must have `docs/SPEC.md` and
-  `PROGRESS.md`. Without them, stop and redirect: a new product is `/forge:kickoff`, existing
+  `PROGRESS.md` or, in the issue phase, issues labelled `forge`. Without them, stop and redirect: a new product is `/forge:kickoff`, existing
   code without a spec is `/forge:adopt`.
 - Then `/forge:build`'s **Anchor**: clean tree, green or recorded-red baseline, baseline SHA,
   remote and `gh auth` status.
@@ -64,6 +64,8 @@ does **not** ask again.
 
 - Append the features to `docs/SPEC.md` and add matching F#-rows to `PROGRESS.md`, each with
   its tier marker and justification, unchecked. Point "Next session should" at this version.
+  Issue phase: one issue per feature instead (`gh issue create --label forge`, body = done-criteria
+  + tier line, same shape `retire-progress.mjs` writes); no `PROGRESS.md`.
 - Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode, the wave plan
   with every feature `pending`) so `/forge:resume` can recover a stopped run.
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.

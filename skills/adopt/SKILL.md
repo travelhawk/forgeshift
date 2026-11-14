@@ -36,7 +36,9 @@ From the brief + manifests + README + git history, write into the project:
    gets documented as broken in Gotchas, not documented as working. Beside it a one-line
    `CLAUDE.md` holding `@AGENTS.md` (Claude Code reads only that name) — unless the repo
    already has a `CLAUDE.md`; then leave it and add the `@AGENTS.md` line on top.
-3. `PROGRESS.md` from `$FORGE_HOME/templates/PROGRESS.md` — feature list seeded from
+3. Repo with a GitHub remote → issue phase: no `PROGRESS.md`; the seeded features become
+   issues labelled `forge` (ask before creating them). Otherwise
+   `PROGRESS.md` from `$FORGE_HOME/templates/PROGRESS.md` — feature list seeded from
    open TODOs/FIXMEs, open issues (if `gh` available and the user wants), and the
    spec's Open Questions; "Next session should" usually: "get the test suite green" or
    "verify the as-built spec with the user".

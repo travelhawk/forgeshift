@@ -804,3 +804,32 @@ suite('2026-09-11 eval fixes', () => {
     assert.ok(!/CLAUDE_PLUGIN_ROOT:-\$\(forge-home\)\}/.test(read('agents', 'forge-blueprint.md')), 'blueprint agent uses the fallback idiom')
   })
 })
+
+// PROGRESS.md is the tracker only until the first release; then open features move to
+// GitHub issues so two trackers never drift (decided 2026-11-13).
+suite('two-phase state: PROGRESS.md retires to issues', () => {
+  test('retire-progress parses only unchecked F#-rows, keeping tier and criteria', async () => {
+    const { parseOpenFeatures } = await import('../scripts/retire-progress.mjs')
+    const src = [
+      '- [x] F1 — Login — **T2** (auth) — user signs in',
+      '- [ ] F2 — Export — **T1** (read-only) — CSV downloads',
+      '  - [ ] F3 — Admin list — **T3** — admin sees users',
+      '- [ ] not a feature row',
+    ].join('\r\n')
+    const out = parseOpenFeatures(src)
+    assert.deepEqual(out.map(f => f.id), ['F2', 'F3'])
+    assert.equal(out[0].title, 'Export')
+    assert.match(out[0].body, /\*\*Done when:\*\* CSV downloads/)
+    assert.match(out[0].body, /Risk tier: T1 — read-only/)
+    assert.match(out[1].body, /Risk tier: T3\n/)
+  })
+
+  test('ship retires PROGRESS.md on the first release; status never recreates it', () => {
+    assert.match(read('skills', 'ship', 'SKILL.md'), /retire-progress\.mjs" --dry-run/, 'ship dry-runs before creating issues')
+    assert.match(read('skills', 'status', 'SKILL.md'), /Never recreate `PROGRESS\.md`/)
+    assert.match(read('AGENTS.md'), /\*\*State has two phases\.\*\*/)
+    for (const s of ['build', 'next', 'adopt']) {
+      assert.match(read('skills', s, 'SKILL.md'), /issue phase/i, `${s} handles the issue phase`)
+    }
+  })
+})

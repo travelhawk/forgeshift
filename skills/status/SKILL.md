@@ -37,6 +37,10 @@ assume). If the session surfaced durable project facts that belong in the projec
 AGENTS.md (a new command, a new convention), add them there — tersely, and prune
 anything now stale while you're in the file.
 
+**Issue phase** (no `PROGRESS.md`): audit `gh issue list --label forge` and open PRs instead.
+Post the handoff ("Next session should") as a comment on the in-flight PR, or on the issue
+being worked; there is nothing to commit. Never recreate `PROGRESS.md`.
+
 Close the report with an explicit **Next →** line naming the single most valuable next
 command (the same move as the "Next session should" handoff) — matched to the health
 verdict, never `/forge:ship` while tests are red.

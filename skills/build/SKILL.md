@@ -7,7 +7,8 @@ disable-model-invocation: true
 
 # /forge:build — approve the plan once, then the whole backlog builds
 
-Build "$ARGUMENTS" (empty → every unchecked feature in PROGRESS.md) with exactly ONE
+Build "$ARGUMENTS" (empty → every unchecked feature in PROGRESS.md, or in the issue phase every
+open issue labelled `forge`, tier from its body) with exactly ONE
 approval gate. After it: no questions, no per-feature check-ins. Failures are collected and
 reported at the end. The user can always interrupt.
 
@@ -129,7 +130,8 @@ round two → the feature is FAILED; a third round needs the user's explicit go.
    ONE batch (`bash "$FORGE_HOME/scripts/forge-pr.sh" open-all <manifest>`), then merge each;
    wait only on **required** checks (`gh pr checks <n> --watch --required`), watched
    **concurrently, not one at a time**.
-6. Tick PROGRESS.md per merged feature with its evidence; update `.forge/run.json`.
+6. Tick PROGRESS.md per merged feature with its evidence (issue phase: the PR body carries the
+   evidence and `Closes #<issue>`); update `.forge/run.json`.
 
 Per FAILED feature: record branch + issues, continue the wave. A failure blocks only its
 dependents. After the last wave, ONE retry round for failures that read fixable; whatever
