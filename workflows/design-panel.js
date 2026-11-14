@@ -13,8 +13,8 @@ export const meta = {
 // Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
 // both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
 // (1) workflow agents run in the SESSION's working directory — not necessarily the product
-//     this workflow should operate on. So the target arrives as {dir}, is verified by the
-//     preflight agent below, and every later prompt is pinned to the verified path.
+//     this workflow should operate on. So the target arrives as {dir}, is verified before
+//     anything changes, and every later prompt is pinned to it.
 // (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
 // `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
 // identical on every host, so the guard rides along. Each workflow reads its own fields

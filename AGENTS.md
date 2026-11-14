@@ -68,7 +68,11 @@ Specialists in `agents/`: `forge-blueprint` (planner), `forge-hammer` (implement
   instructions; tell agents to override a prescribed step and say so.
 - Parallel agents get **isolated worktrees**. Two agents in one tree is a merge conflict with
   extra steps.
-- The agent that built something never verifies it. Demand evidence, never "looks done".
+- The session agent orchestrates in phases and is a builder itself. Fresh context is spent
+  only where it buys something: an independent check, real parallelism, or keeping the main
+  context clear.
+- The agent that built something never gives the verdict on it: a fresh-context review and
+  the merge gate's full suite do. Demand evidence, never "looks done".
 
 ## Hard rules (every `/forge:*` command, every repo)
 

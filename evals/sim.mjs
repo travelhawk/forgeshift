@@ -115,13 +115,12 @@ export const deepReviewResponder = (overrides = {}) => (prompt, opts) => {
 export const featurePipelineResponder = (overrides = {}) => (prompt, opts) => {
   const l = opts.label || ''
   for (const k of Object.keys(overrides)) if (l.startsWith(k)) return overrides[k]
+  // Kept for the eval gate's baseline run: older pipelines still open with a preflight.
   if (l.startsWith('preflight')) return preflightOK
-  if (l.startsWith('plan:')) return {
-    approach: 'a', files_to_touch: ['src/x.js'], conventions: 'c', pitfalls: [],
-    test_plan: 't', done_criteria: ['d1'],
+  if (l.startsWith('build:')) return {
+    branch: `feature/wf-${l.slice(6)}-sim`, summary: 's', tests_passing: true, evidence: 'e', deviations: [],
+    sensitive_surfaces: [], pr_title: 't', pr_body: 'b',
   }
-  if (l.startsWith('build:')) return { branch: `feature/wf-${l.slice(6)}-sim`, summary: 's', tests_passing: true, deviations: [] }
-  if (l.startsWith('verify:') || l.startsWith('smoke:')) return { verdict: 'pass', issues: [], pr_title: 't', pr_body: 'b', evidence: 'e', sensitive_surfaces: [] }
   if (l.startsWith('security:')) return { verdict: 'pass', issues: [], evidence: 'e' }
   return null
 }

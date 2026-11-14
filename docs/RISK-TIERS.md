@@ -31,13 +31,13 @@ T2's "side effects" means effects that outlive the tab or cross a boundary.
 | | T1 | T2 | T3 |
 |---|---|---|---|
 | Builder's tests | happy path + explicit failure and edge cases | happy path + top failure path | one smoke test |
-| Per-feature review | functional review + security pass, both must pass | one functional review | smoke check only |
+| Per-feature review | a fresh security pass that also proves the failure paths | none, unless the diff names a sensitive surface | none, unless the diff names a sensitive surface |
 | E2E | at most one spec, only for what no other layer reaches | rarely | none |
 
 Tier sets test *depth*, never who runs what: every builder's gate is typecheck + lint + the
 tests covering its diff (`AGENTS.md` hard rules 2–3). The tag came from the description; the
 diff is the truth. So in both lanes (`feature-pipeline` and the direct `/forge:feature` loop)
-whoever verifies a T2/T3 reads the diff and names any sensitive surface in it, and a named
+the builder of a T2/T3 reads its own diff and names any sensitive surface in it, and a named
 surface adds the security pass. It only ever raises depth. Depth depends on tier and diff,
 never on which lane built it. The `/forge:build` finish review sweeps every tier, T1 paths
 first.
@@ -69,5 +69,6 @@ The tag is plain text in the feature row, and the file wins over chat:
 marker on disk (durable), adjust the wave-plan table before approving `/forge:build` (per batch),
 or run `/forge:feature F3 as tier 1` (per run).
 
-T3's smoke test is the right-sized test, never a skipped one. T3 is not *individually*
-reviewed, but never unreviewed: the integrated `deep-review` sweeps it before `/forge:ship`.
+T3's smoke test is the right-sized test, never a skipped one. T2 and T3 are not
+*individually* reviewed, but never unreviewed: the merge gate runs the full suite, and the
+integrated `deep-review` reads every line before `/forge:ship`.

@@ -112,8 +112,9 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
   code gets the full loop plus a security pass; CRUD boilerplate builds fast on Sonnet with
   a smoke test. You stop paying for exhaustive validation on scaffolding and concentrate it
   on the dangerous 20%. Overridable per feature. Details: [docs/RISK-TIERS.md](docs/RISK-TIERS.md).
-- **The builder never verifies itself.** Every review runs in a fresh agent context that
-  never saw the builder's reasoning, so it can't inherit the builder's blind spots.
+- **The builder never verifies itself.** Reviews run in a fresh agent context that never saw
+  the builder's reasoning, so they can't inherit its blind spots: per feature for risky code,
+  over the whole result at the finish.
 - **Model routing by decision density, not vibes.** Four tiers: judgment rides your session
   model; building rides the build tier; well-defined execution drops a tier; mechanical
   sweeps drop to the cheapest. On Claude that is session / Opus / Sonnet / Haiku; on other

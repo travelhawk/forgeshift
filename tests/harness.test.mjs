@@ -295,10 +295,11 @@ suite('cost optimizations', () => {
     assert.match(src, /label: 'judge\+synthesize'/, 'lean judge also synthesizes (one agent, two tasks)')
   })
 
-  test('feature-pipeline: only T1 gets a plan agent — T2/T3 build direct', () => {
+  test('feature-pipeline: one builder per feature plans inline — no plan, preflight or verify agent', () => {
     const src = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
-    assert.match(src, /f\.tier !== 'T1'\s*\?\s*\{ direct: true/, 'T2/T3 get a synthetic brief, not an agent call')
-    assert.match(src, /There is no separate plan/, 'the direct builder is told to plan inline')
+    assert.match(src, /plan inline, match what is there/, 'the builder plans inline')
+    assert.doesNotMatch(src, /label: `(plan|verify|smoke):/, 'no plan or per-feature verify stage')
+    assert.doesNotMatch(src, /preflight:target/, 'no preflight agent: the builder checks the target itself')
   })
 
   test('/forge:build: waves of 1-2 features run the direct lane, 3+ fire the pipeline', () => {
@@ -378,7 +379,7 @@ suite('cost optimizations', () => {
     assert.ok(existsSync(p('scripts', 'forge-pr.sh')), 'forge-pr.sh extracted')
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(fp, /forge-worktree\.sh/, 'build/verify agents call the worktree script')
-    assert.match(fp, /scriptsDir/, 'preflight resolves the script path; inline git is the fallback')
+    assert.match(fp, /const SCRIPTS = forgeHomeArg/, 'the script path comes from forge_home; inline git is the fallback')
     // The workflow's WT branch must invoke the SAME subcommands the script defines — a typo
     // on either side (e.g. `newbuild`) would ship a broken agent instruction the sim's
     // fallback-only run never walks. Assert both sides carry each token, in lockstep.
@@ -404,7 +405,9 @@ suite('boundary-audit optimizations', () => {
   // P9: the preflight block is duplicated across workflows; assert it stays uniform
   // by structure (not text-diff), so a future fix to one copy can't silently diverge.
   test('every workflow preflight is uniform (schema fields, haiku pin, refusal, standalone cd)', () => {
-    for (const f of workflows) {
+    // feature-pipeline has no preflight agent: its builders check the target first
+    // (pinned in orchestration.eval). Every other workflow keeps the shared shape.
+    for (const f of workflows.filter(w => w !== 'feature-pipeline.js')) {
       const src = readFileSync(join(workflowDir, f), 'utf8')
       assert.match(src, /required: \['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'\]/,
         `${f}: preflight schema requires the six target-verification fields`)
@@ -582,18 +585,16 @@ suite('review improvements', () => {
     assert.match(build(), /re-run only those failing tests once/i, '/forge:build re-runs before declaring a regression')
     assert.match(build(), /reproduce[s]? on (?:a|the) targeted re-run/i, 'stop condition requires reproduction on re-run')
     assert.match(build(), /flaky/i, 'flakes are logged, not silently swallowed')
-    assert.match(fp(), /re-run just that test once/i, 'isolation verifier retries a failing test')
-    assert.match(fp(), /re-run it once/i, 'smoke check retries a failing check')
+    assert.match(fp(), /re-run just that test once/i, 'the security pass retries a failing test')
   })
 
   // #2 The seeded tier is checked against the BUILT diff by the verifier itself; a T2/T3
   // that touched a security surface gets a security pass (raises depth, never lowers it).
-  test('the verifier names sensitive surfaces; a named surface adds a security pass', () => {
-    assert.match(fp(), /required: \[[^\]]*'sensitive_surfaces'\]/, 'every verify verdict must report the surfaces')
-    assert.match(fp(), /git diff --merge-base HEAD/, 'the verifier reads the feature diff')
-    assert.doesNotMatch(fp(), /tier-recheck/, 'no separate re-check agent: the verifier already reads the diff')
-    assert.match(fp(), /own\.verdict !== 'pass' \|\| !surfaces\.length\) return tag\(own, surfaces\)/, 'no surface, or already failed -> no security pass')
-    assert.match(fp(), /securityCheck\(i, branch, f\.feature, done, pitfalls, surfaces\)/, 'a named surface triggers the security pass')
+  test('the builder names sensitive surfaces; a named surface adds a security pass', () => {
+    assert.match(fp(), /required: \[[^\]]*'sensitive_surfaces'/, 'every build report must name the surfaces')
+    assert.match(fp(), /read your own diff \(git diff --merge-base HEAD/, 'the builder reads its own diff')
+    assert.match(fp(), /Name it even when you handled it well/, 'naming is framed as cheap, so it is not under-reported')
+    assert.match(fp(), /if \(f\.tier !== 'T1' && !surfaces\.length\) return row\('pass', \[\]\)/, 'no surface -> no security pass')
     assert.match(build(), /tier escalation/i, '/forge:build report surfaces escalations')
   })
 
@@ -646,7 +647,7 @@ suite('lane consistency + speed', () => {
   // the verifier checks the built diff for sensitive surfaces in the pipeline AND in the direct loop.
   test('the diff can raise the tier in BOTH lanes', () => {
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
-    assert.match(fp, /sensitive_surfaces: read the diff this feature added/, 'pipeline verifier reads the diff for surfaces')
+    assert.match(fp, /sensitive_surfaces: after committing, read your own diff/, 'pipeline builder reads its diff for surfaces')
     for (const s of ['build', 'feature']) {
       const src = read('skills', s, 'SKILL.md')
       assert.match(src, /git diff --merge-base HEAD/, `${s} lane re-checks the built diff`)
@@ -663,14 +664,23 @@ suite('lane consistency + speed', () => {
     assert.match(build(), /forge-worktree\.sh" new-build/, 'parallel builds use the deterministic worktree script')
   })
 
-  // A clean run's finish reviews the seams, not the already-reviewed internals.
-  test('deep-review integration mode: one seam lens, wired into the /forge:build finish', () => {
+  // deep-review keeps its seam-only mode for callers whose features were each reviewed. The
+  // /forge:build finish is the first independent read of T2/T3 work, so it runs the full review.
+  test('deep-review integration mode stays opt-in; the /forge:build finish runs the full review', () => {
     const dr = readFileSync(join(workflowDir, 'deep-review.js'), 'utf8')
     assert.match(dr, /a\.mode === 'integration'/, 'integration mode is explicit opt-in, full review stays the default')
     assert.match(dr, /INTEGRATION_LENS/, 'a single integration lens replaces the 3-lens grind')
-    assert.match(dr, /do NOT re-grind per-feature internals/i, 'seam lens told not to re-review verified internals')
-    assert.match(build(), /mode: "integration"/, '/forge:build finish opts in when every feature passed its tier verify')
-    assert.match(build(), /a dirty run forfeits the shortcut/i, 'failures/skipped verifies force the full review')
+    assert.match(build(), /first independent read of every T2\/T3 feature/, 'the finish is where T2/T3 get reviewed')
+    assert.match(build(), /never pass `mode: "integration"` here/, 'no seam-only shortcut at the finish')
+  })
+
+  // Phases, not a fixed pipeline: the session model decides when fresh context pays.
+  test('/forge:build is phases; the orchestrator delegates only for check, parallelism or context', () => {
+    assert.match(build(), /Build it yourself/, 'building in the main session is a first-class option')
+    assert.match(build(), /\*\*real parallelism\*\*/)
+    assert.match(build(), /\*\*protecting your context\*\*/)
+    assert.match(build(), /\*\*an independent check\*\*/)
+    assert.match(build(), /The builder never checks its own work/)
   })
 
   // Speed is measured, and the no-reviewer ceremony tax is a named lever at the gate.
@@ -737,22 +747,17 @@ suite('2026-09-11 eval fixes', () => {
   // A failed T1 feature dropped its security verdict + evidence from failed[].
   test('feature-pipeline: failed features keep evidence, write-up and security verdict', () => {
     const src = wf('feature-pipeline')
-    assert.match(src, /evidence: r\.check \? r\.check\.evidence : null/, 'failed[] carries the verifier evidence')
-    assert.match(src, /pr_body: r\.check \? r\.check\.pr_body : null/, 'failed[] carries the verifier write-up')
-    assert.match(src, /security: sec \? \{ verdict: sec\.verdict, evidence: sec\.evidence \}/, 'combined T1 check keeps the security verdict separately')
+    assert.match(src, /failed: \[\.\.\.done\.filter\(r => r\.check\.verdict !== 'pass'\)\.map\(r => \(\{ \.\.\.out\(r\)/, 'failed[] carries the same evidence and write-up as passed[]')
+    assert.match(src, /security: sec \? \{ verdict: sec\.verdict, evidence: sec\.evidence \}/, 'the security verdict is kept separately')
   })
 
-  // The security pass was the one prompt without the known-red baseline.
   test('feature-pipeline: security pass carries the known-red note', () => {
-    assert.match(wf('feature-pipeline'), /look that found none\.\\n` \+ knownRedNote/, 'knownRedNote appended to securityCheck')
+    assert.match(wf('feature-pipeline'), /fail on it\.\\n` \+ knownRedNote/, 'knownRedNote appended to securityCheck')
   })
 
-  // Preflight facts that select behaviour are computed in code, not judged by Haiku.
-  test('feature-pipeline: cwd equality computed in code; scripts dir from forge_home arg', () => {
+  test('feature-pipeline: scripts dir from forge_home arg', () => {
     const src = wf('feature-pipeline')
-    assert.match(src, /normPath\(pre\.cwd\) === normPath\(TARGET\)/, 'runtime isolation decided from the raw pwd line')
-    assert.match(src, /: !!pre\.cwdIsTarget/, 'model judgement only as the fallback when pwd is missing')
-    assert.match(src, /const SCRIPTS = forgeHomeArg\s*\? `\$\{forgeHomeArg\}\/scripts`/, 'scripts dir derived from forge_home')
+    assert.match(src, /const SCRIPTS = forgeHomeArg \? `\$\{forgeHomeArg\}\/scripts` : null/, 'scripts dir derived from forge_home')
     for (const s of ['feature-pipeline', 'build']) {
       assert.match(read('skills', s, 'SKILL.md'), /forge_home: "\$FORGE_HOME"/, `${s} launcher passes forge_home`)
     }
@@ -764,8 +769,7 @@ suite('2026-09-11 eval fixes', () => {
     const src = wf('feature-pipeline')
     assert.match(src, /Do NOT tick PROGRESS\.md/, 'builder never ticks the tracker on its branch')
     assert.match(src, /not the full suite \(it belongs to the merge gate/, 'builder gate is typecheck + lint + diff tests (hard rule 3)')
-    assert.match(src, /const VERIFY_RETURN = [\s\S]{0,900}EVIDENCE RULE/, 'the shared verify tail carries the evidence rule')
-    assert.equal((src.match(/VERIFY_RETURN\(f\.tier, branch\)/g) || []).length, 2, 'verify and smoke prompts both use the shared tail')
+    assert.match(src, /stays OPEN in the body's checklist with the reason/, 'the builder keeps unproven criteria open in its PR body')
     assert.ok(!/run the project's full relevant test suite/.test(src), 'old full-suite instruction removed')
   })
 

@@ -1,13 +1,13 @@
 ---
 name: feature-pipeline
-description: Implement independent features in parallel - plan, implement in an isolated git worktree, verify per risk tier. The engine /forge:build drives; use it directly for a raw batch of independent features without the PR ceremony. Needs a git repo with at least one commit.
+description: Build independent features in parallel - one agent per feature in its own git worktree, a fresh security pass for T1 and sensitive diffs. The engine /forge:build drives; use it directly for a raw batch of independent features without the PR ceremony. Needs a git repo with at least one commit.
 argument-hint: "[array of feature entries | {dir, features, context, known_failures}]"
 ---
 
 # /forge:feature-pipeline — parallel build of independent features
 
-Fire the `feature-pipeline` workflow: each feature is built in its own git worktree and
-verified in fresh context, at the depth its risk tier sets. Dependent features belong in ONE
+Fire the `feature-pipeline` workflow: one agent per feature builds it in its own git worktree,
+tests first. T1, and any diff its builder flags as sensitive, gets one fresh security pass. Dependent features belong in ONE
 entry. Usually `/forge:build` drives it; run it directly only for a raw independent batch.
 
 1. `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`.
@@ -22,7 +22,7 @@ entry. Usually `/forge:build` drives it; run it directly only for a raw independ
    to a JSON file and run `node "$FORGE_HOME/bin/forge-run.mjs" feature-pipeline --args-file <file>`.
    If args may not arrive intact, also write them to `feature-pipeline.input.json` in the
    product root (fallback); delete it after.
-4. Relay `pr_title`/`pr_body`/`evidence` per feature. The branches were verified **in
+4. Relay `pr_title`/`pr_body`/`evidence` per feature. The branches were tested **in
    isolation**: merge them, then run the full suite on the merged result.
 
 **Next →** open a PR per passed feature (or let `/forge:build` do the merging), then

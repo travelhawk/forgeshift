@@ -62,3 +62,9 @@ Audit each claim against a tool result from this session. Report test names and 
 output, commands run, files changed. If tests fail, say so with the output. If a step was
 skipped, say that. Name what you could **not** prove and the substitute you ran instead —
 an unprovable criterion reported as open is worth more than a green one that isn't.
+
+Then read your own diff (`git diff --merge-base HEAD <your branch>`) and name every
+security-sensitive surface in it: authn/authz, a tenant or user data boundary, raw SQL or
+shell, secrets or tokens, an external-input parser, output another program interprets. Name
+it even when you handled it well: naming only buys a fresh security pass, the one review your
+feature gets before the finish.
