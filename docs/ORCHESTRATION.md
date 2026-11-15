@@ -38,12 +38,13 @@ taste every few minutes · shared mutable state without worktree isolation · a 
 ## Workflow target contract
 
 Workflow agents start in the session's start directory, not in your shell `cd`. Pass the
-product explicitly: `args: {dir: "<absolute product path>", ...}`. Every workflow then runs a
-preflight that refuses a missing, empty or harness repo, and pins the verified path into each
-agent prompt. Arg coercion lives in `lib/workflow-preamble.mjs`; the input-file fallback in
-`feature-pipeline.js` and `design-panel.js`.
+product explicitly: `args: {dir: "<absolute product path>", ...}`. The path is pinned into each
+agent prompt, and a missing, empty or harness repo is refused before anything changes: by a
+preflight agent, or in `feature-pipeline` by each builder's first step. Arg coercion lives in
+`lib/workflow-preamble.mjs`; the input-file fallback in `feature-pipeline.js` and
+`design-panel.js`.
 
-`feature-pipeline` verifies each branch in isolation, so the merged whole is tested by no
+`feature-pipeline` tests each branch in isolation, so the merged whole is tested by no
 agent. Run the full suite on the merged result before calling the batch done. Re-run a NEW
 failure once, targeted: it reproduces → stop the run; it clears → log it as flaky and go on.
 
@@ -58,10 +59,11 @@ failure once, targeted: it reproduces → stop the run; it clears → log it as 
    `scripts/forge-worktree.sh`). Two agents in one tree is a merge conflict with extra steps.
    Remove the worktrees before linting the merged result, or `lint` traverses a second copy of
    the source.
-3. **Plan only where a wrong design is expensive.** A separate plan agent reads the same code
-   the builder reads again. It pays off for T1, where its *brief* — criteria, files,
-   conventions, pitfalls — also arms the verifier and the security pass (`feature-pipeline`'s
-   PLAN object). T2/T3 builders get the done-criteria and plan inline.
+3. **Every hand-off re-reads the code.** A plan agent, a builder and a verifier for one
+   feature read the same files three times. Measured (2026-11, two features with precise
+   criteria): one session matched the per-feature plan → build → verify chain on hidden tests
+   at a quarter of the tokens. So one agent per feature plans inline, and fresh context is
+   spent on the checks a builder cannot do on itself: T1 security and the finish review.
 4. **Scope-box the context.** Name what to read (diff, brief, specific files + their
    callers/tests) AND what not to (full spec, PROGRESS, ADRs, memory, unrelated modules).
    "Explore for context" without bounds is a token leak: N subagents each crawling the repo

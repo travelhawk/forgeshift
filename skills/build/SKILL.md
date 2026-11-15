@@ -12,6 +12,10 @@ open issue labelled `forge`, tier from its body) with exactly ONE
 approval gate. After it: no questions, no per-feature check-ins. Failures are collected and
 reported at the end. The user can always interrupt.
 
+The sections below are phases with a goal and a done-state. You run them and decide in each
+whether to work yourself or delegate. Fresh context is spent only where it buys something:
+an independent check, real parallelism, or keeping your own context clear.
+
 ## 0. Anchor
 
 - `cd` into the target product (ambiguous → ask; that is before the gate, so it's allowed).
@@ -30,9 +34,10 @@ reported at the end. The user can always interrupt.
   it at every wave boundary, with `next` naming the exact resume action. Git stays
   authoritative; the file only speeds up `/forge:resume`.
 
-## 1. Wave plan (`forge-blueprint`)
+## 1. Wave plan
 
-Blueprint partitions the backlog by **file footprint**:
+You partition the backlog by **file footprint**. Hand it to `forge-blueprint` only when
+reading the backlog and code would flood your context.
 
 - Features with overlapping files or a build dependency chain into ONE entry (built in
   order inside it) or move to a later wave.
@@ -65,8 +70,8 @@ One message, one approval:
   `gh repo create --private --source .` once; declined → `git merge --no-ff` per feature.
   **Recommend `local` for a solo product with no CI**: same branches, same gates, no PR
   round-trips. It is the run's speed lever.
-- **Execution lane per wave**: 3+ parallel-safe entries fire the `feature-pipeline` workflow,
-  1–2 run the direct lane.
+- **Execution per wave**: built in order by you, or in parallel worktrees (3+ parallel-safe
+  entries: the `feature-pipeline` workflow).
 - Rough cost, and that the finish (§5) is included by default — opt out here only for
   mini-backlogs.
 
@@ -76,42 +81,57 @@ has no Decision policy section**, synthesize it from `$FORGE_HOME/templates/SPEC
 verbatim in this message, and write it into the spec on approval.
 **Never run the hands-off phase without a Decision policy in force.**
 
-## 3. Execute
+## 3. Build — you orchestrate, fresh context only where it pays
 
-**Timestamp every stage boundary** with `date +%s` — wave start, builds done, verifies done,
+**Timestamp every stage boundary** with `date +%s` — wave start, builds done, checks done,
 merges done — into `.forge/run.json`. §6 reports wall-clock from those marks.
 
-**Parallel entries get isolated worktrees** (`isolation: "worktree"`, or
-`bash "$FORGE_HOME/scripts/forge-worktree.sh" new-build <n>`). Remove them before linting the
-merged result: a stale worktree makes `lint` traverse a second copy of the source.
+You are the orchestrator, and a capable builder yourself. Per wave, decide who builds:
 
-**Waves of 3+ independent entries** fire `feature-pipeline` with
-`{dir, forge_home: "$FORGE_HOME", features: [{feature, tier, done_criteria}], context, known_failures}`.
-Mirror the same object into `feature-pipeline.input.json` in the product root before invoking
-(args fallback), delete it after. A workflow-level error is a stop condition.
+- **Build it yourself** when the wave is small or a chain, and the code it touches fits your
+  context. One builder that already holds the plan beats a hand-off.
+- **Delegate** only for one of three reasons: **real parallelism** (independent features,
+  each in its own worktree), **protecting your context** (a feature that would read a lot of
+  code you will not need again), or **an independent check** (below). Not for ceremony.
 
-**Small-wave shortcut (1–2 features)** — the direct lane, same tier contract as the pipeline
-(`$FORGE_HOME/workflows/feature-pipeline.js` is the reference):
+The per-feature contract is the same either way (`$FORGE_HOME/workflows/feature-pipeline.js`
+is the reference):
 
-- **A T1 plan rides the session model**, then goes to the builder as its brief. T2/T3 need no
-  separate plan: the builder gets the done-criteria and paths and plans inline.
-- One `forge-hammer` per feature (T3 on the execute tier), launched in ONE message: disjoint
-  footprints **build in PARALLEL, never serially**. In a chain, the next hammer starts on
-  link N+1 while the review reads link N.
-- **Verify per tier** — T1: `forge-quench` + a parallel security pass, both must pass. T2: one
-  `forge-quench`. T3: smoke check. Chained entries share reviews: one per ~3 links plus one at
-  the chain's end, over the combined diff. Scope every review to the diff it covers.
-- **The diff can raise the tier.** Whoever verifies a T2/T3 reads
-  `git diff --merge-base HEAD <branch>` and names any sensitive surface in it (authn/authz, a
-  tenant boundary, external input, secrets, raw SQL or shell). A named surface adds the
-  security pass. Raises depth only, never lowers it.
+- **One builder per feature, no separate plan.** It reads the code it touches, plans inline,
+  writes tests first and commits to its own branch. A T1 Plan rides the session model: think
+  through who must NOT be able to do what before coding, and hand that to the builder if you
+  delegate.
+- Its gate is typecheck, lint and the tests covering its diff. The full suite is the merge
+  gate's job.
+- **The diff can raise the tier.** The builder reads `git diff --merge-base HEAD <branch>`
+  and names any sensitive surface in it (authn/authz, a tenant boundary, external input,
+  secrets, raw SQL or shell, output another program interprets).
+  Raises depth only, never lowers it.
+- **The independent check.** T1, and any feature with a named surface, gets ONE fresh-context
+  security pass (`forge-warden`) on its diff; for T1 it also proves the done-criteria on their
+  failure paths. The builder never checks its own work: everything else is checked by the
+  merge gate's full suite and the finish review.
 
-**A failed verify gets two fix rounds, not more.** Put this in every reviewer brief: a verify
+How to run it:
+
+- **Small-wave shortcut (1–2 features)**: build them yourself, or one `forge-hammer` each
+  (T3 on the execute tier), launched in ONE message: disjoint footprints
+  **build in PARALLEL, never serially**, each in its own worktree
+  (`bash "$FORGE_HOME/scripts/forge-worktree.sh" new-build <n>`).
+- **Waves of 3+ independent entries**: the `feature-pipeline` workflow does exactly the
+  contract above in parallel and keeps your context clean. Fire it with
+  `{dir, forge_home: "$FORGE_HOME", features: [{feature, tier, done_criteria}], context, known_failures}`.
+  Mirror the same object into `feature-pipeline.input.json` in the product root before
+  invoking (args fallback), delete it after. A workflow-level error is a stop condition.
+- Remove worktrees before linting the merged result: a stale worktree makes `lint` traverse
+  a second copy of the source.
+
+**A failed check gets two fix rounds, not more.** Put this in every reviewer brief: a check
 blocks only on a finding that breaks normal operation — data loss, a security or privacy
 hole, a crash, a wrong result in a normal case. Findings that need a degraded dependency,
-throttling or unusual load go to the report's open list. A re-review checks only what the fix
-addressed: each fix hands a fresh reviewer new code to find something in. Still failing after
-round two → the feature is FAILED; a third round needs the user's explicit go.
+throttling or unusual load go to the report's open list. A re-check covers only what the fix
+addressed. Still failing after round two → the feature is FAILED; a third round needs the
+user's explicit go.
 
 ### The merge gate — per wave, once
 
@@ -150,9 +170,9 @@ Only on a completed run; a halted run reports the stop instead. `review-PRs` mod
 integrated main — skip the review and recommend `/forge:deep-review` after merging.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
-   their paths>"}`. Add `mode: "integration"` when every feature passed its tier verify and no
-   wave had failures. A dirty run forfeits the shortcut, as does a resumed one. A review that
-   returns no `confirmed`/`unverified` is ship-blocking.
+   their paths>"}`, the full review. It is the first independent read of every T2/T3 feature,
+   so never pass `mode: "integration"` here. A review that returns no
+   `confirmed`/`unverified` is ship-blocking.
 2. CONFIRMED critical/high get `/forge:fix` discipline: regression test first, smallest fix,
    fresh reviewer on the fix diff. Two failed attempts → mark ship-blocking, stop fixing.
 3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed but IS
@@ -176,7 +196,7 @@ The final report is compact:
 
 - Table: feature → branch → PR → verdict → merged. Suite state on integrated main (pasted).
 - Flaky tests that cleared on a re-run. Security tier escalations, with the surface named.
-- **Where the time went**: per-wave build / verify / integrate wall-clock.
+- **Where the time went**: per-wave build / check / integrate wall-clock.
 - **Actual spend vs. the gate estimate.**
 - **Autonomous decisions to review**: the ADRs, each with its one-line rationale and path.
 - **Criteria reported open, not ticked**, with the substitute that ran.

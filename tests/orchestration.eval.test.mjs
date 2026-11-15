@@ -5,7 +5,7 @@
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  loadSource, runWorkflow, SCENARIOS, CASES, preflightWithScripts, preflightOK,
+  loadSource, runWorkflow, SCENARIOS, CASES,
   deepReviewResponder, featurePipelineResponder, designPanelResponder, releaseGateResponder,
 } from '../evals/sim.mjs'
 
@@ -37,9 +37,9 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(full.calls.filter(c => c.label.startsWith('review:')).length, 3, 'omitting mode keeps the 3-lens default')
   })
 
-  test('feature-pipeline: 6 mixed-tier features -> 2 plan agents (T1 only), 6 builds', async () => {
+  test('feature-pipeline: 6 mixed-tier features -> 6 builders + 2 T1 security passes, nothing else', async () => {
     const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder())
-    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 2, 'T1 planned, T2/T3 build direct')
+    assert.equal(calls.length, 8, 'no preflight, no plan, no per-feature verify agent')
     assert.equal(calls.filter(c => c.label.startsWith('build:')).length, 6)
     assert.equal(calls.filter(c => c.label.startsWith('security:')).length, 2, 'security pass only for T1')
     assert.equal(result.passed.length, 6)
@@ -47,37 +47,41 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(t3builds.length, 2, 'T3 builds on Sonnet')
   })
 
-  test('feature-pipeline: a sensitive surface in a T2/T3 diff adds a security pass, fail-closed', async () => {
-    const withSurface = { verdict: 'pass', issues: [], pr_title: 't', pr_body: 'b', evidence: 'e', sensitive_surfaces: ['raw SQL in src/x.js'] }
-    // Feature 3 (T2) and feature 5 (T3) report a surface: 2 T1 passes + 2 escalations.
+  test('feature-pipeline: a builder-flagged sensitive surface adds a security pass, fail-closed', async () => {
+    const built = n => ({ branch: `feature/wf-${n}-sim`, summary: 's', tests_passing: true, evidence: 'e', deviations: [], pr_title: 't', pr_body: 'b' })
+    const flagged = n => ({ ...built(n), sensitive_surfaces: ['raw SQL in src/x.js'] })
+    // Feature 3 (T2) and feature 5 (T3) flag a surface: 2 T1 passes + 2 escalations.
     const hit = await run('feature-pipeline', 'feature-pipeline',
-      featurePipelineResponder({ 'verify:3': withSurface, 'smoke:5': withSurface }))
+      featurePipelineResponder({ 'build:3': flagged(3), 'build:5': flagged(5) }))
     assert.equal(hit.calls.filter(c => c.label.startsWith('security:')).length, 4)
     assert.equal(hit.result.passed.filter(p => p.escalated).length, 2, 'both escalations are reported')
     assert.deepEqual(hit.result.passed.find(p => p.feature === 'export').security_surfaces, ['raw SQL in src/x.js'])
-    // The security pass fails: the feature fails, even though its own verify passed.
+    // The security pass fails: the feature fails, even though its builder's tests passed.
     const blocked = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
-      'verify:3': withSurface, 'security:3': { verdict: 'fail', issues: ['injection'], evidence: 'e' },
+      'build:3': flagged(3), 'security:3': { verdict: 'fail', issues: ['injection'], evidence: 'e' },
     }))
     assert.equal(blocked.result.passed.length, 5)
     assert.equal(blocked.result.failed[0].feature, 'export', 'a failed security pass blocks the feature')
-    // A failed verify gets no security pass: it is already blocked.
-    const failed = await run('feature-pipeline', 'feature-pipeline',
-      featurePipelineResponder({ 'verify:3': { ...withSurface, verdict: 'fail', issues: ['broken'] } }))
-    assert.equal(failed.calls.filter(c => c.label.startsWith('security:')).length, 2, 'T1 only')
+    assert.deepEqual(blocked.result.failed[0].issues, ['injection'])
+    // Red tests: the feature fails at once, no security pass is spent on it.
+    const red = await run('feature-pipeline', 'feature-pipeline',
+      featurePipelineResponder({ 'build:3': { ...flagged(3), tests_passing: false, deviations: ['parser broken'] } }))
+    assert.equal(red.calls.filter(c => c.label.startsWith('security:')).length, 2, 'T1 only')
+    assert.ok(red.result.failed[0].issues.includes('parser broken'))
   })
 
-  test('feature-pipeline: the forge-worktree.sh (WT) branch preserves orchestration shape', async () => {
-    // The default preflight (cwdIsTarget:true, no scriptsDir) only ever walks the inline-git
-    // fallback, so the change's headline path — agents calling forge-worktree.sh — was
-    // unexercised. This forces the WT branch (script present, cwd != target) and asserts it
-    // is orchestration-equivalent: same agents, same passes, no crash on the new prompts.
-    const { result, calls } = await run('feature-pipeline', 'feature-pipeline',
-      featurePipelineResponder({ preflight: preflightWithScripts }))
-    assert.equal(calls.filter(c => c.label.startsWith('plan:')).length, 2, 'T1 planned, T2/T3 build direct')
-    assert.equal(calls.filter(c => c.label.startsWith('build:')).length, 6)
-    assert.equal(calls.filter(c => c.label.startsWith('security:')).length, 2, 'security pass only for T1')
-    assert.equal(result.passed.length, 6, 'WT branch builds + verifies all 6, same as the fallback path')
+  test('feature-pipeline: builders check the target themselves; all refusing is a run-level error', async () => {
+    const seen = []
+    const base = featurePipelineResponder()
+    await runWorkflow(loadSource('workflows/feature-pipeline.js'), {
+      args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { seen.push(p); return base(p, o) },
+    })
+    assert.ok(seen.every(p => /FIRST shell command: a standalone cd/.test(p)), 'every agent is pinned to the target')
+    assert.match(seen[0], /Check the target first, before you change anything/)
+    const refused = { branch: '', summary: '', tests_passing: false, evidence: '', deviations: ['REFUSED: not a git repository'], sensitive_surfaces: [], pr_title: '', pr_body: '' }
+    const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({ 'build:': refused }))
+    assert.match(result.error, /Refusing to run against .*REFUSED: not a git repository/)
+    assert.ok(!calls.some(c => c.label.startsWith('security:')), 'nothing is verified on a refused target')
   })
 
   test('design-panel: lean = 5 agents, wide = 9', async () => {
@@ -125,66 +129,46 @@ suite('2026-09-11 eval fixes (behaviour)', () => {
   })
 
   test('feature-pipeline: a failed T1 feature still reports evidence and its security verdict', async () => {
-    const base = featurePipelineResponder()
-    const { result } = await run('feature-pipeline', 'feature-pipeline', (p, o) => {
-      const r = base(p, o)
-      if (o.label === 'verify:1') return { ...r, verdict: 'fail', issues: ['404 path crashes the server'] }
-      return r
-    })
+    const { result } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
+      'security:1': { verdict: 'fail', issues: ['viewer can delete'], evidence: 'tried delete as viewer' },
+    }))
     assert.equal(result.failed.length, 1)
     const f = result.failed[0]
     assert.equal(f.tier, 'T1')
-    assert.equal(f.evidence, 'e | security: e', 'verifier + security evidence kept')
-    assert.deepEqual(f.security, { verdict: 'pass', evidence: 'e' }, 'security verdict reported separately')
-    assert.equal(f.pr_body, 'b')
+    assert.deepEqual(f.issues, ['viewer can delete'])
+    assert.equal(f.evidence, 'e | security: tried delete as viewer', 'builder + security evidence kept')
+    assert.deepEqual(f.security, { verdict: 'fail', evidence: 'tried delete as viewer' }, 'security verdict reported separately')
+    assert.equal(f.pr_body, 'b', 'the write-up survives a fail')
     assert.ok(result.passed.every(x => 'security' in x), 'passed entries carry the field too (null for T2/T3)')
   })
 
-  test('feature-pipeline: forge_home arg pins the worktree script without a preflight hunt', async () => {
+  test('feature-pipeline: forge_home arg pins the worktree script; without it, inline git', async () => {
     const prompts = []
-    const base = featurePipelineResponder({ preflight: { ...preflightWithScripts, scriptsDir: '' } })
+    const base = featurePipelineResponder()
     const src = loadSource('workflows/feature-pipeline.js')
     const { result } = await runWorkflow(src, {
       args: { ...SCENARIOS['feature-pipeline'].args, forge_home: 'T:/harness/' },
       responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) },
     })
     assert.equal(result.passed.length, 6)
-    const pre = prompts.find(([l]) => l === 'preflight:target')[1]
-    assert.match(pre, /scriptsDir: return an empty string/, 'preflight told not to hunt for the script')
     const build = prompts.find(([l]) => l === 'build:1')[1]
     assert.match(build, /bash "T:\/harness\/scripts\/forge-worktree\.sh" new-build 1/, 'builder calls the script under forge_home (trailing slash stripped)')
+    const sec = prompts.find(([l]) => l === 'security:1')[1]
+    assert.match(sec, /forge-worktree\.sh" new-detached sec 1/, 'the security pass checks out the branch detached')
+    const plain = []
+    await runWorkflow(src, { args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { plain.push([o.label, p]); return base(p, o) } })
+    assert.match(plain.find(([l]) => l === 'build:1')[1], /Work in an ISOLATED git worktree you create yourself/)
   })
 
-  test('feature-pipeline: runtime isolation follows the pwd line, not the preflight boolean', async () => {
-    const src = loadSource('workflows/feature-pipeline.js')
-    const firstBuild = async pre => {
-      const prompts = []
-      const base = featurePipelineResponder({ preflight: pre })
-      await runWorkflow(src, { args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { prompts.push([o.label, p]); return base(p, o) } })
-      return prompts.find(([l]) => l === 'build:1')[1]
-    }
-    // Haiku said "cwd is the target" but pwd shows another directory: no runtime clone.
-    const wrongTrue = await firstBuild({ ...preflightOK, cwdIsTarget: true, cwd: '/d/somewhere/else' })
-    assert.match(wrongTrue, /Work in an ISOLATED git worktree you create yourself/, 'pwd mismatch overrides a wrong true')
-    // pwd matches the target in MSYS form while Haiku said false: runtime isolation is used.
-    const wrongFalse = await firstBuild({ ...preflightOK, cwdIsTarget: false, cwd: '/t/fake-product/' })
-    assert.match(wrongFalse, /You are in an ISOLATED git worktree/, 'MSYS-form pwd equal to the target enables runtime isolation')
-  })
-
-  test('feature-pipeline: a runtime-isolated builder is never told to cd into the shared main tree', async () => {
-    // Observed live (Codex, 2026-09-21): the cd-into-target preamble walked an isolated
-    // builder back into the main tree, where it branched in place.
-    const seen = []
-    const base = featurePipelineResponder({ preflight: { ...preflightOK, cwd: preflightOK.path } })
-    await runWorkflow(loadSource('workflows/feature-pipeline.js'), {
-      args: SCENARIOS['feature-pipeline'].args, responder: (p, o) => { seen.push({ p, o }); return base(p, o) },
+  test('feature-pipeline: args lost in transit are read from the input file, at the cost of one agent', async () => {
+    const file = { found: true, features: [{ feature: 'auth', tier: 'T1', done_criteria: ['d'] }, 'plain'], context: 'c' }
+    const { result, calls } = await runWorkflow(loadSource('workflows/feature-pipeline.js'), {
+      args: { dir: SCENARIOS['feature-pipeline'].args.dir }, responder: featurePipelineResponder({ 'input:fallback': file }),
     })
-    const build = seen.find(c => c.o.label === 'build:1')
-    assert.equal(build.o.isolation, 'worktree')
-    assert.doesNotMatch(build.p, /FIRST shell command/)
-    assert.match(build.p, /do NOT cd into the target path/)
-    const verify = seen.find(c => /^(verify|smoke):/.test(c.o.label))
-    assert.match(verify.p, /FIRST shell command/, 'agents without runtime isolation keep the cd line')
+    assert.equal(calls[0].label, 'input:fallback')
+    assert.equal(calls[0].model, 'haiku')
+    assert.equal(result.passed.length, 2)
+    assert.deepEqual(result.passed.map(p => p.tier), ['T1', 'T2'], 'the object keeps its tier, the string defaults to T2')
   })
 
   test('release-gate: a skipped tests gate yields a blocker that cites the gate evidence', async () => {
@@ -204,7 +188,7 @@ suite('fail-closed behavior (quality kept under agent death)', () => {
     // Observed live (Codex, 2026-09-21): the sandbox blocked .git, the builder left files
     // uncommitted and reported branch "", and the smoke check passed the main tree instead.
     const { result, calls } = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
-      'build:1': { branch: '', summary: 's', tests_passing: true, deviations: ['Sandbox denied .git writes'] },
+      'build:1': { branch: '', summary: 's', tests_passing: true, evidence: '', deviations: ['Sandbox denied .git writes'], sensitive_surfaces: [], pr_title: '', pr_body: '' },
     }))
     const f = result.failed.find(x => x.issues.some(i => /no feature\/wf-\* branch/.test(i)))
     assert.ok(f, JSON.stringify(result.failed))

@@ -72,7 +72,7 @@ does **not** ask again.
 
 ## 5. Build & finish
 
-Run `/forge:build`'s **Execute**, **Visual checkpoints**, **Finish** and **Documentation
+Run `/forge:build`'s **Build**, **Visual checkpoints**, **Finish** and **Documentation
 pass** on exactly the approved features. No re-planning, no second gate. Its stop conditions
 and hard rules apply unchanged.
 

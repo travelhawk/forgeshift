@@ -1,12 +1,12 @@
 ---
 name: feature
-description: Build one feature through the full quality loop - plan, failing test, implement, fresh-context verify. Use for any feature or task from the spec/PROGRESS.md, or an ad-hoc feature request during a build.
+description: Build one feature through the quality loop - failing test, implement, full suite, and a fresh-context security pass where the risk calls for it. Use for any feature or task from the spec/PROGRESS.md, or an ad-hoc feature request during a build.
 argument-hint: "[feature description or F# from the spec]"
 ---
 
 # /forge:feature — One feature through the loop
 
-Build "$ARGUMENTS" tests-first with independent verification. One feature per invocation; a
+Build "$ARGUMENTS" tests-first. One feature per invocation; a
 whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent items in the
 `feature-pipeline` workflow — point the user there when they list several.
 
@@ -30,7 +30,7 @@ whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent ite
   approval**.
 - **Integrates an external HTTP API?** Have `forge-prospector` confirm endpoint, auth header,
   body shape and the success/error signal against the live vendor docs, and record that
-  contract. `forge-quench` has no network: the recorded contract is all it can check the
+  contract. Reviewers have no network: the recorded contract is all they can check the
   adapter against. Some APIs report failure inside an HTTP 200.
 
 ## 3. Build
@@ -44,22 +44,23 @@ whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent ite
 - **E2E: at most one spec, often none** — only for what no other layer can reach, written
   after the feature works.
 
-## 4. Verify (fresh context — depth follows the tier)
+## 4. Verify — fresh context only where the builder cannot check itself
 
-The verifier sees the result, never the build reasoning. Run the **full suite and the e2e
-suite here**, before integrating. Fix CONFIRMED critical/high now; judge medium/low with the
-user if the fix isn't obvious. **Scope every review to the diff.**
+Run the **full suite and the e2e suite here**, before integrating. That is the check for
+every tier.
 
-- **T1** — `forge-quench` on the diff **and** a parallel security pass (`forge-warden`). Done
-  only when both pass. A T1 change never skips verify, however small.
-- **T2** — one `forge-quench` pass on the diff.
-- **T3** — smoke check: builds, renders, happy path. The `deep-review` before ship sweeps T3.
+- **T1** — add one fresh-context pass (`forge-warden`) on the diff: security, plus the
+  done-criteria on their failure paths. Done only when it passes. A T1 change never skips it,
+  however small.
+- **T2/T3** — no per-feature review. The `deep-review` before ship reads every line.
 
 **The diff can raise the tier.** The tier came from the feature's description; the diff is
-the truth. Whoever verifies a T2/T3 reads `git diff --merge-base HEAD <branch>` and names any
-sensitive surface in it: authn/authz, a tenant-scoped query, an external-input parser,
-token/secret handling, raw SQL or shell. A named surface adds the T1 security pass.
+the truth. Read `git diff --merge-base HEAD <branch>` and name any sensitive surface in it:
+authn/authz, a tenant-scoped query, an external-input parser, token/secret handling, raw SQL
+or shell, output another program interprets. A named surface adds the T1 pass.
 Raises depth only, never lowers it.
+
+Fix CONFIRMED critical/high now; judge medium/low with the user if the fix isn't obvious.
 
 ## 5. Integrate — one PR per feature
 
