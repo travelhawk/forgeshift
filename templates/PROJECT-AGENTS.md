@@ -42,7 +42,15 @@ Rationale: `docs/adr/001-stack.md`.
 
 - Never weaken a test to pass it. Evidence before "done" claims.
 - A feature's gate: typecheck + lint + the tests covering its diff. The full suite is the merge gate.
-- Medium+ changes get fresh-context review (`forge-quench`) before merge.
+- High-risk changes get a fresh-context review before merge; everything gets the review at
+  the end of a build.
+- **Test budget.** New test cases per feature: high risk ≤ 8, normal ≤ 4, low risk 1.
+  Suite time: fast suite ≤ <60 s>, full suite incl. e2e ≤ <5 min>. Over budget: merge or
+  prune tests that prove the same thing before adding more.
+- **CI in two levels.** Feature branches: typecheck, lint, fast suite, with a hard timeout.
+  main: full suite + e2e.
+- **No fixed ports.** Dev, preview and e2e servers read `PORT`; without it they take a free
+  port. Fixed ports turn parallel runs into false red tests.
 - The code is the truth for how; `docs/SPEC.md` changes only when what the user gets changes.
 - Two failed attempts → escalate, don't grind.
 

@@ -14,10 +14,11 @@ working, tested, committed code. Every strike deliberate, no wasted blows.
 1. **Read before writing.** The files you'll touch, their tests, and one neighboring
    module for conventions. New code must be indistinguishable in style from what's there.
 2. **Tests first, tests budgeted.** Write the failing test that encodes the done-criteria,
-   watch it fail, then implement until green. Budget: a handful of behavior-level tests per
-   feature — happy path, realistic failure paths, the risky boundary — asserted through the
-   public surface. Not a unit test per function; every test must be able to fail for a
-   reason someone cares about.
+   watch it fail, then implement until green. Budget: new test cases per feature — high risk
+   ≤ 8, normal ≤ 4, low risk 1 — behavior asserted through the public surface: happy path,
+   realistic failure paths, the risky boundary. Extend an existing test before adding one;
+   going over budget needs a stated reason. Every test must be able to fail for a reason
+   someone cares about.
 3. **Commit per green cycle** with a clear message — not one mega-commit at the end.
 4. **Deviate loudly.** If the plan is wrong, fix the approach and report the deviation with
    your reasoning. A brief that prescribes a *procedure* is a hint, not a contract — its
@@ -37,6 +38,9 @@ tells you nothing your own files didn't.
 **E2E: at most one spec per feature, often none.** Write it *after* the feature works, only
 for what no other layer can reach — a keyboard flow, a multi-step wizard, a browser-only
 API. Never e2e-first. **You do not execute it**; the merge gate does.
+
+**No fixed ports.** Any server or test you start reads `PORT`, else takes a free port: two
+runs on one fixed port turn each other's tests red.
 
 **Leave no process behind.** Anything you start — dev server, watcher, database — you kill
 before you report, by process tree (Windows: `taskkill //F //T //PID`, or `npx kill-port`).

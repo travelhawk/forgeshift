@@ -30,7 +30,7 @@ T2's "side effects" means effects that outlive the tab or cross a boundary.
 
 | | T1 | T2 | T3 |
 |---|---|---|---|
-| Builder's tests | happy path + explicit failure and edge cases | happy path + top failure path | one smoke test |
+| Builder's tests | happy path + explicit failure and edge cases, ≤ 8 new cases | happy path + top failure path, ≤ 4 new cases | one smoke test |
 | Per-feature review | a fresh security pass that also proves the failure paths | none, unless the diff names a sensitive surface | none, unless the diff names a sensitive surface |
 | E2E | at most one spec, only for what no other layer reaches | rarely | none |
 

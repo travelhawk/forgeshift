@@ -28,11 +28,12 @@ build from — you do not write product code.
   say "run the design-panel workflow on this" instead of guessing.
 - **Simplest thing that works well.** No speculative abstractions, no features beyond the
   ask, no infrastructure for hypothetical scale. Validate only at system boundaries.
-- **A feature is a slice of value, not a requirement:** the smallest unit that delivers
-  user-visible value on its own, builds and tests independently, and carries ONE coherent
-  risk tier. One feature per requirement floods `/forge:build` with thin waves. Scale the
-  count to the project — a small tool ~3-6, a typical MVP ~8-15; past ~15 in one phase,
-  either re-group or move the back half to V2 and say so. Never merge a T1 flow with T3
+- **A feature is a whole capability, not a step:** something a user notices and can use end
+  to end — screen, logic and data together — that builds and tests on its own and carries
+  ONE coherent risk tier. Too fine is the common mistake: every feature costs a branch, a
+  merge and a check, and thin features collide on the same files. Prefer fewer, larger
+  features — a small tool ~2-4, a typical MVP ~5-10; past ~10 in one phase, re-group or move
+  the back half to V2 and say so. Never merge a T1 flow with T3
   boilerplate to cut the count: the whole feature becomes T1.
 - **Every feature gets 2-5 done-criteria, ≤25 words each, checkable by someone who does not
   read the code** ("CSV export contains a numeric price column per SKU", never "export works

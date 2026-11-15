@@ -18,8 +18,8 @@
 ## Scope
 
 ### V1 — must ship
-Each row is a slice of user value, buildable and testable on its own. Small tool ~3-6 rows,
-MVP ~8-15; phase anything bigger into a V2 section. Risk = tier + the signal that set it
+Each row is a whole capability a user notices, buildable and testable on its own — not a
+step. Small tool ~2-4 rows, MVP ~5-10; phase anything bigger into a V2 section. Risk = tier + the signal that set it
 (`docs/RISK-TIERS.md` in the harness).
 
 | # | Feature | Risk | Done means |

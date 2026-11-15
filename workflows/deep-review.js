@@ -1,10 +1,10 @@
 export const meta = {
   name: 'deep-review',
   description: 'Multi-dimension code review with adversarial verification of every finding',
-  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>", mode: "integration"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md); mode: "integration" swaps the 3 lenses for ONE integration-seam lens, for reviewing a merge of features that each already passed an isolated per-feature verify (the /forge:build finish on a clean run).',
+  whenToUse: 'Before merging/shipping non-trivial work. Reviews the current diff by default; pass args like "all" for the whole repo or a path list to scope it. Args may also be an object {dir: "<product path>", scope: "...", priority: "<high-risk/T1 features + paths to concentrate on>", mode: "integration", depth: "quick"} — dir pins the target repo (required when the session did not start in the product directory); priority is an optional risk steer (see docs/RISK-TIERS.md); mode: "integration" swaps the 3 lenses for ONE integration-seam lens, only for a merge of features that EACH already passed a full fresh-context review. /forge:build does not use it: its features are not individually reviewed, so its finish runs the full review. depth: "quick" runs ONE reviewer covering all three lenses and ONE refuter for all findings (2 agents instead of ~10), for a small product or a small diff; the default is "full".',
   phases: [
-    { title: 'Review', detail: 'three merged lenses in parallel: bugs, boundaries, craft' },
-    { title: 'Verify', detail: 'findings clustered by root cause (Sonnet), then crit/high refuted individually, all medium/low by one batch refuter' },
+    { title: 'Review', detail: 'full: three lenses in parallel (bugs, boundaries, craft); quick: one reviewer covering all three' },
+    { title: 'Verify', detail: 'full: findings clustered by root cause, crit/high refuted individually, medium/low by one batch refuter; quick: one refuter for all' },
   ],
 }
 
@@ -34,42 +34,22 @@ const priority = a && typeof a === 'object' && typeof a.priority === 'string' &&
 // the merged whole — with one lens. The adversarial verify stage is unchanged, and the
 // default stays the full review: the scoped mode is explicit opt-in by the caller.
 const mode = a && typeof a === 'object' && a.mode === 'integration' ? 'integration' : 'full'
+// depth: 'quick' — one reviewer with all three lenses, one refuter for every finding. The
+// caller picks it for a small product or diff, where three readers mostly rediscover the
+// same defects. The default stays the full review.
+const quick = a && typeof a === 'object' && a.depth === 'quick' && mode !== 'integration'
 
-const PREFLIGHT = {
-  type: 'object', additionalProperties: false,
-  required: ['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'],
-  properties: {
-    path: { type: 'string', description: 'absolute path of the inspected target directory' },
-    exists: { type: 'boolean' },
-    isGitRepo: { type: 'boolean', description: 'target has a .git directory' },
-    hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
-    isControlCenter: { type: 'boolean', description: 'target is an agent harness / control-center repo rather than a product: agent-orchestration scripts in workflows/ next to agents/forge-*.md, a .claude-plugin/ or .codex-plugin/ manifest, a legacy .claude/workflows/ dir, a projects/ container dir, or an AGENTS.md/CLAUDE.md describing a harness. A product that only has forge installed into it (.agents/skills, .codex/agents, .opencode) is NOT one' },
-    cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
-  },
-}
-const pre = await globalThis.agent(
-  `Preflight, read-only, modify nothing. Run pwd. ${dirArg
-    ? `The intended target directory is ${dirArg} — inspect it.`
-    : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
-  `Report per the schema: absolute target path, whether it exists, is a git repo, holds a real project, and ` +
-  `whether it looks like an agent-harness/control-center repo instead of a product.`,
-  { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
-)
-if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>"} and retry.' }
-if (!pre.exists || !pre.hasCode || pre.isControlCenter) {
-  return {
-    error: `Refusing to review ${pre.path || dirArg || 'the session working directory'}: ` +
-      (!pre.exists ? 'it does not exist.'
-        : pre.isControlCenter ? 'it looks like a harness/control-center repo, not a product.'
-          : 'it does not hold a project (no source or manifest).') +
-      ' Pass the product directory explicitly: args {dir: "<absolute path>", scope: "..."}.',
-    preflight: pre,
-  }
-}
-const TARGET = pre.path
-const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
-  `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
-  `prompts). Stay within it.\n\n`
+// No preflight agent: each reviewer checks the target first. Reviewers are read-only, so a
+// wrong target costs tokens, never changes; all reviewers refusing is a run-level error.
+const TARGET = dirArg
+const AT = TARGET
+  ? `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
+    `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
+    `prompts). Stay within it.\n\n`
+  : `TARGET REPOSITORY: your current working directory (no dir was passed). Stay within it.\n\n`
+const TARGET_CHECK = `Check the target first: it must exist and hold a product (source code or a manifest), not ` +
+  `an agent harness (a workflows/ dir next to agents/forge-*.md, or a .claude-plugin/ or .codex-plugin/ manifest). ` +
+  `If it does not, review nothing and return refused with the reason. `
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
 
@@ -92,13 +72,23 @@ const INTEGRATION_LENS = {
     'merge-resolution artifacts, duplicated or conflicting logic introduced by parallel builds — plus a light sweep ' +
     'of smoke-only (T3) surfaces named in the risk steer. Only issues with a concrete failure scenario.',
 }
-const DIMENSIONS = mode === 'integration' ? [INTEGRATION_LENS] : LENSES
+// The quick review: one reader holds all three priors.
+const COMBINED_LENS = {
+  key: 'all',
+  prompt: 'All three dimensions in one read, in this order of stakes. (1) Security and contracts: authz/authn ' +
+    'gaps, data a caller must not see, user/tenant boundary escapes, injection, secrets, schema/API mismatches ' +
+    'against the spec the code implements. (2) Correctness and state: logic bugs, wrong conditionals, broken edge ' +
+    'cases, aliasing of internal state handed to callers, async ordering. (3) Tests: behavior changed without a ' +
+    'test that would catch its failure path.',
+}
+const DIMENSIONS = mode === 'integration' ? [INTEGRATION_LENS] : quick ? [COMBINED_LENS] : LENSES
 
 const FINDINGS = {
   type: 'object',
   additionalProperties: false,
   required: ['findings'],
   properties: {
+    refused: { type: 'string', description: 'ONLY when the target check failed: the reason. Then findings is empty.' },
     findings: {
       type: 'array',
       items: {
@@ -132,7 +122,7 @@ phase('Review')
 log(`Reviewing scope: ${scope}` + (mode === 'integration' ? ' — integration-seam mode (per-feature internals already verified)' : ''))
 const all = await parallel(DIMENSIONS.map(d => () =>
   agent(
-    `Review ${scope} in the target repository. Your single dimension: ${d.key}.\n${d.prompt}\n\n` +
+    TARGET_CHECK + `Review ${scope} in the target repository. Your ${quick ? 'dimensions' : 'single dimension'}: ${d.key}.\n${d.prompt}\n\n` +
     (priority ? `RISK STEER: concentrate your effort on these high-risk paths first — ${priority}. Sweep low-risk boilerplate lightly.\n\n` : '') +
     `Read the surrounding code, not just the diff — a change can be wrong only in context. ` +
     `CONTEXT BUDGET: the scope, the files it touches, their direct callers and tests — nothing more. ` +
@@ -147,11 +137,16 @@ const all = await parallel(DIMENSIONS.map(d => () =>
   ),
 ))
 
+const answered = all.filter(Boolean)
+if (!answered.length) return { error: 'No reviewer reported back: the host may be down or the target unreachable. Nothing was reviewed.' }
+if (answered.every(r => r.refused)) {
+  return { error: `Refusing to review ${TARGET || 'the session working directory'}: ${answered[0].refused}. Pass the product directory explicitly: args {dir: "<absolute path>", scope: "..."}.` }
+}
 // Barrier is deliberate: dedup across dimensions before paying for verification.
 const seen = new Set()
 const raw = []
-for (const r of all.filter(Boolean)) {
-  for (const f of r.findings) {
+for (const r of answered.filter(x => !x.refused)) {
+  for (const f of r.findings || []) {
     const key = `${f.file}:${f.line ?? 'file'}:${f.summary.slice(0, 60).toLowerCase()}`
     if (!seen.has(key)) { seen.add(key); raw.push(f) }
   }
@@ -211,8 +206,10 @@ phase('Verify')
 // refuter agent; ALL medium/low findings are refuted by ONE batch agent in a single
 // pass. Fail-closed either way: a missing verdict is UNVERIFIED, never a free pass.
 const indexed = findings.map((f, id) => ({ ...f, id }))
-const blockerF = indexed.filter(f => f.severity === 'critical' || f.severity === 'high')
-const restF = indexed.filter(f => f.severity !== 'critical' && f.severity !== 'high')
+const isBlocker = f => f.severity === 'critical' || f.severity === 'high'
+// Quick: one refuter judges everything, with the high dismissal bar for crit/high.
+const blockerF = quick ? [] : indexed.filter(isBlocker)
+const restF = quick ? indexed : indexed.filter(f => !isBlocker(f))
 
 const BATCH = {
   type: 'object',
@@ -251,13 +248,15 @@ const tasks = blockerF.map(f => () =>
 )
 if (restF.length) {
   tasks.push(() => agent(
-    `Adversarially verify these ${restF.length} code-review findings (all medium/low severity) in ONE pass. ` +
+    `Adversarially verify these ${restF.length} code-review findings in ONE pass. ` +
+    (quick ? `For a critical or high finding the bar to dismiss is HIGH: refuted=true ONLY when you can show the ` +
+      `scenario is impossible or already guarded; when you cannot prove it safe, it stands. ` : '') +
     `For EACH finding, by its id: read its file (the line is a hint, not the claim) plus callers, and try to ` +
     `prove the failure scenario cannot happen (guarded elsewhere, unreachable input, intentional behavior, ` +
-    `misread code). refuted=true when you can refute it or the scenario is speculative; refuted=false only if ` +
+    `misread code). For medium/low: refuted=true when you can refute it or the scenario is speculative; refuted=false only if ` +
     `after honest effort it stands. Return exactly one verdict per id — a missing id counts as open, never as ` +
     `refuted.\n\nFINDINGS:\n${JSON.stringify(restF, null, 2)}`,
-    { label: 'verify:batch', phase: 'Verify', effort: 'medium', schema: BATCH },
+    { label: 'verify:batch', phase: 'Verify', effort: quick ? 'high' : 'medium', schema: BATCH },
   ).then(b => ({ __batch: b })))
 }
 

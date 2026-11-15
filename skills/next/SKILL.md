@@ -39,8 +39,9 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 `forge-blueprint` turns the clarified ideas into features and a wave plan. It returns
 markdown; nothing lands on disk before the gate.
 
-- **Right-size**: a feature is a slice of user value that builds and tests on its own, with
-  2–5 done-criteria. Too much for one version → move the rest to a later one.
+- **Right-size**: a feature is a whole capability a user notices, not a step. It builds and
+  tests on its own, with 2–5 done-criteria. Prefer fewer, larger features; too much for one
+  version → move the rest to a later one.
 - **Tier each** per `$FORGE_HOME/docs/RISK-TIERS.md` (ties up), with the signal named.
 - Place them as the next unstarted `### V<n> — <theme>` section under `## Scope`, F#-rows
   continuing the existing numbering.

@@ -13,13 +13,46 @@ const run = (wf, scenario, responder) =>
   runWorkflow(loadSource(`workflows/${wf}.js`), { args: SCENARIOS[scenario].args, responder })
 
 suite('orchestration shape (agent budgets)', () => {
-  test('deep-review: 12 findings cost 10 agents (1 preflight + 3 lenses + 1 cluster + 4 refuters + 1 batch)', async () => {
-    const { result, calls } = await run('deep-review', 'deep-review', deepReviewResponder())
-    assert.equal(calls.length, 10)
+  test('deep-review: 12 findings cost 9 agents (3 lenses + 1 cluster + 4 refuters + 1 batch, no preflight)', async () => {
+    const prompts = {}
+    const base = deepReviewResponder()
+    const { result, calls } = await run('deep-review', 'deep-review', (p, o) => { prompts[o.label] = p; return base(p, o) })
+    assert.equal(calls.length, 9)
+    for (const l of ['review:bugs', 'review:boundaries', 'review:craft']) assert.match(prompts[l], /Check the target first/, `${l} checks the target`)
     assert.equal(calls.filter(c => c.label === 'cluster:root-cause').length, 1, 'one Sonnet cluster pass')
     assert.equal(result.confirmed.length, 12, 'all findings confirmed on the happy path')
     assert.equal(calls.filter(c => c.label.startsWith('review:')).length, 3, '3 lenses')
     assert.equal(calls.filter(c => c.label === 'verify:batch').length, 1, 'one batch refuter for all med/low')
+  })
+
+  test('deep-review depth:quick -> one reviewer for all lenses, one refuter for every finding', async () => {
+    const src = loadSource('workflows/deep-review.js')
+    const twelve = deepReviewResponder()(null, { label: 'review:bugs' }).findings
+      .concat(deepReviewResponder()(null, { label: 'review:boundaries' }).findings, deepReviewResponder()(null, { label: 'review:craft' }).findings)
+    const prompts = {}
+    const base = deepReviewResponder({ 'review:all': { findings: twelve } })
+    const { result, calls } = await runWorkflow(src, {
+      args: { ...SCENARIOS['deep-review'].args, depth: 'quick' },
+      responder: (p, o) => { prompts[o.label] = p; return base(p, o) },
+    })
+    assert.deepEqual(calls.map(c => c.label), ['review:all', 'verify:batch'], 'two agents: no cluster pass, no single refuters')
+    assert.equal(calls[1].effort, 'high', 'the one refuter judges crit/high too, so it runs at high effort')
+    assert.match(prompts['verify:batch'], /bar to dismiss is HIGH/, 'crit/high keep the high dismissal bar')
+    assert.equal(result.confirmed.length, 12)
+    // A missing verdict stays open, never refuted.
+    const dead = await runWorkflow(src, {
+      args: { ...SCENARIOS['deep-review'].args, depth: 'quick' },
+      responder: deepReviewResponder({ 'review:all': { findings: twelve }, 'verify:batch': null }),
+    })
+    assert.equal(dead.result.unverified.length, 12)
+  })
+
+  test('deep-review: all reviewers refusing the target is a run-level error', async () => {
+    const { result } = await run('deep-review', 'deep-review', deepReviewResponder({
+      'review:bugs': { refused: 'harness repo', findings: [] }, 'review:boundaries': { refused: 'harness repo', findings: [] },
+      'review:craft': { refused: 'harness repo', findings: [] },
+    }))
+    assert.match(result.error, /Refusing to review .*harness repo/)
   })
 
   test('deep-review mode:integration -> ONE seam lens instead of three, verify unchanged', async () => {

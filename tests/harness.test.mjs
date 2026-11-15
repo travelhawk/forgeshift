@@ -405,9 +405,9 @@ suite('boundary-audit optimizations', () => {
   // P9: the preflight block is duplicated across workflows; assert it stays uniform
   // by structure (not text-diff), so a future fix to one copy can't silently diverge.
   test('every workflow preflight is uniform (schema fields, haiku pin, refusal, standalone cd)', () => {
-    // feature-pipeline has no preflight agent: its builders check the target first
-    // (pinned in orchestration.eval). Every other workflow keeps the shared shape.
-    for (const f of workflows.filter(w => w !== 'feature-pipeline.js')) {
+    // feature-pipeline and deep-review have no preflight agent: their first agents check the
+    // target themselves (pinned in orchestration.eval). The others keep the shared shape.
+    for (const f of workflows.filter(w => !['feature-pipeline.js', 'deep-review.js'].includes(w))) {
       const src = readFileSync(join(workflowDir, f), 'utf8')
       assert.match(src, /required: \['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'\]/,
         `${f}: preflight schema requires the six target-verification fields`)
@@ -672,6 +672,25 @@ suite('lane consistency + speed', () => {
     assert.match(dr, /INTEGRATION_LENS/, 'a single integration lens replaces the 3-lens grind')
     assert.match(build(), /first independent read of every T2\/T3 feature/, 'the finish is where T2/T3 get reviewed')
     assert.match(build(), /never pass `mode: "integration"` here/, 'no seam-only shortcut at the finish')
+  })
+
+  // Lessons from a small-product run: worktrees, per-feature checks and fixed ports cost
+  // more than they bring; tests must not grow without bound; features too fine multiply all of it.
+  test('small runs build direct with one quick end review; tests are budgeted; no fixed ports', () => {
+    assert.match(build(), /\*\*Size the run first\.\*\* A \*\*small run\*\*/, 'build sizes the run before planning waves')
+    assert.match(build(), /No worktrees, no parallel merges, no per-feature\s+checks/, 'small runs skip the parallel machinery')
+    assert.match(build(), /A small run adds `depth: "quick"`/, 'small runs take the quick end review')
+    assert.match(build(), /a Sonnet session is enough/, 'model follows run size')
+    assert.match(build(), /test budget in the\s+project `AGENTS\.md`/, 'the merge gate checks the test budget')
+    const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
+    assert.match(fp, /budget: at most 4 new test cases/, 'builders get a per-tier test budget')
+    assert.match(fp, /No fixed port in any server or test you start/)
+    assert.match(read('agents', 'forge-hammer.md'), /\*\*No fixed ports\.\*\*/)
+    const proj = read('templates', 'PROJECT-AGENTS.md')
+    assert.match(proj, /\*\*Test budget\.\*\*/, 'every product records its test budget')
+    assert.match(proj, /\*\*CI in two levels\.\*\* Feature branches/, 'feature-branch CI is tighter than main')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /No fixed port anywhere/, 'kickoff scaffolds free ports')
+    assert.match(read('agents', 'forge-blueprint.md'), /A feature is a whole capability, not a step/, 'features are coarse')
   })
 
   // Phases, not a fixed pipeline: the session model decides when fresh context pays.

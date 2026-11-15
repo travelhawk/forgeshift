@@ -64,6 +64,9 @@ failure once, targeted: it reproduces → stop the run; it clears → log it as 
    criteria): one session matched the per-feature plan → build → verify chain on hidden tests
    at a quarter of the tokens. So one agent per feature plans inline, and fresh context is
    spent on the checks a builder cannot do on itself: T1 security and the finish review.
+   The review itself scales the same way. On a ~200-line diff with six seeded bugs,
+   `deep-review` with `depth: "quick"` (one reviewer, one refuter) found 6/6 in two runs;
+   the full review (9 agents) found 6/6 and 5/6, at three times the tokens.
 4. **Scope-box the context.** Name what to read (diff, brief, specific files + their
    callers/tests) AND what not to (full spec, PROGRESS, ADRs, memory, unrelated modules).
    "Explore for context" without bounds is a token leak: N subagents each crawling the repo

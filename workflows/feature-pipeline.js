@@ -162,10 +162,12 @@ const SECCHECK = {
 // T3 builds on the execute tier. T1/T2 PIN the build tier, so a top-tier session never
 // pays its price for building (docs/MODEL-ROUTING.md).
 const buildOpts = t => (t === 'T3' ? { model: 'sonnet', effort: 'medium' } : { model: 'opus', effort: t === 'T1' ? 'high' : 'medium' })
+// Test budget per feature: new test cases, not files. Going over needs a reason in
+// deviations — a suite that only grows gets slower every run and every branch CI.
 const TEST_DEPTH = {
-  T1: 'happy path plus explicit failure and edge cases',
-  T2: 'happy path plus the top failure path',
-  T3: 'one smoke test: it builds/renders and the happy path works',
+  T1: 'happy path plus explicit failure and edge cases; budget: at most 8 new test cases',
+  T2: 'happy path plus the top failure path; budget: at most 4 new test cases',
+  T3: 'one smoke test: it builds/renders and the happy path works; budget: 1 new test case',
 }
 
 // The one fresh-context pass per feature: always for T1, and for a T2/T3 whose builder
@@ -203,7 +205,9 @@ const results = await pipeline(
       ? `HIGH RISK: before coding, list who must NOT be able to do what, and the failure paths; test each. `
       : '') +
     `Tests first, watched failing, then implement until they pass. Test depth for ${f.tier}: ${TEST_DEPTH[f.tier]} ` +
-    `— behavior through the public surface, not a unit test per function. Your gate is typecheck, lint and the ` +
+    `— behavior through the public surface, not a unit test per function. Over budget only with the reason in ` +
+    `deviations; extend an existing test before adding a new one. No fixed port in any server or test you start: ` +
+    `read PORT from the environment, else pick a free one. Your gate is typecheck, lint and the ` +
     `tests covering YOUR diff — not the full suite (it belongs to the merge gate and starves sibling builds). ` +
     `tests_passing is true only for a test run you executed here; a syntax check or a runner that failed to ` +
     `start does not count. Do NOT tick PROGRESS.md or any tracker checkbox — the merge step ticks them with ` +

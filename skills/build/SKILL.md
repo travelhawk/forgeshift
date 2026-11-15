@@ -36,6 +36,13 @@ an independent check, real parallelism, or keeping your own context clear.
 
 ## 1. Wave plan
 
+**Size the run first.** A **small run** — about 6 features or fewer, on code you can hold in
+your context — has no waves: you build the features yourself, one after another, each on
+its own branch from the last merged state. No worktrees, no parallel merges, no per-feature
+checks: the T1 check moves into the finish review, with the T1 paths as its priority. A
+small run needs no top model: say at the gate that a Sonnet session is enough, and that you
+raise it only if a feature fails twice. Everything below is for larger runs.
+
 You partition the backlog by **file footprint**. Hand it to `forge-blueprint` only when
 reading the backlog and code would flood your context.
 
@@ -70,8 +77,9 @@ One message, one approval:
   `gh repo create --private --source .` once; declined → `git merge --no-ff` per feature.
   **Recommend `local` for a solo product with no CI**: same branches, same gates, no PR
   round-trips. It is the run's speed lever.
-- **Execution per wave**: built in order by you, or in parallel worktrees (3+ parallel-safe
-  entries: the `feature-pipeline` workflow).
+- **Run size**: small (built in order by you, one review at the end, a Sonnet session is
+  enough) or large (waves; in parallel worktrees where 3+ entries are parallel-safe: the
+  `feature-pipeline` workflow).
 - Rough cost, and that the finish (§5) is included by default — opt out here only for
   mini-backlogs.
 
@@ -109,8 +117,9 @@ is the reference):
   Raises depth only, never lowers it.
 - **The independent check.** T1, and any feature with a named surface, gets ONE fresh-context
   security pass (`forge-warden`) on its diff; for T1 it also proves the done-criteria on their
-  failure paths. The builder never checks its own work: everything else is checked by the
-  merge gate's full suite and the finish review.
+  failure paths. In a small run this pass is skipped: the finish review covers it, with the
+  T1 paths and named surfaces as its priority. The builder never checks its own work:
+  everything else is checked by the merge gate's full suite and the finish review.
 
 How to run it:
 
@@ -139,7 +148,8 @@ user's explicit go.
    the line.
 2. **Kill orphaned test processes** the wave's agents left behind.
 3. **Run the full suite and the e2e suite now**, on the integrated result. This is the only
-   place e2e runs.
+   place e2e runs. Compare its time and the new test count with the test budget in the
+   project `AGENTS.md`; over budget goes to the report as a finding to prune, not a stop.
 4. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
    real regression, stop the run and report. Clears → log it as flaky (name + passed on retry)
    and continue.
@@ -170,7 +180,9 @@ Only on a completed run; a halted run reports the stop instead. `review-PRs` mod
 integrated main — skip the review and recommend `/forge:deep-review` after merging.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
-   their paths>"}`, the full review. It is the first independent read of every T2/T3 feature,
+   their paths, and every named sensitive surface>"}`. A small run adds `depth: "quick"`
+   (one reviewer, one refuter: on a seeded-bug benchmark it found as much as the full review
+   at a third of the tokens); a large run takes the full review. It is the first independent read of every T2/T3 feature,
    so never pass `mode: "integration"` here. A review that returns no
    `confirmed`/`unverified` is ship-blocking.
 2. CONFIRMED critical/high get `/forge:fix` discipline: regression test first, smallest fix,

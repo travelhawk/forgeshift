@@ -89,6 +89,8 @@ const LENS_MAP = {
   'concurrency-state': FINDINGS_POOL.slice(4, 6), 'data-contracts': FINDINGS_POOL.slice(6, 8),
   tests: FINDINGS_POOL.slice(8, 10), simplify: FINDINGS_POOL.slice(10, 12),
   bugs: FINDINGS_POOL.slice(0, 4), boundaries: FINDINGS_POOL.slice(4, 8), craft: FINDINGS_POOL.slice(8, 12),
+  // depth: 'quick' — one reader finds the whole pool.
+  all: FINDINGS_POOL,
 }
 
 // --- responders (work for both the old and new workflow revisions) ------------
@@ -172,6 +174,13 @@ export const CASES = [
     ],
   },
   {
+    wf: 'deep-review', scenario: 'deep-review-quick', note: 'depth: quick, same 12 findings',
+    quality: r => [
+      { metric: 'findings confirmed', value: (r.confirmed ?? []).length, better: 'higher' },
+      { metric: 'findings left unverified', value: (r.unverified ?? []).length, better: 'lower' },
+    ],
+  },
+  {
     wf: 'feature-pipeline', scenario: 'feature-pipeline', note: '6 features: 2xT1 2xT2 2xT3',
     quality: r => [
       { metric: 'features passed', value: (r.passed ?? []).length, better: 'higher' },
@@ -198,6 +207,7 @@ export const CASES = [
 // Standard scenario args (6-feature mixed-tier batch for the pipeline).
 export const SCENARIOS = {
   'deep-review': { args: { dir: DIR, scope: 'the last merge diff' }, responder: deepReviewResponder },
+  'deep-review-quick': { args: { dir: DIR, scope: 'the last merge diff', depth: 'quick' }, responder: deepReviewResponder },
   'feature-pipeline': {
     args: {
       dir: DIR,

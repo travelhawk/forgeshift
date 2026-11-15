@@ -48,8 +48,9 @@ matching this product type (that file only). No index or no match → skip silen
 
 Check the draft before you show it:
 
-- **Feature count fits the product**: a small tool has ~3–6 features, an MVP ~8–15. V1 caps
-  at ~15; the rest is phased into V2.
+- **Features are whole capabilities, not steps**: a small tool has ~2–4, an MVP ~5–10. V1
+  caps at ~10; the rest is phased into V2. Every feature costs a branch, a merge and a
+  check, so too fine is the expensive mistake.
 - **Every V1 feature carries a risk tier** per `$FORGE_HOME/docs/RISK-TIERS.md`, with the
   signal named; ties break **up**. The tiers show in the scope table so the user can adjust.
 - **Done-criteria are checkable by someone who does not read the code**, and say what the
@@ -94,7 +95,11 @@ are approved.**
 4. `PROGRESS.md` from the template: the V1 features as F#-rows carrying their **tier +
    justification**, a health baseline, and a seeded "Next session should".
 5. Wire the test runner and add one smoke test that actually runs (`app boots` / `CLI prints
-   version`). Verify install, test and dev-server boot. Boot check: start it in the background,
+   version`). **No fixed port anywhere:** dev, preview and e2e servers read `PORT` and fall
+   back to a free port, so parallel runs never collide. Add CI in two levels: feature
+   branches run typecheck, lint and the fast suite under a hard timeout; main runs the full
+   suite and e2e. Fill the test budget in the project `AGENTS.md`. Verify install, test and
+   dev-server boot. Boot check: start it in the background,
    poll until it responds, then **kill the whole process tree** — Windows: `taskkill //F //T
    //PID <pid>` or `npx kill-port <port>`; a bare `kill` leaves node holding the port.
 6. Commit: `chore: scaffold <name> (<stack summary>)`.
