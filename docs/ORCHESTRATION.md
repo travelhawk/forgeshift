@@ -39,10 +39,11 @@ taste every few minutes · shared mutable state without worktree isolation · a 
 
 Workflow agents start in the session's start directory, not in your shell `cd`. Pass the
 product explicitly: `args: {dir: "<absolute product path>", ...}`. The path is pinned into each
-agent prompt, and a missing, empty or harness repo is refused before anything changes: by a
-preflight agent, or in `feature-pipeline` by each builder's first step. Arg coercion lives in
-`lib/workflow-preamble.mjs`; the input-file fallback in `feature-pipeline.js` and
-`design-panel.js`.
+agent prompt, and a missing, empty or harness repo is refused before anything changes: the
+first agents of every workflow check the target themselves. No workflow spends an agent on a
+preflight. Arg coercion and the target check live in `lib/workflow-preamble.mjs`; the
+input-file fallback, which costs an agent only when args were lost, in `feature-pipeline.js`
+and `design-panel.js`.
 
 `feature-pipeline` tests each branch in isolation, so the merged whole is tested by no
 agent. Run the full suite on the merged result before calling the batch done. Re-run a NEW

@@ -95,8 +95,8 @@ are approved.**
 4. `PROGRESS.md` from the template: the V1 features as F#-rows carrying their **tier +
    justification**, a health baseline, and a seeded "Next session should".
 5. Wire the test runner and add one smoke test that actually runs (`app boots` / `CLI prints
-   version`). **No fixed port anywhere:** dev, preview and e2e servers read `PORT` and fall
-   back to a free port, so parallel runs never collide. Add CI in two levels: feature
+   version`). **Avoid fixed ports where the stack allows it:** dev, preview and e2e servers
+   read `PORT` and fall back to a free port, so parallel runs do not collide. Add CI in two levels: feature
    branches run typecheck, lint and the fast suite under a hard timeout; main runs the full
    suite and e2e. Fill the test budget in the project `AGENTS.md`. Verify install, test and
    dev-server boot. Boot check: start it in the background,

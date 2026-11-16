@@ -13,8 +13,9 @@ export const meta = {
 // Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
 // both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
 // (1) workflow agents run in the SESSION's working directory — not necessarily the product
-//     this workflow should operate on. So the target arrives as {dir}, is verified before
-//     anything changes, and every later prompt is pinned to it.
+//     this workflow should operate on. So the target arrives as {dir} and every prompt is
+//     pinned to it (AT). There is no preflight agent: the first agents check the target
+//     themselves (TARGET_CHECK) and refuse a wrong one before anything changes.
 // (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
 // `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
 // identical on every host, so the guard rides along. Each workflow reads its own fields
@@ -22,59 +23,42 @@ export const meta = {
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
 const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const TARGET = dirArg
+const AT = TARGET
+  ? `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
+    `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
+    `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
+  : `TARGET REPOSITORY: your current working directory (no dir was passed). Stay within it (sibling worktree ` +
+    `dirs excepted).\n\n`
+const TARGET_CHECK = `Check the target first, before you change anything: it must exist and hold a product ` +
+  `(source code or a manifest), not an agent harness (a workflows/ dir next to agents/forge-*.md, or a ` +
+  `.claude-plugin/ or .codex-plugin/ manifest). If it does not, do nothing else and return refused with the reason. `
 // <<< forge:args-guard
-// The brief itself falls back to design-panel.input.md in the target root (read by the
-// preflight agent below) when args did not carry it.
+// The brief itself falls back to design-panel.input.md in the target root when args did
+// not carry it (read below, only then).
 let brief = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.brief === 'string' && a.brief.trim() ? a.brief.trim() : null
-// Lean by default: 3 designers + 1 judge-synthesizer (5 agents incl. preflight).
+// Lean by default: 3 designers + 1 judge-synthesizer (4 agents).
 // panel: 'wide' opts into the full 4-designer / 3-judge / separate-synthesis panel.
 const wide = !!(a && typeof a === 'object' && a.panel === 'wide')
 
-const PREFLIGHT = {
-  type: 'object', additionalProperties: false,
-  required: ['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'],
-  properties: {
-    path: { type: 'string', description: 'absolute path of the inspected target directory' },
-    exists: { type: 'boolean' },
-    isGitRepo: { type: 'boolean', description: 'target has a .git directory' },
-    hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
-    isControlCenter: { type: 'boolean', description: 'target is an agent harness / control-center repo rather than a product: agent-orchestration scripts in workflows/ next to agents/forge-*.md, a .claude-plugin/ or .codex-plugin/ manifest, a legacy .claude/workflows/ dir, a projects/ container dir, or an AGENTS.md/CLAUDE.md describing a harness. A product that only has forge installed into it (.agents/skills, .codex/agents, .opencode) is NOT one' },
-    cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
-    briefFile: { type: 'string', description: 'ONLY if design-panel.input.md exists in the target root: its full content, verbatim' },
-  },
-}
-const pre = await globalThis.agent(
-  `Preflight, read-only, modify nothing. Run pwd. ${dirArg
-    ? `The intended target directory is ${dirArg} — inspect it.`
-    : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
-  `Report per the schema: absolute target path, whether it exists, is a git repo, holds a real project, and ` +
-  `whether it looks like an agent-harness/control-center repo instead of a product. Additionally: if a file ` +
-  `design-panel.input.md exists in the target root, return its full content verbatim in briefFile.`,
-  { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
-)
-if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>", brief: "..."} and retry.' }
-if (!pre.exists || !pre.hasCode || pre.isControlCenter) {
-  return {
-    error: `Refusing to run against ${pre.path || dirArg || 'the session working directory'}: ` +
-      (!pre.exists ? 'it does not exist.'
-        : pre.isControlCenter ? 'it looks like a harness/control-center repo, not a product.'
-          : 'it does not hold a project (no source or manifest).') +
-      ' Pass the product directory explicitly: args {dir: "<absolute path>", brief: "..."}.',
-    preflight: pre,
+// A brief lost in transit: read the fallback file. Only this rare path costs an agent.
+if (!brief) {
+  const inp = await globalThis.agent(
+    `Read-only, modify nothing. Look for design-panel.input.md in ${TARGET || 'the current working directory'}. ` +
+    `If it exists, return its full content verbatim in brief; else return an empty string.`,
+    { label: 'input:fallback', model: 'haiku', effort: 'low', schema: { type: 'object', additionalProperties: false, required: ['brief'], properties: { brief: { type: 'string' } } } },
+  )
+  if (inp && inp.brief && inp.brief.trim()) {
+    brief = inp.brief.trim()
+    log('Brief read from design-panel.input.md — args did not arrive intact')
   }
 }
-if (!brief && pre.briefFile && pre.briefFile.trim()) {
-  brief = pre.briefFile.trim()
-  log('Brief read from design-panel.input.md — args did not arrive intact')
-}
 if (!brief) {
-  return { error: 'design-panel requires the design brief: pass it as args (string or {dir, brief}), or write design-panel.input.md into the target repo root.', preflight: pre }
+  return { error: 'design-panel requires the design brief: pass it as args (string or {dir, brief}), or write design-panel.input.md into the target repo root.' }
 }
-const TARGET = pre.path
-const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
-  `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
-  `prompts). Stay within it.\n\n`
+// Each designer checks the target first (TARGET_CHECK, from the guard); all refusing is a
+// run-level error. Designers only read, so a wrong target costs tokens, never changes.
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
 const spend = () => (typeof budget !== 'undefined' && budget && typeof budget.spent === 'function')
@@ -107,6 +91,7 @@ const DESIGN = {
   additionalProperties: false,
   required: ['summary', 'components', 'data_flow', 'tradeoffs', 'risks', 'effort_estimate'],
   properties: {
+    refused: { type: 'string', description: 'ONLY when the target check failed: the reason. Fill the other fields with empty values.' },
     summary: { type: 'string', description: '3-6 sentence pitch of the approach' },
     components: { type: 'array', items: { type: 'string' }, description: 'Component — responsibility, one per entry' },
     data_flow: { type: 'string' },
@@ -120,7 +105,7 @@ phase('Design')
 log(`${angles.length} designers working the brief independently (${wide ? 'wide' : 'lean'} panel)`)
 const designs = (await parallel(angles.map(a2 => () =>
   agent(
-    `You are designing a solution. Ground yourself in the target repository first, but SCOPE-BOXED: ` +
+    TARGET_CHECK + `You are designing a solution. Ground yourself in the target repository first, but SCOPE-BOXED: ` +
     `the manifest/stack config, the modules the brief touches, and one representative example of the ` +
     `existing conventions — do NOT crawl the whole tree, the full spec, or docs beyond what the brief names.\n\n` +
     `BRIEF:\n${brief}\n\nYOUR DESIGN PRIOR — commit to it fully; other designers cover other priors:\n${a2.prior}\n\n` +
@@ -129,6 +114,11 @@ const designs = (await parallel(angles.map(a2 => () =>
   ).then(d => d && { key: a2.key, ...d }),
 ))).filter(Boolean)
 
+const refusals = designs.filter(d => d.refused)
+if (designs.length && refusals.length === designs.length) {
+  return { error: `Refusing to run against ${TARGET || 'the session working directory'}: ${refusals[0].refused}. Pass the product directory explicitly: args {dir: "<absolute path>", brief: "..."}.` }
+}
+designs.splice(0, designs.length, ...designs.filter(d => !d.refused))
 if (designs.length < 2) {
   return { target: TARGET, error: 'Fewer than 2 designs produced — cannot run a meaningful panel.', designs }
 }

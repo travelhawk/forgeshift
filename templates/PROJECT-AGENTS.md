@@ -49,8 +49,8 @@ Rationale: `docs/adr/001-stack.md`.
   prune tests that prove the same thing before adding more.
 - **CI in two levels.** Feature branches: typecheck, lint, fast suite, with a hard timeout.
   main: full suite + e2e.
-- **No fixed ports.** Dev, preview and e2e servers read `PORT`; without it they take a free
-  port. Fixed ports turn parallel runs into false red tests.
+- **Avoid fixed ports where the stack allows it.** Dev, preview and e2e servers read `PORT`;
+  without it they take a free port. Fixed ports turn parallel runs into false red tests.
 - The code is the truth for how; `docs/SPEC.md` changes only when what the user gets changes.
 - Two failed attempts → escalate, don't grind.
 

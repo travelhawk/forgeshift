@@ -13,7 +13,7 @@ Claude Code runtime reads those tokens; every other host maps the tier itself (`
 | `inherit` | **judge** | specs, architecture, review verdicts, hard bugs | the session model — **Opus 5.5** | the session model — **gpt-6-sol** | $4 / $20 · $2 / $10 |
 | `opus` | **build** | all real building | **Opus 5.5** | **gpt-6-sol** | $4 / $20 · $2 / $10 |
 | `sonnet` | **execute** | docs, research, written plans, command-running gates | **Sonnet 5.5** | **gpt-6-sol**, lower effort | $2 / $10 · $2 / $10 |
-| `haiku` | **sweep** | preflight, inventory, classification | **Haiku 5.5** | **gpt-6-luna** | $0.10 / $0.50 |
+| `haiku` | **sweep** | input fallbacks, inventory, classification | **Haiku 5.5** | **gpt-6-luna** | $0.10 / $0.50 |
 
 **Top tier — opt-in, never a default.** Claude **Fable 5.1** and OpenAI **gpt-6-astra** cost
 $10 / $50, 2.5x Opus 5.5 and 5x Sol. Nothing in forge pins them. Raise the *session* to the
@@ -53,7 +53,7 @@ every stage** — an unset stage inherits the session's, usually too high for me
 
 | Effort | Use for |
 |---|---|
-| `low` | Preflight, inventory, classification, mechanical edits |
+| `low` | Input fallbacks, inventory, classification, mechanical edits |
 | `medium` | Routine building (T2/T3), routine verifying, written-plan execution |
 | `high` | High-risk planning, building and verifying (T1), review dimensions, security passes |
 | `xhigh` | Final review gates, hard debugging, one-way-door judging |

@@ -39,8 +39,8 @@ tells you nothing your own files didn't.
 for what no other layer can reach — a keyboard flow, a multi-step wizard, a browser-only
 API. Never e2e-first. **You do not execute it**; the merge gate does.
 
-**No fixed ports.** Any server or test you start reads `PORT`, else takes a free port: two
-runs on one fixed port turn each other's tests red.
+**Avoid fixed ports where the tool allows it.** A server or test you start reads `PORT`, else
+takes a free port: two runs on one fixed port turn each other's tests red.
 
 **Leave no process behind.** Anything you start — dev server, watcher, database — you kill
 before you report, by process tree (Windows: `taskkill //F //T //PID`, or `npx kill-port`).

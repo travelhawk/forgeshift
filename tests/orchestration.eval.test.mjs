@@ -117,18 +117,31 @@ suite('orchestration shape (agent budgets)', () => {
     assert.ok(!calls.some(c => c.label.startsWith('security:')), 'nothing is verified on a refused target')
   })
 
-  test('design-panel: lean = 5 agents, wide = 9', async () => {
+  test('design-panel: lean = 4 agents, wide = 8 (no preflight)', async () => {
     const lean = await run('design-panel', 'design-panel', designPanelResponder())
-    assert.equal(lean.calls.length, 5)
+    assert.equal(lean.calls.length, 4)
     assert.ok(lean.result.design, 'lean run produces the final document')
     const wide = await run('design-panel', 'design-panel-wide', designPanelResponder())
-    assert.equal(wide.calls.length, 9)
+    assert.equal(wide.calls.length, 8)
     assert.ok(wide.result.design)
   })
 
-  test('release-gate: 6 gates in 4 agents, SHIP on all-pass', async () => {
+  test('design-panel: a lost brief is read from the input file; all designers refusing is an error', async () => {
+    const src = loadSource('workflows/design-panel.js')
+    const fromFile = await runWorkflow(src, {
+      args: { dir: SCENARIOS['design-panel'].args.dir },
+      responder: designPanelResponder({ 'input:fallback': { brief: 'design the sync engine' } }),
+    })
+    assert.equal(fromFile.calls[0].label, 'input:fallback')
+    assert.ok(fromFile.result.design, 'the panel runs on the brief from the file')
+    const refused = { refused: 'harness repo', summary: '', components: [], data_flow: '', tradeoffs: [], risks: [], effort_estimate: '' }
+    const r = await run('design-panel', 'design-panel', designPanelResponder({ 'design:simplest': refused, 'design:ops-first': refused, 'design:user-first': refused }))
+    assert.match(r.result.error, /Refusing to run against .*harness repo/)
+  })
+
+  test('release-gate: 6 gates in 3 agents, SHIP on all-pass (no preflight)', async () => {
     const { result, calls } = await run('release-gate', 'release-gate', releaseGateResponder())
-    assert.equal(calls.length, 4)
+    assert.equal(calls.length, 3)
     assert.equal(result.verdict, 'SHIP')
     assert.equal(result.gates.length, 6, 'all six gates reported evidence')
   })

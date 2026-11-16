@@ -264,7 +264,7 @@ describe('runtime — the workflow surface off Claude', () => {
     assert.deepEqual(result, ['a1a0', null, 'c1c2'])
   })
 
-  test('a real workflow refuses fail-closed when its preflight agent never reports', async () => {
+  test('a real workflow fails closed when no agent reports', async () => {
     for (const w of workflows) {
       const { result } = await runWorkflow(read('workflows', w), {
         args: { dir: '/nowhere', features: ['x'], brief: 'b', context: 'c' }, agentFn: async () => { throw new Error('host down') },

@@ -13,8 +13,9 @@ export const meta = {
 // Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
 // both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
 // (1) workflow agents run in the SESSION's working directory — not necessarily the product
-//     this workflow should operate on. So the target arrives as {dir}, is verified before
-//     anything changes, and every later prompt is pinned to it.
+//     this workflow should operate on. So the target arrives as {dir} and every prompt is
+//     pinned to it (AT). There is no preflight agent: the first agents check the target
+//     themselves (TARGET_CHECK) and refuse a wrong one before anything changes.
 // (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
 // `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
 // identical on every host, so the guard rides along. Each workflow reads its own fields
@@ -22,46 +23,23 @@ export const meta = {
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
 const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const TARGET = dirArg
+const AT = TARGET
+  ? `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
+    `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
+    `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
+  : `TARGET REPOSITORY: your current working directory (no dir was passed). Stay within it (sibling worktree ` +
+    `dirs excepted).\n\n`
+const TARGET_CHECK = `Check the target first, before you change anything: it must exist and hold a product ` +
+  `(source code or a manifest), not an agent harness (a workflows/ dir next to agents/forge-*.md, or a ` +
+  `.claude-plugin/ or .codex-plugin/ manifest). If it does not, do nothing else and return refused with the reason. `
 // <<< forge:args-guard
 const ctxArg = typeof a === 'string' && a.trim() ? a.trim()
   : a && typeof a === 'object' && typeof a.context === 'string' && a.context.trim() ? a.context.trim() : null
 const context = ctxArg ? `Release context: ${ctxArg}` : 'No release context provided — infer version/changes from git.'
 
-const PREFLIGHT = {
-  type: 'object', additionalProperties: false,
-  required: ['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'],
-  properties: {
-    path: { type: 'string', description: 'absolute path of the inspected target directory' },
-    exists: { type: 'boolean' },
-    isGitRepo: { type: 'boolean', description: 'target has a .git directory' },
-    hasCode: { type: 'boolean', description: 'target holds a real project: source code and/or a manifest/build config (package.json, pyproject.toml, go.mod, Cargo.toml, ...)' },
-    isControlCenter: { type: 'boolean', description: 'target is an agent harness / control-center repo rather than a product: agent-orchestration scripts in workflows/ next to agents/forge-*.md, a .claude-plugin/ or .codex-plugin/ manifest, a legacy .claude/workflows/ dir, a projects/ container dir, or an AGENTS.md/CLAUDE.md describing a harness. A product that only has forge installed into it (.agents/skills, .codex/agents, .opencode) is NOT one' },
-    cwdIsTarget: { type: 'boolean', description: 'the shell current working directory IS the target (compare pwd to the target path)' },
-  },
-}
-const pre = await globalThis.agent(
-  `Preflight, read-only, modify nothing. Run pwd. ${dirArg
-    ? `The intended target directory is ${dirArg} — inspect it.`
-    : 'No target was passed — the current working directory is the implied target; inspect it.'} ` +
-  `Report per the schema: absolute target path, whether it exists, is a git repo, holds a real project, and ` +
-  `whether it looks like an agent-harness/control-center repo instead of a product.`,
-  { label: 'preflight:target', model: 'haiku', effort: 'low', schema: PREFLIGHT },
-)
-if (!pre) return { error: 'Preflight agent failed — cannot verify the target directory. Pass args {dir: "<product path>"} and retry.' }
-if (!pre.exists || !pre.hasCode || pre.isControlCenter) {
-  return {
-    error: `Refusing to gate ${pre.path || dirArg || 'the session working directory'}: ` +
-      (!pre.exists ? 'it does not exist.'
-        : pre.isControlCenter ? 'it looks like a harness/control-center repo, not a product.'
-          : 'it does not hold a project (no source or manifest).') +
-      ' Pass the product directory explicitly: args {dir: "<absolute path>", context: "..."}.',
-    preflight: pre,
-  }
-}
-const TARGET = pre.path
-const AT = `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
-  `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
-  `prompts). Stay within it.\n\n`
+// Each gate agent checks the target first (TARGET_CHECK, from the guard). A refused or
+// silent gate is a blocker, so a wrong target can never yield SHIP.
 const agent0 = globalThis.agent
 const agent = (p, o) => agent0(AT + p, o)
 
@@ -70,6 +48,7 @@ const CHECK = {
   additionalProperties: false,
   required: ['gate', 'status', 'evidence', 'blockers', 'warnings'],
   properties: {
+    refused: { type: 'string', description: 'ONLY when the target check failed: the reason.' },
     gate: { type: 'string' },
     status: { type: 'string', enum: ['pass', 'fail', 'skipped'] },
     evidence: { type: 'string', description: 'The command(s) run and the decisive output lines; for skipped, WHY it does not apply' },
@@ -93,7 +72,7 @@ const EXECUTE_GATES = [
 const ALL_KEYS = [...INSPECT_GATES, ...EXECUTE_GATES].map(g => g.key)
 
 const gatePrompt = g =>
-  `You are the "${g.key}" release gate for the target project. ${context}\n\nTASK: ${g.task}\n\n` +
+  TARGET_CHECK + `You are the "${g.key}" release gate for the target project. ${context}\n\nTASK: ${g.task}\n\n` +
   `Be strict and honest: report exactly what the commands output. Never mark pass without having run the check. ` +
   `If a needed command does not exist, status=skipped and say what is missing.`
 
@@ -104,6 +83,7 @@ const MULTICHECK = keys => ({
   additionalProperties: false,
   required: ['gates'],
   properties: {
+    refused: { type: 'string', description: 'ONLY when the target check failed: the reason. Then gates is empty.' },
     gates: {
       type: 'array',
       items: { ...CHECK, properties: { ...CHECK.properties, gate: { type: 'string', enum: keys } } },
@@ -111,7 +91,7 @@ const MULTICHECK = keys => ({
   },
 })
 const multiPrompt = (gates, extra) =>
-  `You are running ${gates.length} release gates for the target project in ONE pass. ${context}\n\n` +
+  TARGET_CHECK + `You are running ${gates.length} release gates for the target project in ONE pass. ${context}\n\n` +
   gates.map(g => `GATE "${g.key}": ${g.task}`).join('\n\n') + `\n\n${extra ? extra + ' ' : ''}` +
   `Return exactly one gates[] entry per key (${gates.map(g => g.key).join(', ')}). Be strict and honest: report ` +
   `exactly what the commands output. Never mark a gate pass without having run its check; a needed command that ` +
@@ -139,10 +119,20 @@ const exec = await agent(
 )
 
 phase('Verdict')
+const replies = [hygiene, security, exec]
+if (replies.every(r => !r)) {
+  return { error: 'No gate agent reported back: the host may be down or the target unreachable. Nothing was checked.', verdict: 'NO-SHIP' }
+}
+const refusal = replies.find(r => r && r.refused)
+if (refusal && replies.every(r => !r || r.refused)) {
+  return { error: `Refusing to gate ${TARGET || 'the session working directory'}: ${refusal.refused}. Pass the product directory explicitly: args {dir: "<absolute path>", context: "..."}.`, verdict: 'NO-SHIP' }
+}
+// A refused agent reports no gates; its keys count as missing below, so they block.
+const ok = r => r && !r.refused
 const results = [
-  ...(hygiene ? hygiene.gates : []),
-  security,
-  ...(exec ? exec.gates : []),
+  ...(ok(hygiene) ? hygiene.gates || [] : []),
+  ok(security) ? security : null,
+  ...(ok(exec) ? exec.gates || [] : []),
 ].filter(Boolean)
 const failed = results.filter(r => r.status === 'fail')
 const skipped = results.filter(r => r.status === 'skipped')

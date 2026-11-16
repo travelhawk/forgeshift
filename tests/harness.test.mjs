@@ -402,21 +402,17 @@ suite('cost optimizations', () => {
 
 // --- boundary-audit optimizations (2026-07-14) — each locks its shape here ----
 suite('boundary-audit optimizations', () => {
-  // P9: the preflight block is duplicated across workflows; assert it stays uniform
-  // by structure (not text-diff), so a future fix to one copy can't silently diverge.
-  test('every workflow preflight is uniform (schema fields, haiku pin, refusal, standalone cd)', () => {
-    // feature-pipeline and deep-review have no preflight agent: their first agents check the
-    // target themselves (pinned in orchestration.eval). The others keep the shared shape.
-    for (const f of workflows.filter(w => !['feature-pipeline.js', 'deep-review.js'].includes(w))) {
+  // The target check lives once, in the shared guard; no workflow spends an agent on a
+  // preflight. Each workflow's first agents carry the check and a refusal path.
+  test('no workflow runs a preflight agent; every one carries the shared target check', () => {
+    for (const f of workflows) {
       const src = readFileSync(join(workflowDir, f), 'utf8')
-      assert.match(src, /required: \['path', 'exists', 'isGitRepo', 'hasCode', 'isControlCenter', 'cwdIsTarget'\]/,
-        `${f}: preflight schema requires the six target-verification fields`)
-      assert.match(src, /label: 'preflight:target', model: 'haiku', effort: 'low'/,
-        `${f}: preflight agent pins haiku/low`)
-      assert.match(src, /it looks like a harness\/control-center repo, not a product/,
-        `${f}: refusal branch guards the control-center case`)
-      assert.match(src, /standalone cd into it/, `${f}: AT preamble mandates a standalone cd`)
+      assert.doesNotMatch(src, /preflight:target/, `${f}: no preflight agent`)
+      assert.match(src, /TARGET_CHECK/, `${f}: its agents check the target first`)
+      assert.match(src, /Refusing to (run against|review|gate)/, `${f}: a refused target is a run-level error`)
     }
+    assert.match(ARGS_GUARD, /not an agent harness/, 'the shared check guards the control-center case')
+    assert.match(ARGS_GUARD, /standalone cd into it/, 'AT mandates a standalone cd')
   })
 
   // P1: T1/T2 builds pin the build tier instead of riding a top-tier session.
@@ -676,7 +672,7 @@ suite('lane consistency + speed', () => {
 
   // Lessons from a small-product run: worktrees, per-feature checks and fixed ports cost
   // more than they bring; tests must not grow without bound; features too fine multiply all of it.
-  test('small runs build direct with one quick end review; tests are budgeted; no fixed ports', () => {
+  test('small runs build direct with one quick end review; tests are budgeted; free ports where possible', () => {
     assert.match(build(), /\*\*Size the run first\.\*\* A \*\*small run\*\*/, 'build sizes the run before planning waves')
     assert.match(build(), /No worktrees, no parallel merges, no per-feature\s+checks/, 'small runs skip the parallel machinery')
     assert.match(build(), /A small run adds `depth: "quick"`/, 'small runs take the quick end review')
@@ -684,12 +680,12 @@ suite('lane consistency + speed', () => {
     assert.match(build(), /test budget in the\s+project `AGENTS\.md`/, 'the merge gate checks the test budget')
     const fp = readFileSync(join(workflowDir, 'feature-pipeline.js'), 'utf8')
     assert.match(fp, /budget: at most 4 new test cases/, 'builders get a per-tier test budget')
-    assert.match(fp, /No fixed port in any server or test you start/)
-    assert.match(read('agents', 'forge-hammer.md'), /\*\*No fixed ports\.\*\*/)
+    assert.match(fp, /Avoid fixed ports where the tool allows it/)
+    assert.match(read('agents', 'forge-hammer.md'), /\*\*Avoid fixed ports where the tool allows it\.\*\*/)
     const proj = read('templates', 'PROJECT-AGENTS.md')
     assert.match(proj, /\*\*Test budget\.\*\*/, 'every product records its test budget')
     assert.match(proj, /\*\*CI in two levels\.\*\* Feature branches/, 'feature-branch CI is tighter than main')
-    assert.match(read('skills', 'kickoff', 'SKILL.md'), /No fixed port anywhere/, 'kickoff scaffolds free ports')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /Avoid fixed ports where the stack allows it/, 'kickoff scaffolds free ports where it can')
     assert.match(read('agents', 'forge-blueprint.md'), /A feature is a whole capability, not a step/, 'features are coarse')
   })
 

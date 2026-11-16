@@ -12,8 +12,9 @@ export const meta = {
 // Target-directory + args contract (2026-07-06; unified 2026-09-22). Two failure modes,
 // both seen live in the 2026-07-05 harness eval, both from the NATIVE Workflow invocation:
 // (1) workflow agents run in the SESSION's working directory — not necessarily the product
-//     this workflow should operate on. So the target arrives as {dir}, is verified before
-//     anything changes, and every later prompt is pinned to it.
+//     this workflow should operate on. So the target arrives as {dir} and every prompt is
+//     pinned to it (AT). There is no preflight agent: the first agents check the target
+//     themselves (TARGET_CHECK) and refuse a wrong one before anything changes.
 // (2) args can arrive JSON-stringified. So they are coerced before anything reads them.
 // `bin/forge-run.mjs` reads an args file and has neither problem, but the script file is
 // identical on every host, so the guard rides along. Each workflow reads its own fields
@@ -21,6 +22,16 @@ export const meta = {
 let a = args
 if (typeof a === 'string' && a.trim().startsWith('{')) { try { a = JSON.parse(a) } catch { /* keep raw string */ } }
 const dirArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.dir === 'string' && a.dir.trim() ? a.dir.trim() : null
+const TARGET = dirArg
+const AT = TARGET
+  ? `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
+    `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
+    `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
+  : `TARGET REPOSITORY: your current working directory (no dir was passed). Stay within it (sibling worktree ` +
+    `dirs excepted).\n\n`
+const TARGET_CHECK = `Check the target first, before you change anything: it must exist and hold a product ` +
+  `(source code or a manifest), not an agent harness (a workflows/ dir next to agents/forge-*.md, or a ` +
+  `.claude-plugin/ or .codex-plugin/ manifest). If it does not, do nothing else and return refused with the reason. `
 // <<< forge:args-guard
 // forge_home: the launcher already resolved $FORGE_HOME, so the scripts dir is derived in code.
 const forgeHomeArg = a && typeof a === 'object' && !Array.isArray(a) && typeof a.forge_home === 'string' && a.forge_home.trim()
@@ -80,20 +91,12 @@ if (!features.length) {
   return { error: 'feature-pipeline requires features: pass args {dir, forge_home, features, context}, or write feature-pipeline.input.json into the target repo root.' }
 }
 
-// No preflight agent: each builder checks the target as its first step and refuses a wrong
-// one before it changes anything. A refusal fails that feature closed.
-const TARGET = dirArg
-const AT = TARGET
-  ? `TARGET REPOSITORY: ${TARGET} — treat it as the current working directory. FIRST shell command: a ` +
-    `standalone cd into it — cwd persists between commands; never chain cd with && (chained cd trips permission ` +
-    `prompts). Stay within it (sibling worktree dirs excepted).\n\n`
-  : `TARGET REPOSITORY: your current working directory (no dir was passed). Stay within it (sibling worktree ` +
-    `dirs excepted).\n\n`
+// Each builder checks the target as its first step (TARGET_CHECK, from the guard) and
+// refuses a wrong one before it changes anything. A refusal fails that feature closed.
 const agent = (p, o) => globalThis.agent(AT + p, o)
-const TARGET_CHECK = `Check the target first, before you change anything: it must be a git repository with at least ` +
-  `one commit, holding a product (source code or a manifest), not an agent harness (a workflows/ dir next to ` +
-  `agents/forge-*.md, or a .claude-plugin/ or .codex-plugin/ manifest). If it is not, change nothing and return ` +
-  `branch "" with deviations ["REFUSED: <reason>"].`
+const BUILD_CHECK = TARGET_CHECK.replace('return refused with the reason. ',
+  'return branch "" with deviations ["REFUSED: <reason>"]. ') +
+  `A git repository without a commit is refused too: worktree isolation needs one.`
 
 const knownRedNote = knownRed && String(knownRed).trim()
   ? `\nBASELINE (KNOWN-RED): these tests/checks already fail before this feature and are not yours to fix: ` +
@@ -196,7 +199,7 @@ const results = await pipeline(
   // 1. Build — one agent per feature, in its own worktree. It plans inline: the build
   //    tier reads the code anyway, and a separate plan agent would read it twice.
   (f, _, i) => agent(
-    `Build this feature and commit it.\n${TARGET_CHECK}\n${buildWorktree(i)}\n` +
+    `Build this feature and commit it.\n${BUILD_CHECK}\n${buildWorktree(i)}\n` +
     `\nFEATURE: ${f.feature}\nRISK TIER: ${f.tier}\nDONE CRITERIA:\n${JSON.stringify(f.done_criteria || [f.feature])}\n` +
     (context ? `SHARED CONTEXT:\n${context}\n` : '') +
     `\nRead the code you touch and its tests, plan inline, match what is there. Do NOT re-open the full spec, ` +
@@ -206,8 +209,8 @@ const results = await pipeline(
       : '') +
     `Tests first, watched failing, then implement until they pass. Test depth for ${f.tier}: ${TEST_DEPTH[f.tier]} ` +
     `— behavior through the public surface, not a unit test per function. Over budget only with the reason in ` +
-    `deviations; extend an existing test before adding a new one. No fixed port in any server or test you start: ` +
-    `read PORT from the environment, else pick a free one. Your gate is typecheck, lint and the ` +
+    `deviations; extend an existing test before adding a new one. Avoid fixed ports where the tool allows it: ` +
+    `a server or test you start reads PORT, else picks a free one. Your gate is typecheck, lint and the ` +
     `tests covering YOUR diff — not the full suite (it belongs to the merge gate and starves sibling builds). ` +
     `tests_passing is true only for a test run you executed here; a syntax check or a runner that failed to ` +
     `start does not count. Do NOT tick PROGRESS.md or any tracker checkbox — the merge step ticks them with ` +
