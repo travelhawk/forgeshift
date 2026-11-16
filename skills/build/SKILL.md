@@ -180,13 +180,18 @@ Only on a completed run; a halted run reports the stop instead. `review-PRs` mod
 integrated main — skip the review and recommend `/forge:deep-review` after merging.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
-   their paths, and every named sensitive surface>"}`. A small run adds `depth: "quick"`
+   their paths, every named sensitive surface, and every path that saves, loads or deletes
+   user data>"}`. A small run adds `depth: "quick"`
    (one reviewer, one refuter: on a seeded-bug benchmark it found as much as the full review
    at a third of the tokens); a large run takes the full review. It is the first independent read of every T2/T3 feature,
    so never pass `mode: "integration"` here. A review that returns no
    `confirmed`/`unverified` is ship-blocking.
 2. CONFIRMED critical/high get `/forge:fix` discipline: regression test first, smallest fix,
    fresh reviewer on the fix diff. Two failed attempts → mark ship-blocking, stop fixing.
+   **Data safety is always high, always fixed**: data loss, data corruption, a silent
+   overwrite of stored data (corrupt load then save, two tabs) and a destructive action that
+   runs twice (double-click delete) are fixed here, whatever severity the review gave them,
+   CONFIRMED or `unverified`. Never downgrade one to the report's medium/low list.
 3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed but IS
    ship-blocking. Medium/low go to the report.
 4. Skim `rejectedBlockers`. If a dismissal looks wrong, re-open it. List them in the report.

@@ -759,6 +759,18 @@ suite('2026-09-11 eval fixes', () => {
     assert.match(src, /ONE finding per root cause/, 'lenses are told not to restate a defect per line')
   })
 
+  // Benchmark 2026-11-16: the build finish missed a double-click delete and a corrupt-load
+  // overwrite, and rated a two-tab overwrite medium, so none were fixed.
+  test('deep-review: data-safety sweep in every lens, flagged findings floor at high', () => {
+    const src = wf('deep-review')
+    assert.match(src, /DATA_SAFETY \+/, 'the sweep is appended to every lens prompt, steer or not')
+    assert.match(src, /double-click/, 'duplicate destructive actions are named')
+    assert.match(src, /data_safety: \{ type: 'boolean'/, 'findings carry a data_safety flag')
+    assert.match(src, /f\.data_safety && \(f\.severity === 'medium' \|\| f\.severity === 'low'\) \? \{ \.\.\.f, severity: 'high'/, 'flagged medium/low is raised to high')
+    const build = read('skills', 'build', 'SKILL.md')
+    assert.match(build, /Data safety is always high, always fixed/, 'build finish auto-fixes data-safety findings at any severity')
+  })
+
   // A failed T1 feature dropped its security verdict + evidence from failed[].
   test('feature-pipeline: failed features keep evidence, write-up and security verdict', () => {
     const src = wf('feature-pipeline')

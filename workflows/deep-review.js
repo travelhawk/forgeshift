@@ -85,6 +85,21 @@ const COMBINED_LENS = {
 }
 const DIMENSIONS = mode === 'integration' ? [INTEGRATION_LENS] : quick ? [COMBINED_LENS] : LENSES
 
+// Data-safety sweep (2026-11-16). Every lens runs it, whatever its dimension or the risk
+// steer. In a benchmark the build-finish review never looked at a plain delete button or a
+// load/save pair (the steer named only the CSV paths) and rated a silent two-tab overwrite
+// "medium", so nothing was fixed. A standalone review of the same spec caught all three.
+// A finding in these classes is flagged data_safety and raised to at least high below.
+const DATA_SAFETY =
+  'DATA-SAFETY SWEEP (mandatory, on every path that writes, deletes or persists user data, even outside ' +
+  'the risk steer): (a) a destructive or state-changing action fired twice: double-click, double-submit, ' +
+  'key repeat, re-entrant handler, retry, so it deletes/creates/charges twice or hits the wrong item; ' +
+  '(b) stored data that fails to load or validate (corrupt, old version, partly written) is treated as ' +
+  'empty and the next save overwrites it, losing it for good; (c) two writers (two tabs, windows, ' +
+  'requests, devices) each write their whole stale copy, last write wins silently; (d) import, migration, ' +
+  'undo or bulk actions that replace or drop existing records without a backup or confirmation. Set ' +
+  'data_safety=true on every such finding.\n\n'
+
 const FINDINGS = {
   type: 'object',
   additionalProperties: false,
@@ -104,6 +119,7 @@ const FINDINGS = {
           failure_scenario: { type: 'string', description: 'Concrete inputs/state → wrong output/crash' },
           severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
           confidence: { type: 'string', enum: ['certain', 'likely', 'possible'] },
+          data_safety: { type: 'boolean', description: 'true when the defect loses, corrupts or silently overwrites user data, or runs a destructive action twice' },
         },
       },
     },
@@ -125,7 +141,8 @@ log(`Reviewing scope: ${scope}` + (mode === 'integration' ? ' — integration-se
 const all = await parallel(DIMENSIONS.map(d => () =>
   agent(
     TARGET_CHECK + `Review ${scope} in the target repository. Your ${quick ? 'dimensions' : 'single dimension'}: ${d.key}.\n${d.prompt}\n\n` +
-    (priority ? `RISK STEER: concentrate your effort on these high-risk paths first — ${priority}. Sweep low-risk boilerplate lightly.\n\n` : '') +
+    (priority ? `RISK STEER: concentrate your effort on these high-risk paths first — ${priority}. Sweep low-risk boilerplate lightly, but never skip the data-safety sweep.\n\n` : '') +
+    DATA_SAFETY +
     `Read the surrounding code, not just the diff — a change can be wrong only in context. ` +
     `CONTEXT BUDGET: the scope, the files it touches, their direct callers and tests — nothing more. ` +
     `Do NOT read the full spec, PROGRESS, ADRs, docs, or unrelated modules; everything you need is in ` +
@@ -134,7 +151,9 @@ const all = await parallel(DIMENSIONS.map(d => () =>
     `Do NOT report style nits, naming preferences, or hypothetical issues with no concrete failure scenario. ` +
     `SEVERITY RUBRIC: critical = data/money loss, auth bypass, or a crash on a realistic path; high = wrong result or ` +
     `security gap on realistic input, bounded blast radius; medium = concrete edge case or contract break; low = hygiene ` +
-    `with a real but minor consequence. ONE finding per root cause — never the same defect at every line it surfaces.`,
+    `with a real but minor consequence. Data loss, data corruption, a silent overwrite of stored data and a ` +
+    `destructive action that runs twice are NEVER medium or low, even when the trigger looks rare (two tabs, a ` +
+    `double-click, a corrupt entry): rate them high or critical. ONE finding per root cause — never the same defect at every line it surfaces.`,
     { label: `review:${d.key}`, phase: 'Review', effort: 'high', schema: FINDINGS },
   ),
 ))
@@ -150,7 +169,10 @@ const raw = []
 for (const r of answered.filter(x => !x.refused)) {
   for (const f of r.findings || []) {
     const key = `${f.file}:${f.line ?? 'file'}:${f.summary.slice(0, 60).toLowerCase()}`
-    if (!seen.has(key)) { seen.add(key); raw.push(f) }
+    if (seen.has(key)) continue
+    seen.add(key)
+    // Data-safety floor: a flagged finding is a ship-blocker whatever severity the reviewer gave it.
+    raw.push(f.data_safety && (f.severity === 'medium' || f.severity === 'low') ? { ...f, severity: 'high', severity_raised_from: f.severity } : f)
   }
 }
 if (!raw.length) return { target: TARGET, confirmed: [], message: 'No findings survived the review pass.' }
