@@ -1,14 +1,15 @@
 ---
 name: next
-description: Hand the next version of an existing product to forge in one command - clarify new feature ideas into right-sized, risk-tiered features, append them to the spec, then build the whole slice hands-off through the forge flow (waves of PRs, merge, deep-review finish). Use after a product is already kicked off/adopted and you have new ideas or a next-version scope. New product = /forge:kickoff; existing un-spec'd code = /forge:adopt; one feature now = /forge:feature.
+description: Hand the next version of an existing product to forge in one command - clarify new feature ideas into right-sized, risk-tiered features, append them to the spec, then build the whole slice hands-off through the forge flow (waves, deep-review finish, one delivery PR). Use after a product is already kicked off/adopted and you have new ideas or a next-version scope. New product = /forge:kickoff; existing un-spec'd code = /forge:adopt; one feature now = /forge:feature.
 argument-hint: "[new feature ideas / next-version description - empty = you'll be asked]"
 disable-model-invocation: true
 ---
 
 # /forge:next — Ideas → tiered features → forge builds them
 
-Turn *new* ideas into the next slice of an existing product and build it: **one command, one
-approval**. To build only the existing unchecked backlog, use `/forge:build`.
+Turn *new* ideas into the next slice of an existing product and build it: **one command**,
+asking only where a decision is open (§3). To build only the existing unchecked backlog, use
+`/forge:build`.
 
 The build half of this command IS `/forge:build`. Resolve
 `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`
@@ -19,7 +20,7 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 - Establish the target product (ambiguous → ask). It must have `docs/SPEC.md` and
   `PROGRESS.md` or, in the issue phase, issues labelled `forge`. Without them, stop and redirect: a new product is `/forge:kickoff`, existing
   code without a spec is `/forge:adopt`.
-- Then `/forge:build`'s **Anchor**: clean tree, green or recorded-red baseline, baseline SHA,
+- Then `/forge:build`'s **Anchor** (including the integration branch `forge/<slug>`): clean tree, green or recorded-red baseline, baseline SHA,
   remote and `gh auth` status.
 
 ## 1. Intake (clarify — don't just accept)
@@ -37,7 +38,7 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 ## 2. Decompose & tier (`forge-blueprint`)
 
 `forge-blueprint` turns the clarified ideas into features and a wave plan. It returns
-markdown; nothing lands on disk before the gate.
+markdown; nothing lands on disk before §4.
 
 - **Right-size**: a feature is a whole capability a user notices, not a step. It builds and
   tests on its own, with 2–5 done-criteria. Prefer fewer, larger features; too much for one
@@ -47,34 +48,38 @@ markdown; nothing lands on disk before the gate.
   continuing the existing numbering.
 - **Wave plan** as in `/forge:build`'s **Wave plan**.
 
-## 3. The gate (the only one)
+## 3. A gate only when a decision is open
 
-Publish the proposed spec section as an artifact (Artifact tool; unavailable → a scratchpad
-`.md`) and link it: the new features are not in `docs/SPEC.md` yet, so the artifact is the
-review surface.
+The ideas are the user's own words, so turning them into features is not a decision to
+approve. Stop for one batched message, each question with your default, only when the
+intake left one of these open: a scope cut or a slice moved to a later version, a collision
+with the architecture or a recorded ADR, a one-way door, or a changed done-criterion of an
+existing feature (`/forge:build` §2 lists the same triggers). Publish the proposed spec
+section as an artifact (Artifact tool; unavailable → a scratchpad `.md`) and link it: the
+new features are not in `docs/SPEC.md` yet, so the artifact is the review surface.
 
-One message, one approval — `/forge:build`'s **gate**, plus at the top:
-
-- **The phase in one line**: what someone can do after this slice that they cannot do now.
-  Product language only — no tier codes, wave numbers or file paths.
-
-This approval covers writing the spec, the whole build, the merges and the finish. The build
-does **not** ask again.
+Otherwise state the slice in one message and start: **the phase in one line** (what someone
+can do after it that they cannot do now, in product language, no tier codes, wave numbers or
+file paths), then `/forge:build`'s start message. An answer, or no objection, covers
+writing the spec, the whole build and the finish. The build does **not** ask again.
 
 ## 4. Land the spec (before building)
 
 - Append the features to `docs/SPEC.md` and add matching F#-rows to `PROGRESS.md`, each with
   its tier marker and justification, unchecked. Point "Next session should" at this version.
-  Issue phase: one issue per feature instead (`gh issue create --label forge`, body = done-criteria
-  + tier line, same shape `retire-progress.mjs` writes); no `PROGRESS.md`.
+  Issue phase: no `PROGRESS.md`, and **no issues for the slice being built now** — they would
+  be temporary steps; the slice lives in the spec rows and `.forge/run.json`, and the
+  delivery PR body carries the evidence. Issues are for work that outlives the run, so
+  only the ideas moved to a later version become issues (`gh issue create --label forge`,
+  body = done-criteria + tier line, same shape `retire-progress.mjs` writes).
 - Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode, the wave plan
   with every feature `pending`) so `/forge:resume` can recover a stopped run.
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.
 
 ## 5. Build & finish
 
-Run `/forge:build`'s **Build**, **Visual checkpoints**, **Finish** and **Documentation
-pass** on exactly the approved features. No re-planning, no second gate. Its stop conditions
+Run `/forge:build`'s **Build**, **Visual checkpoints**, **Finish**, **Documentation
+pass** and **Deliver** on exactly the planned features. No re-planning, no second gate. Its stop conditions
 and hard rules apply unchanged.
 
 ## 6. Report
@@ -82,5 +87,5 @@ and hard rules apply unchanged.
 `/forge:build`'s **Report**, with two lines on top: the spec update (version section,
 commit) and the ideas moved to a later version.
 
-**Next →** `/forge:ship` on a ready-for-ship verdict; `/forge:fix <feature>` or
+**Next →** merge the delivery PR(s), then `/forge:ship` on a ready-for-ship verdict; `/forge:fix <feature>` or
 `/forge:debug-hard` per named blocker otherwise.

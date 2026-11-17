@@ -22,8 +22,9 @@ entry. Usually `/forge:build` drives it; run it directly only for a raw independ
    to a JSON file and run `node "$FORGE_HOME/bin/forge-run.mjs" feature-pipeline --args-file <file>`.
    If args may not arrive intact, also write them to `feature-pipeline.input.json` in the
    product root (fallback); delete it after.
-4. Relay `pr_title`/`pr_body`/`evidence` per feature. The branches were tested **in
+4. Relay `pr_title`/`pr_body`/`evidence` per feature (raw material for the delivery PR text). The branches were tested **in
    isolation**: merge them, then run the full suite on the merged result.
 
-**Next →** open a PR per passed feature (or let `/forge:build` do the merging), then
+**Next →** integrate the passed branches and let `/forge:build` deliver them (PR boundaries:
+`$FORGE_HOME/docs/LIFECYCLE.md`; a passed feature is not automatically its own PR), then
 `/forge:deep-review` the integrated whole.

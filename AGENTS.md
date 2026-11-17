@@ -16,7 +16,20 @@ them:
 Idea → `/forge:kickoff` → spec + scaffold → `/forge:feature` loop + `/forge:deep-review` — or
 `/forge:build` for the whole backlog hands-off → `/forge:harden` before exposure → `/forge:ship`.
 `/forge:next` is kickoff's iteration sibling for a product that already exists.
-Gates: `docs/LIFECYCLE.md`
+Phases, the four concepts (feature, work package, wave, PR), PR boundaries and the human
+approval boundaries: `docs/LIFECYCLE.md`. A feature is not a PR; delivery decides the PRs.
+
+## Standards
+
+Engineering standards are not forge's. Authority, highest first: the user's explicit
+instruction · the product's own `AGENTS.md`, `CONTRIBUTING.md` and `.github/` templates, and
+the team playbook they name · forge defaults. This covers **conventions**: branch names,
+commit style, PR text, review routing, CI, docs layout. Forge's hard rules and the approval
+boundaries in `docs/LIFECYCLE.md` are not defaults; only the user's explicit word sets them
+aside. Read the product's standards at anchor and follow them; forge copies none of their
+content. Where they forbid a forge file (a playbook without SPEC/ADR/PROGRESS files, plans
+kept out of the repo), keep that content in the session or in the ignored `.forge/` folder
+and state the outcome in the PR body. Name any forge rule set aside.
 
 Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
 on it, identically in every lane. Full scheme: `docs/RISK-TIERS.md`
@@ -33,7 +46,7 @@ commands run on Claude Code (`/forge:build`), Codex (`$forge-build`) and OpenCod
 | `/forge:adopt <path>` | Existing codebase → as-built spec + PROGRESS + project AGENTS.md |
 | `/forge:next <ideas>` | Next version: clarify ideas → tiered features → build them |
 | `/forge:feature <F#>` | One feature: plan → failing test → build → fresh-context verify |
-| `/forge:build [scope]` | Whole backlog: one approval → parallel waves → merge → review finish |
+| `/forge:build [scope]` | Whole backlog: plan → waves → review finish → one delivery PR; asks only where a decision is open |
 | `/forge:fix <bug>` | Reproduce → regression test → fix → review |
 | `/forge:harden [scope]` | Security audit + robustness sweep + gated fixes |
 | `/forge:ship [version]` | Release commit → release-gate → checklist → tag → deploy |
@@ -139,6 +152,11 @@ and removed `PROGRESS.md`. A second tracker beside issues only drifts. Wherever 
 harness says `PROGRESS.md` and the product has none: the issue holds the feature, tier and
 done-criteria; the PR body holds evidence and closes the issue; the handoff is a comment on
 the open PR or issue.
+
+**Issues are for work that outlives the run.** Backlog items, longer initiatives and ideas
+moved to a later version get issues. A focused task, a bug fix or the slice a run builds now
+does not: no backlog and no issue, the plan lives in the session and the evidence in the PR
+body. Never an issue for an implementation step.
 
 **Workflows do NOT follow your shell `cd`** — always pass `args: {dir: "<absolute product
 path>"}`. **Invoke by `scriptPath`, not `name`**: `Workflow({scriptPath:

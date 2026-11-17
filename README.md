@@ -100,10 +100,11 @@ refutation, fail-closed release gates — and on *not making you babysit it*.
   scripts are written once; Claude Code runs them natively, Codex CLI and OpenCode run the
   *same files* through a small portable runner. Switch agents mid-product, or mix them.
   Details: [docs/HOSTS.md](docs/HOSTS.md).
-- **No babysitting.** `/forge:build` takes a whole backlog, gets one wave-plan approval from
-  you, then builds feature after feature in parallel waves — a PR each, auto-merged in
-  dependency order, finished with an automatic deep-review. Your touchpoints for a whole
-  product drop to roughly three: approve the spec, approve the wave plan, run `/forge:ship`.
+- **No babysitting.** `/forge:build` takes a whole backlog and builds it on its own — parallel
+  waves where the work allows, finished with an automatic deep-review — then delivers one PR
+  (split only where a reviewer is better served). It asks only where a decision is open.
+  Your touchpoints for a whole product drop to roughly three: approve the spec, merge the
+  delivery PR, run `/forge:ship`. Agents never merge into a protected branch.
 - **Gates that gate.** No feature merges with failing or missing tests. Reviews only
   trust a finding after independent refuters fail to kill it. Release gates fail *closed* —
   a gate that doesn't report blocks the ship. None of this is optional "if you remember to."
@@ -146,7 +147,7 @@ run.
 - **git**, and **Node 22+ with pnpm** (`corepack enable`) for the default playbooks.
   Per-type extras (Go, Rust for Tauri, Expo/EAS, Apple Developer) are listed in each
   playbook and only needed when you build that type.
-- **`gh` CLI** (authenticated) — only for `/forge:build`'s PR flow and `/forge:ship`.
+- **`gh` CLI** (authenticated) — only for the delivery PRs and `/forge:ship`.
   Everything else works without a remote.
 
 ## Installation
@@ -214,8 +215,8 @@ there.
 **2. Build it.**
 
 ```
-> /forge:build             # hands-off: approve the wave plan once → all features build in
->                          #   parallel waves, a PR each, then an automatic deep-review
+> /forge:build             # hands-off: all features build (parallel waves where possible),
+>                          #   automatic deep-review, then one delivery PR for you to merge
 > /forge:feature F3        # or one feature at a time: plan → failing test → build → review
 > /forge:fix <bug>         # bug lane: reproduce → regression test → fix → review
 > /forge:harden            # security + robustness sweep before first public exposure
@@ -230,7 +231,7 @@ there.
 
 `/forge:next` is kickoff's iteration sibling — it clarifies the ideas (a lighter, spec-aware
 interview), appends them to the spec as the next version's risk-tiered features, and hands
-the whole slice to the forge flow under **one approval**. `/forge:kickoff` births a product,
+the whole slice to the forge flow, asking only where a decision is open. `/forge:kickoff` births a product,
 `/forge:next` grows it, `/forge:build` is the builder both hand off to.
 
 That's the loop. New to it? Read [docs/LIFECYCLE.md](docs/LIFECYCLE.md) for the full

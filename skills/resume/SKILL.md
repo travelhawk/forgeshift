@@ -2,6 +2,7 @@
 name: resume
 description: Resume a stalled /forge:build or /forge:next run - read .forge/run.json, reconcile it against git and open PRs, and state the exact next action (which wave, which merge, which fix). Use after a run died mid-way (rate limit, crash, closed session) or when unsure where a batch left off.
 argument-hint: "[optional: product path or run note]"
+disable-model-invocation: true
 ---
 
 # /forge:resume — where did the run stop, and what's next
@@ -25,15 +26,16 @@ git.
 
 Run these on the current tree and compare to the map:
 
-- `git log --oneline <baseline_sha>..HEAD` — what actually merged since the run started.
-- `git branch --list 'feature/*' 'fix/*'` + `git worktree list` — unmerged work that
-  survives as branches (commits live in the shared `.git`), and stale worktrees to prune.
-- `gh pr list --state open` (remote + `gh auth` present) — PRs awaiting merge.
+- Check out the recorded `integration_branch` (default: the newest `forge/*`), then
+  `git log --oneline <baseline_sha>..HEAD` — what actually integrated since the run started.
+- `git branch --list 'forge/*' 'feature/*' 'fix/*'` + `git worktree list` — unmerged work
+  that survives as branches (commits live in the shared `.git`), and stale worktrees to prune.
+- `gh pr list --state open` (remote + `gh auth` present) — delivery PRs awaiting the user's merge.
 - The test suite on HEAD — green/red vs. the recorded baseline / known-red set.
 
-Per feature resolve the TRUE status: **merged** (in the log) · **PR-open** (branch pushed,
-PR exists, unmerged) · **built** (branch has commits, no PR) · **failed** (recorded fail,
-or branch missing) · **not-started**. Correct `run.json` wherever it disagrees with git.
+Per feature resolve the TRUE status: **integrated** (in the log) · **delivered** (in an open
+delivery PR: awaiting the user's merge, nothing left to run) · **built** (branch has commits,
+not integrated) · **failed** (recorded fail, or branch missing) · **not-started**. Correct `run.json` wherever it disagrees with git.
 
 ## 3. Report + the single next action
 
@@ -42,18 +44,24 @@ or branch missing) · **not-started**. Correct `run.json` wherever it disagrees 
   `bash "$FORGE_HOME/scripts/forge-worktree.sh" clean`); any NEW suite failures vs.
   baseline (a stop condition — report, don't build past it).
 - **The one next action, stated exactly** — e.g. "resume at wave 3 (F7–F9 not started)",
-  "merge open PRs #42, #43, then run the finish deep-review", "F5 failed verification twice
+  "integrate F7–F9, then run the finish deep-review and deliver", "F5 failed verification twice
   → send to `/forge:fix`", or "run complete — nothing to resume".
 
-## 4. Continue (only if asked)
+## 4. Continue
 
-Reporting is automatic; continuing is not — resuming an autonomous run needs the user's
-go-ahead (same authority bar as the original `/forge:build` gate). On that go-ahead:
+This skill runs only when the user types it, so that is the go-ahead: continue straight after
+the report. Stop and ask only at a stop condition (NEW suite failures vs. baseline, a one-way
+door, a twice-failed feature). Older runs recorded `integration_mode` `auto-integrate` or
+`review-PRs`: treat them as `branch`; cut `forge/<slug>` from the current HEAD (from the
+baseline for `review-PRs`), report their old open per-feature PRs as "awaiting your merge"
+and never merge them. A run whose PRs are all open is **delivered**: report that, not "nothing
+to resume". Then:
 
 - Remaining features to build/merge → hand back to `/forge:build` for exactly those,
   reusing the recorded `baseline_sha` and `integration_mode` (no re-planning, no second
   gate).
-- Only the finish left → run the `deep-review` finish (`/forge:build` §5) directly.
+- Only the finish left → run the `deep-review` finish (`/forge:build` §5), then deliver
+  (§5d), directly.
 - A twice-failed feature → `/forge:fix` or `/forge:debug-hard`, never a third identical
   attempt.
 

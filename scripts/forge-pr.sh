@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# forge-pr.sh — deterministic PR assembly for /feature and /forge.
+# forge-pr.sh — deterministic PR assembly for /feature, /fix and /build's delivery.
 #
 # push -> PR -> merge is fixed plumbing: the exact flags (--head so the session checkout
 # stays on main, --base, squash + delete-branch on merge) are the same every time and a
 # single wrong flag is a broken integration. Centralizing them here keeps the skills from
 # drifting and lets their prose shrink to one call. Run with cwd inside the product repo.
+# Deciding WHAT goes into a PR is docs/LIFECYCLE.md; `merge` into a protected branch only
+# ever runs on the user's word, never from a build run.
 #
 # Base branch defaults to `main`; override with FORGE_BASE=master (etc.) for products that
 # use a different trunk.
@@ -13,7 +15,7 @@
 #   forge-pr.sh push     <branch>
 #   forge-pr.sh create   <branch> <title> <body-file>   # stdout: the PR URL
 #   forge-pr.sh open     <branch> <title> <body-file>    # push + create in one step
-#   forge-pr.sh open-all <manifest>                       # batch a whole wave (see below)
+#   forge-pr.sh open-all <manifest>                       # batch several PRs of one delivery (see below)
 #   forge-pr.sh merge    <number|url|branch>             # squash-merge + delete the branch
 #
 # open-all takes a manifest file, one feature per line, TAB-separated:

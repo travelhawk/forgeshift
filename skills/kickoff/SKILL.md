@@ -14,7 +14,8 @@ orchestrate; `forge-blueprint` does the heavy thinking.
 
 The product is created **at the current working directory** — an empty folder you started in
 becomes the product root; a cwd that already holds unrelated work gets a new
-`<cwd>/<kebab-slug>/`. **Confirm the path before creating anything.** An existing codebase is
+`<cwd>/<kebab-slug>/`. Name the path in the approval message (§3); ask about it earlier only
+when it is truly ambiguous. An existing codebase is
 `/forge:adopt`, not kickoff. **Create nothing yet** — scaffolders require an empty directory
 and step 4 creates everything in order.
 
@@ -23,8 +24,10 @@ relative to the product dir.
 
 ## 1. Interview (AskUserQuestion, batched)
 
-Interview until you could write the spec without guessing — 2–3 batched rounds, covering only
-what the idea leaves open:
+Interview until you could write the spec without guessing — at most 2–3 batched rounds,
+covering only what the idea leaves open. A brief that already answers these needs no
+interview: go to the draft. Kickoff keeps its one approval (§3) because scope and stack are
+the product owner's decisions:
 
 - Who is the user, and what is the ONE core journey?
 - V1 scope: what must ship, what explicitly waits? Propose a cut and let them react.

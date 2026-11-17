@@ -2,7 +2,7 @@
 
 The `/forge:build` finish loads this page only when a branch fires: a UI product for the
 walkthrough, any completed run for the docs pass. Both run on a completed, green, integrated
-result (not in review-PRs mode, where nothing is merged). Both are deliverables, never stop
+result, on the integration branch before the delivery PR opens. Both are deliverables, never stop
 conditions: a failure is a note in the run report, never a block on `/forge:ship`.
 
 ## Visual walkthrough (UI products only)
