@@ -216,7 +216,7 @@ if (raw.length >= 3 && DIMENSIONS.length > 1) {
       const members = c.ids.map(i => raw[i])
       const top = members.reduce((s, f) => (order[f.severity] < order[s] ? f.severity : s), members[0].severity)
       const also = members.slice(1).map(f => `${f.file}:${f.line ?? 'file'} — ${f.summary}`)
-      return { ...members[0], severity: top, ...(also.length ? { also_reported: also } : {}) }
+      return { ...members[0], severity: top, ...(members.some(m => m.data_safety) ? { data_safety: true } : {}), ...(also.length ? { also_reported: also } : {}) }
     })
     log(`${raw.length} findings → ${findings.length} root causes after clustering`)
   } else {

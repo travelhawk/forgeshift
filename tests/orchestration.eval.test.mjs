@@ -47,6 +47,25 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(dead.result.unverified.length, 12)
   })
 
+  test('deep-review: a data_safety finding rated medium is raised to high and gets its own refuter', async () => {
+    const prompts = {}
+    const mk = (summary, data_safety) => ({ file: 'a.js', line: summary.length, summary, failure_scenario: 'x', severity: 'medium', confidence: 'likely', ...(data_safety ? { data_safety } : {}) })
+    const findings = [mk('two tabs overwrite stored data', true), mk('plain medium edge case', false)]
+    const base = deepReviewResponder({ 'review:bugs': { findings }, 'review:boundaries': { findings: [] }, 'review:craft': { findings: [] } })
+    const { result, calls } = await runWorkflow(loadSource('workflows/deep-review.js'), {
+      args: { ...SCENARIOS['deep-review'].args, priority: 'the CSV export only' },
+      responder: (p, o) => { prompts[o.label] = p; return base(p, o) },
+    })
+    for (const l of ['review:bugs', 'review:boundaries', 'review:craft']) assert.match(prompts[l], /DATA-SAFETY SWEEP/, `${l} runs the sweep despite a narrow steer`)
+    const all = [...result.confirmed, ...(result.unverified || [])]
+    const ds = all.find(f => /two tabs/.test(f.summary))
+    const plain = all.find(f => /plain medium/.test(f.summary))
+    assert.equal(ds.severity, 'high')
+    assert.equal(ds.severity_raised_from, 'medium')
+    assert.equal(plain.severity, 'medium', 'an unflagged medium stays medium')
+    assert.equal(calls.filter(c => /^verify:a.js:/.test(c.label)).length, 1, 'only the raised finding gets a single refuter')
+  })
+
   test('deep-review: all reviewers refusing the target is a run-level error', async () => {
     const { result } = await run('deep-review', 'deep-review', deepReviewResponder({
       'review:bugs': { refused: 'harness repo', findings: [] }, 'review:boundaries': { refused: 'harness repo', findings: [] },
