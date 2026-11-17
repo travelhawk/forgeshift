@@ -36,8 +36,9 @@ an independent check, real parallelism, or keeping your own context clear.
   remote is there no protected branch: integrate into the current branch
   (`integration_mode: local`). A resumed run checks out the recorded integration branch and
   creates none.
-- `.forge/` must be ignored: if `git check-ignore -q .forge/` fails (an adopted repo), add
-  `.forge/` to `.git/info/exclude`, which stays local and leaves the product's files alone.
+- `.forge/` must be ignored: run `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .forge/`. It
+  changes nothing when `.forge/` is already ignored; otherwise (an adopted repo) it adds it to
+  the local `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
 - Write `.forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
   integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays

@@ -4,8 +4,8 @@
 // invariant here so a later edit can't silently regress it.
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, cpSync } from 'node:fs'
+import { execSync, execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -164,7 +164,7 @@ suite('cross-references', () => {
   test('every forge-* agent referenced anywhere exists in agents/', () => {
     // Terms that look like agent names but are prose (or shell scripts), not agents.
     const NON_AGENT_TERMS = new Set([
-      'forge-agents', 'forge-themed', 'forge-home', 'forge-worktree', 'forge-pr', 'forge-run',
+      'forge-agents', 'forge-themed', 'forge-home', 'forge-worktree', 'forge-pr', 'forge-run', 'forge-git',
       // Portable command names (forge-build, forge-deep-review): the regex stops at the 2nd hyphen.
       ...skills.map(n => 'forge-' + n.split('-')[0]),
     ])
@@ -967,5 +967,108 @@ suite('outcome-oriented workflow', () => {
   test('no stale approval wording for removed gates anywhere in docs or skills', () => {
     for (const f of ['docs/RISK-TIERS.md', 'skills/next/SKILL.md', 'skills/build/SKILL.md', 'README.md'])
       assert.doesNotMatch(read(...f.split('/')), /before approving `\/forge:build`|before the gate\./)
+  })
+})
+
+// Git plumbing with one correct answer is a script (AGENTS.md rule 12). These run the
+// script against real throwaway repos, so the revert chain and the exclude write are
+// checked on git itself, not on prose.
+suite('forge-git.mjs: merge state and .forge ignore', () => {
+  const repo = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'forge-git-'))
+    const g = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8', stdio: 'pipe' }).trim()
+    g('init', '-q', '-b', 'forge/run')
+    g('config', 'user.name', 't'); g('config', 'user.email', 't@t'); g('config', 'commit.gpgsign', 'false')
+    writeFileSync(join(dir, 'a.txt'), 'base\n'); g('add', '.'); g('commit', '-q', '-m', 'base')
+    const feature = (name, file) => {
+      g('checkout', '-q', '-b', name); writeFileSync(join(dir, file), name + '\n')
+      g('add', '.'); g('commit', '-q', '-m', 'add ' + name); g('checkout', '-q', 'forge/run')
+      g('merge', '-q', '--no-ff', '--no-edit', name)
+      return g('rev-parse', 'HEAD')
+    }
+    const revert = sha => {
+      const isMerge = g('rev-list', '--parents', '-n1', sha).split(' ').length > 2
+      g('revert', '--no-edit', ...(isMerge ? ['-m', '1'] : []), sha)
+      return g('rev-parse', 'HEAD')
+    }
+    return { dir, g, feature, revert, done: () => rmSync(dir, { recursive: true, force: true }) }
+  }
+
+  test('merge-state follows the whole revert chain', async () => {
+    const { mergeState } = await import('../scripts/forge-git.mjs')
+    const r = repo()
+    try {
+      const base = r.g('rev-parse', 'HEAD')
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'absent', 'never merged')
+      const m = r.feature('feature/x', 'x.txt')
+      r.feature('feature/xy', 'xy.txt') // a branch whose name extends the other one
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'integrated', 'merge in effect')
+      const rv = r.revert(m)
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'reverted', 'merge -> revert = failed')
+      assert.equal(mergeState(r.dir, 'feature/xy', base).state, 'integrated', 'a neighbour stays integrated')
+      const rr = r.revert(rv)
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'integrated', 'revert of the revert restores it')
+      r.revert(rr)
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'reverted', 'a third revert undoes it again')
+      r.g('branch', '-D', 'feature/x')
+      assert.equal(mergeState(r.dir, 'feature/x', base).state, 'reverted', 'found by merge subject when the branch is gone')
+    } finally { r.done() }
+  })
+
+  test('merge-state CLI prints KEY=VALUE lines', () => {
+    const r = repo()
+    try {
+      r.feature('feature/cli', 'c.txt')
+      const out = execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'merge-state', 'feature/cli'], { cwd: r.dir, encoding: 'utf8' })
+      assert.match(out, /^STATE=integrated$/m)
+      assert.match(out, /^MERGES=[0-9a-f]{40}$/m)
+    } finally { r.done() }
+  })
+
+  test('ignore-local is idempotent and leaves an existing ignore alone', async () => {
+    const { ignoreLocal } = await import('../scripts/forge-git.mjs')
+    const r = repo()
+    try {
+      const exclude = join(r.dir, '.git', 'info', 'exclude')
+      writeFileSync(exclude, '# local\n*.log') // no trailing newline
+      assert.equal(ignoreLocal(r.dir), 'added', 'default path is .forge/')
+      assert.equal(ignoreLocal(r.dir, '.forge/'), 'already', 'second run changes nothing')
+      assert.equal(readFileSync(exclude, 'utf8'), '# local\n*.log\n.forge/\n', 'one entry, on its own line')
+      assert.equal(r.g('status', '--porcelain'), '', 'no tracked file touched')
+      mkdirSync(join(r.dir, '.forge')); writeFileSync(join(r.dir, '.forge', 'run.json'), '{}')
+      assert.equal(r.g('status', '--porcelain'), '', '.forge/ content is ignored')
+    } finally { r.done() }
+    const r2 = repo()
+    try {
+      writeFileSync(join(r2.dir, '.gitignore'), '.forge/\n')
+      r2.g('add', '.gitignore'); r2.g('commit', '-q', '-m', 'ignore')
+      const exclude = join(r2.dir, '.git', 'info', 'exclude')
+      const before = existsSync(exclude) ? readFileSync(exclude, 'utf8') : null
+      assert.equal(ignoreLocal(r2.dir), 'already', '.gitignore already covers it')
+      assert.equal(existsSync(exclude) ? readFileSync(exclude, 'utf8') : null, before, 'exclude untouched')
+    } finally { r2.done() }
+  })
+
+  test('ignore-local takes the path as a parameter', () => {
+    const r = repo()
+    try {
+      const cli = (...a) => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', ...a], { cwd: r.dir, encoding: 'utf8' })
+      assert.match(cli('.agent/forge/'), /^IGNORED=added$/m)
+      assert.match(cli('.agent/forge/'), /^IGNORED=already$/m, 'idempotent for a custom path')
+      assert.match(cli(), /^IGNORED=added$/m, 'the default .forge/ is separate')
+      assert.match(readFileSync(join(r.dir, '.git', 'info', 'exclude'), 'utf8'), /^\.agent\/forge\/\n\.forge\/\n$/m)
+      mkdirSync(join(r.dir, '.agent', 'forge'), { recursive: true }); writeFileSync(join(r.dir, '.agent', 'forge', 'run.json'), '{}')
+      writeFileSync(join(r.dir, '.agent', 'keep.md'), 'x')
+      assert.equal(r.g('status', '--porcelain', '-uall'), '?? .agent/keep.md', 'only the named folder is ignored')
+      assert.throws(() => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', '!x'], { cwd: r.dir, stdio: 'pipe' }), 'a negation is not a plain path')
+    } finally { r.done() }
+  })
+
+  test('build and resume call the script instead of doing the git work themselves', () => {
+    const b = read('skills', 'build', 'SKILL.md'), r = read('skills', 'resume', 'SKILL.md')
+    assert.match(b, /forge-git\.mjs" ignore-local \.forge\//, 'build ignores .forge/ via the script')
+    assert.doesNotMatch(b, /add\s+`\.forge\/` to `\.git\/info\/exclude`/, 'no hand-edited exclude')
+    assert.match(r, /forge-git\.mjs" merge-state/, 'resume reads merge state via the script')
+    assert.match(r, /revert of a revert/i, 'a restored feature reads as integrated')
   })
 })
