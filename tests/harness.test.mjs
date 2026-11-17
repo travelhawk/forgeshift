@@ -986,12 +986,19 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
       g('merge', '-q', '--no-ff', '--no-edit', name)
       return g('rev-parse', 'HEAD')
     }
-    const revert = sha => {
+    const revert = (sha, ...cfg) => {
       const isMerge = g('rev-list', '--parents', '-n1', sha).split(' ').length > 2
-      g('revert', '--no-edit', ...(isMerge ? ['-m', '1'] : []), sha)
+      g(...cfg, 'revert', '--no-edit', ...(isMerge ? ['-m', '1'] : []), sha)
       return g('rev-parse', 'HEAD')
     }
-    return { dir, g, feature, revert, done: () => rmSync(dir, { recursive: true, force: true }) }
+    // another commit on an existing feature branch, merged again as is
+    const remerge = (name, file, ...mergeArgs) => {
+      g('checkout', '-q', name); writeFileSync(join(dir, file), file + '\n')
+      g('add', '.'); g('commit', '-q', '-m', 'more ' + name); g('checkout', '-q', 'forge/run')
+      g('merge', '-q', '--no-ff', '--no-edit', ...mergeArgs, name)
+      return g('rev-parse', 'HEAD')
+    }
+    return { dir, g, feature, revert, remerge, done: () => rmSync(dir, { recursive: true, force: true }) }
   }
 
   test('merge-state follows the whole revert chain', async () => {
@@ -1012,6 +1019,52 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
       assert.equal(mergeState(r.dir, 'feature/x', base).state, 'reverted', 'a third revert undoes it again')
       r.g('branch', '-D', 'feature/x')
       assert.equal(mergeState(r.dir, 'feature/x', base).state, 'reverted', 'found by merge subject when the branch is gone')
+    } finally { r.done() }
+  })
+
+  test('merge-state: a plain re-merge after a revert is still failed; a restored retry is not', async () => {
+    const { mergeState } = await import('../scripts/forge-git.mjs')
+    const r = repo()
+    try {
+      const base = r.g('rev-parse', 'HEAD')
+      r.revert(r.feature('feature/a', 'a.txt'))
+      r.remerge('feature/a', 'a2.txt')
+      assert.equal(mergeState(r.dir, 'feature/a', base).state, 'reverted', 're-merge without reverting the revert keeps the old code out')
+      const rv = r.revert(r.feature('feature/b', 'b.txt'))
+      r.revert(rv)
+      const m2 = r.remerge('feature/b', 'b2.txt')
+      assert.equal(mergeState(r.dir, 'feature/b', base).state, 'integrated', 'restore, then re-merge = integrated')
+      r.revert(m2)
+      assert.equal(mergeState(r.dir, 'feature/b', base).state, 'reverted', 'a second failure after the retry = failed')
+    } finally { r.done() }
+  })
+
+  test('merge-state: abbreviated revert references, custom merge subjects, side-branch merges', async () => {
+    const { mergeState } = await import('../scripts/forge-git.mjs')
+    const r = repo()
+    try {
+      const base = r.g('rev-parse', 'HEAD')
+      // `git revert --reference` style body: "This reverts commit 1a2b3c4 (Merge ..., <date>)."
+      const m = r.feature('feature/ref', 'ref.txt')
+      r.g('revert', '--no-edit', '--no-commit', '-m', '1', m)
+      r.g('commit', '-q', '-m', 'Revert feature/ref', '-m', `This reverts commit ${m.slice(0, 7)} (Merge branch 'feature/ref', 2026-11-18).`)
+      assert.equal(mergeState(r.dir, 'feature/ref', base).state, 'reverted', 'abbreviated sha is matched')
+      // a product convention may replace the default merge subject
+      r.g('checkout', '-q', '-b', 'feature/custom'); writeFileSync(join(r.dir, 'c.txt'), 'c\n')
+      r.g('add', '.'); r.g('commit', '-q', '-m', 'add custom'); r.g('checkout', '-q', 'forge/run')
+      r.g('merge', '-q', '--no-ff', '-m', 'feat: integrate custom', 'feature/custom')
+      r.g('checkout', '-q', 'feature/custom'); r.g('commit', '-q', '--allow-empty', '-m', 'later fix'); r.g('checkout', '-q', 'forge/run')
+      assert.equal(mergeState(r.dir, 'feature/custom', base).state, 'integrated', 'custom subject found after the branch moved on')
+      assert.equal(mergeState(r.dir, 'feature/ref', base).state, 'reverted', 'the other feature is not mistaken for it')
+      // feature/y merged feature/z into itself: z merged and reverted on the integration
+      // branch stays failed after y lands, because the revert still holds z's code out
+      r.g('checkout', '-q', '-b', 'feature/z'); writeFileSync(join(r.dir, 'z.txt'), 'z\n')
+      r.g('add', '.'); r.g('commit', '-q', '-m', 'add z'); r.g('checkout', '-q', 'forge/run')
+      r.g('checkout', '-q', '-b', 'feature/y'); r.g('merge', '-q', '--no-ff', '--no-edit', 'feature/z'); r.g('checkout', '-q', 'forge/run')
+      r.g('merge', '-q', '--no-ff', '--no-edit', 'feature/z'); r.revert(r.g('rev-parse', 'HEAD'))
+      r.g('merge', '-q', '--no-ff', '--no-edit', 'feature/y')
+      assert.ok(!existsSync(join(r.dir, 'z.txt')), 'git keeps z out')
+      assert.equal(mergeState(r.dir, 'feature/z', base).state, 'reverted', 'a side-branch merge does not hide the revert')
     } finally { r.done() }
   })
 
@@ -1061,6 +1114,11 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
       writeFileSync(join(r.dir, '.agent', 'keep.md'), 'x')
       assert.equal(r.g('status', '--porcelain', '-uall'), '?? .agent/keep.md', 'only the named folder is ignored')
       assert.throws(() => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', '!x'], { cwd: r.dir, stdio: 'pipe' }), 'a negation is not a plain path')
+      // from a subdirectory the path still means the repo root, and a second run is a no-op
+      mkdirSync(join(r.dir, 'sub'))
+      const sub = (...a) => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', ...a], { cwd: join(r.dir, 'sub'), encoding: 'utf8' })
+      assert.match(sub('.state/run/'), /^IGNORED=added$/m)
+      assert.match(sub('.state/run/'), /^IGNORED=already$/m, 'idempotent from a subdirectory')
     } finally { r.done() }
   })
 

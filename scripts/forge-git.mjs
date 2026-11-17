@@ -10,8 +10,9 @@
 //     -> STATE=integrated|reverted|absent   MERGES=<sha,...>
 //     Reads HEAD (check out the integration branch first). A merge of the branch counts
 //     only while it is in effect: `git revert -m 1 <merge>` undoes it, a revert of that
-//     revert restores it, and so on down the chain. `reverted` = merged, but no merge of
-//     it is in effect now (the feature is failed). With <baseline_sha>, only commits in
+//     revert restores it, and so on down the chain. `reverted` = merged, but at least one
+//     merge of it is not in effect now (the feature is failed: a plain re-merge after a
+//     revert does not bring the reverted code back). With <baseline_sha>, only commits in
 //     <baseline_sha>..HEAD are read.
 //   node scripts/forge-git.mjs ignore-local [<path>]
 //     -> IGNORED=already|added
@@ -19,13 +20,14 @@
 //     (e.g. by .gitignore) -> no change. Otherwise appends <path> to the repo's local
 //     `.git/info/exclude`, which never touches the product's tracked files. Safe to run
 //     any number of times.
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 function git(cwd, args, { allowFail = false } = {}) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' })
+  // A long history overflows the default 1 MiB stdout buffer (ENOBUFS).
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1024 * 1024 * 1024 })
   if (r.status !== 0 && !allowFail) {
     throw new Error(`forge-git: git ${args.join(' ')} failed\n${r.stderr || r.error}`)
   }
@@ -47,17 +49,24 @@ export function mergeState(cwd, branch, baseline) {
   const tip = git(cwd, ['rev-parse', '--verify', '--quiet', `${branch}^{commit}`], { allowFail: true }).out
   const name = escapeRe(branch.replace(/^origin\//, ''))
   const subjectRe = new RegExp(`^Merge (?:remote-tracking )?branch '(?:origin/)?${name}'(?: into .+)?$`)
+  // A merge with a custom subject is still found while the branch exists: its second parent
+  // is a commit on the branch's own line. Another feature's tip never is (it reaches this
+  // branch only as the second parent of an integration merge).
+  const ownLine = new Set(tip ? git(cwd, ['rev-list', '--first-parent', tip]).out.split('\n') : [])
   const merges = commits.filter(c => c.parents.length > 1 &&
-    (subjectRe.test(c.subject) || (tip && c.parents[1] === tip)))
+    (subjectRe.test(c.subject) || ownLine.has(c.parents[1])))
   if (merges.length === 0) return { state: 'absent', merges: [] }
 
-  // `git revert` writes "This reverts commit <sha>." into the body of the revert commit.
+  // `git revert` writes "This reverts commit <sha>." into the body of the revert commit;
+  // with revert.reference / --reference the sha is abbreviated, so match it as a prefix.
+  const reverts = []
+  for (const c of commits) {
+    for (const m of c.body.matchAll(/This reverts commit ([0-9a-f]{7,64})\b/g)) reverts.push({ ref: m[1], by: c.sha })
+  }
   const revertersOf = new Map()
   for (const c of commits) {
-    for (const m of c.body.matchAll(/This reverts commit ([0-9a-f]{40})/g)) {
-      if (!revertersOf.has(m[1])) revertersOf.set(m[1], [])
-      revertersOf.get(m[1]).push(c.sha)
-    }
+    const by = reverts.filter(r => c.sha.startsWith(r.ref)).map(r => r.by)
+    if (by.length) revertersOf.set(c.sha, by)
   }
   // A commit is in effect unless a revert of it is in effect: merge -> revert -> revert
   // of the revert reads in effect, failed, in effect again.
@@ -69,7 +78,9 @@ export function mergeState(cwd, branch, baseline) {
     }
     return memo.get(sha)
   }
-  const state = merges.some(m => inEffect(m.sha)) ? 'integrated' : 'reverted'
+  // Every merge must be in effect. A plain re-merge after a revert brings only the new
+  // commits; the code the revert took out stays out, so the feature is still failed.
+  const state = merges.every(m => inEffect(m.sha)) ? 'integrated' : 'reverted'
   return { state, merges: merges.map(m => m.sha) }
 }
 
@@ -78,8 +89,10 @@ export function ignoreLocal(cwd, path = '.forge/') {
   if (!path || /[\r\n]/.test(path) || path.startsWith('#') || path.startsWith('!')) {
     throw new Error(`forge-git: not a plain path to ignore: ${JSON.stringify(path)}`)
   }
-  if (git(cwd, ['check-ignore', '-q', '--', path], { allowFail: true }).status === 0) return 'already'
-  const exclude = resolve(cwd, git(cwd, ['rev-parse', '--git-path', 'info/exclude']).out)
+  // <path> is relative to the repo root, the same anchor the exclude file uses.
+  const top = git(cwd, ['rev-parse', '--show-toplevel']).out
+  if (git(top, ['check-ignore', '-q', '--', path], { allowFail: true }).status === 0) return 'already'
+  const exclude = resolve(top, git(top, ['rev-parse', '--git-path', 'info/exclude']).out)
   mkdirSync(dirname(exclude), { recursive: true })
   const prev = existsSync(exclude) ? readFileSync(exclude, 'utf8') : ''
   appendFileSync(exclude, (prev && !prev.endsWith('\n') ? '\n' : '') + path + '\n')
@@ -100,6 +113,8 @@ function main([sub, ...args]) {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+// realpath on both sides: a FORGE_HOME reached through a symlink or junction still runs main.
+const real = f => { try { return realpathSync(f) } catch { return resolve(f) } }
+if (process.argv[1] && real(fileURLToPath(import.meta.url)) === real(process.argv[1])) {
   try { main(process.argv.slice(2)) } catch (e) { console.error(e.message); process.exit(1) }
 }
