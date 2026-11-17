@@ -949,14 +949,17 @@ suite('outcome-oriented workflow', () => {
   test('merge gate merges first, then runs the suite on the merged result; no remote is the only direct-to-branch case', () => {
     const b = build()
     const gate = b.slice(b.indexOf('### The merge gate'))
-    assert.ok(gate.indexOf('git merge --no-ff') < gate.indexOf('Run the full suite'), 'merge precedes the suite run')
+    const m = gate.indexOf('git merge --no-ff'), s = gate.indexOf('Run the full suite')
+    assert.ok(m >= 0 && s >= 0 && m < s, 'merge precedes the suite run')
+    assert.match(b, /integration_branch, known_red/, 'run.json records the integration branch')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /a reverted one is \*\*failed\*\*/, 'a reverted merge never reads as integrated')
     assert.match(b, /integration_mode: branch/)
     assert.match(b, /Only with no\s+remote is there no protected branch/)
   })
 
   test('resume maps legacy modes to delivery, reads the integration branch, and is user-typed only', () => {
     const r = read('skills', 'resume', 'SKILL.md')
-    assert.match(r, /`auto-integrate` or\s+`review-PRs`: treat them as `branch`/)
+    assert.match(r, /`auto-integrate` or\s+`review-PRs`: rewrite them in run\.json to `branch`/)
     assert.match(r, /integration_branch/)
     assert.match(r, /^disable-model-invocation: true$/m)
   })
