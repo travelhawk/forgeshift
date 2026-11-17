@@ -47,6 +47,56 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(dead.result.unverified.length, 12)
   })
 
+  test('deep-review: a data_safety finding rated medium is raised to high and gets its own refuter', async () => {
+    const prompts = {}
+    const mk = (summary, data_safety) => ({ file: 'a.js', line: summary.length, summary, failure_scenario: 'x', severity: 'medium', confidence: 'likely', ...(data_safety ? { data_safety } : {}) })
+    const findings = [mk('two tabs overwrite stored data', true), mk('plain medium edge case', false)]
+    const base = deepReviewResponder({ 'review:bugs': { findings }, 'review:boundaries': { findings: [] }, 'review:craft': { findings: [] } })
+    const { result, calls } = await runWorkflow(loadSource('workflows/deep-review.js'), {
+      args: { ...SCENARIOS['deep-review'].args, priority: 'the CSV export only' },
+      responder: (p, o) => { prompts[o.label] = p; return base(p, o) },
+    })
+    for (const l of ['review:bugs', 'review:boundaries', 'review:craft']) assert.match(prompts[l], /DATA-SAFETY SWEEP/, `${l} runs the sweep despite a narrow steer`)
+    const all = [...result.confirmed, ...(result.unverified || [])]
+    const ds = all.find(f => /two tabs/.test(f.summary))
+    const plain = all.find(f => /plain medium/.test(f.summary))
+    assert.equal(ds.severity, 'high')
+    assert.equal(ds.severity_raised_from, 'medium')
+    assert.equal(plain.severity, 'medium', 'an unflagged medium stays medium')
+    assert.equal(calls.filter(c => /^verify:a.js:/.test(c.label)).length, 1, 'only the raised finding gets a single refuter')
+  })
+
+  test('deep-review: data_safety flag survives dedup and clustering; quick mode runs the sweep; refuted keeps the flag', async () => {
+    const src = loadSource('workflows/deep-review.js')
+    const mk = (summary, line, ds, sev = 'medium') => ({ file: 'a.js', line, summary, failure_scenario: 'x', severity: sev, confidence: 'likely', ...(ds ? { data_safety: true } : {}) })
+    // dedup: same finding, unflagged first, flagged from a later lens
+    const dup = await runWorkflow(src, { args: SCENARIOS['deep-review'].args, responder: deepReviewResponder({
+      'review:bugs': { findings: [mk('same defect', 1, false)] }, 'review:boundaries': { findings: [mk('same defect', 1, true)] }, 'review:craft': { findings: [] } }) })
+    const d = [...dup.result.confirmed, ...(dup.result.unverified || [])][0]
+    assert.equal(d.severity, 'high'); assert.equal(d.data_safety, true)
+    // clustering: 3 findings, one cluster; representative is unflagged, a member is flagged
+    const cl = await runWorkflow(src, { args: SCENARIOS['deep-review'].args, responder: deepReviewResponder({
+      'review:bugs': { findings: [mk('one', 1, false, 'low'), mk('two', 2, true), mk('three', 3, false, 'low')] }, 'review:boundaries': { findings: [] }, 'review:craft': { findings: [] },
+      'cluster:root-cause': { clusters: [{ ids: [0, 1, 2] }] } }) })
+    const c = [...cl.result.confirmed, ...(cl.result.unverified || [])]
+    assert.equal(c.length, 1); assert.equal(c[0].data_safety, true, 'flag kept through clustering'); assert.equal(c[0].severity, 'high')
+    // quick mode and integration mode still carry the sweep
+    for (const extra of [{ depth: 'quick' }, { mode: 'integration' }]) {
+      const prompts = {}
+      const base = deepReviewResponder()
+      await runWorkflow(src, { args: { ...SCENARIOS['deep-review'].args, ...extra }, responder: (p, o) => { prompts[o.label] = p; return base(p, o) } })
+      const lens = Object.keys(prompts).filter(l => l.startsWith('review:'))
+      assert.ok(lens.length >= 1)
+      for (const l of lens) assert.match(prompts[l], /DATA-SAFETY SWEEP/, `${JSON.stringify(extra)} ${l}`)
+    }
+    // refuted data-safety blocker keeps its flag in rejectedBlockers
+    const rj = await runWorkflow(src, { args: SCENARIOS['deep-review'].args, responder: deepReviewResponder({
+      'review:bugs': { findings: [mk('gone', 1, true)] }, 'review:boundaries': { findings: [] }, 'review:craft': { findings: [] },
+      'verify:a.js:1': { refuted: true, reasoning: 'nope' } }) })
+    assert.equal(rj.result.rejectedBlockers[0].data_safety, true)
+    assert.equal(rj.result.rejectedBlockers[0].severity_raised_from, 'medium')
+  })
+
   test('deep-review: all reviewers refusing the target is a run-level error', async () => {
     const { result } = await run('deep-review', 'deep-review', deepReviewResponder({
       'review:bugs': { refused: 'harness repo', findings: [] }, 'review:boundaries': { refused: 'harness repo', findings: [] },
