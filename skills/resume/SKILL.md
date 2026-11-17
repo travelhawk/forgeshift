@@ -33,9 +33,11 @@ Run these on the current tree and compare to the map:
 - `gh pr list --state open` (remote + `gh auth` present) — delivery PRs awaiting the user's merge.
 - The test suite on HEAD — green/red vs. the recorded baseline / known-red set.
 
-Per feature resolve the TRUE status: **integrated** (in the log) · **delivered** (in an open
-delivery PR: awaiting the user's merge, nothing left to run) · **built** (branch has commits,
-not integrated) · **failed** (recorded fail, or branch missing) · **not-started**. Correct `run.json` wherever it disagrees with git.
+Per feature resolve the TRUE status: **integrated** (its merge is in the log and no later
+`Revert "Merge …"` undoes it; a reverted one is **failed**) · **delivered** (in an open
+delivery PR whose required checks are green: awaiting the user's merge; red or pending checks
+mean §5d step 3 and the report are still to run) · **built** (branch has commits, not
+integrated) · **failed** (recorded fail, reverted, or branch missing) · **not-started**. Correct `run.json` wherever it disagrees with git.
 
 ## 3. Report + the single next action
 
@@ -52,14 +54,14 @@ not integrated) · **failed** (recorded fail, or branch missing) · **not-starte
 This skill runs only when the user types it, so that is the go-ahead: continue straight after
 the report. Stop and ask only at a stop condition (NEW suite failures vs. baseline, a one-way
 door, a twice-failed feature). Older runs recorded `integration_mode` `auto-integrate` or
-`review-PRs`: treat them as `branch`; cut `forge/<slug>` from the current HEAD (from the
-baseline for `review-PRs`), report their old open per-feature PRs as "awaiting your merge"
-and never merge them. A run whose PRs are all open is **delivered**: report that, not "nothing
-to resume". Then:
+`review-PRs`: rewrite them in run.json to `branch` plus a new `forge/<slug>` cut from the
+fetched default branch (`origin/<default>`; the old merges happened on GitHub), report their
+old open per-feature PRs as "awaiting your merge" and never merge them. A run whose PRs are
+all open with green checks is **delivered**: report that, not "nothing to resume". Then:
 
 - Remaining features to build/merge → hand back to `/forge:build` for exactly those,
-  reusing the recorded `baseline_sha` and `integration_mode` (no re-planning, no second
-  gate).
+  reusing the recorded `baseline_sha`, `integration_mode` and `integration_branch` (no
+  re-planning, no second gate, no new integration branch).
 - Only the finish left → run the `deep-review` finish (`/forge:build` §5), then deliver
   (§5d), directly.
 - A twice-failed feature → `/forge:fix` or `/forge:debug-hard`, never a third identical
