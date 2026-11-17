@@ -42,18 +42,22 @@ or branch missing) · **not-started**. Correct `run.json` wherever it disagrees 
   `bash "$FORGE_HOME/scripts/forge-worktree.sh" clean`); any NEW suite failures vs.
   baseline (a stop condition — report, don't build past it).
 - **The one next action, stated exactly** — e.g. "resume at wave 3 (F7–F9 not started)",
-  "merge open PRs #42, #43, then run the finish deep-review", "F5 failed verification twice
+  "integrate F7–F9, then run the finish deep-review and deliver", "F5 failed verification twice
   → send to `/forge:fix`", or "run complete — nothing to resume".
 
 ## 4. Continue (only if asked)
 
-Reporting is automatic; continuing is not — resuming an autonomous run needs the user's
-go-ahead (same authority bar as the original `/forge:build` gate). On that go-ahead:
+Asking to resume is the go-ahead: continue straight after the report. Stop and ask only at a
+stop condition (NEW suite failures vs. baseline, a one-way door, a twice-failed feature).
+`integration_mode` values from older runs (`auto-integrate`, `review-PRs`) mean `local`
+integration on the branch the features already merged to; the remaining work is delivered
+by `/forge:build` §5d. Then:
 
 - Remaining features to build/merge → hand back to `/forge:build` for exactly those,
   reusing the recorded `baseline_sha` and `integration_mode` (no re-planning, no second
   gate).
-- Only the finish left → run the `deep-review` finish (`/forge:build` §5) directly.
+- Only the finish left → run the `deep-review` finish (`/forge:build` §5), then deliver
+  (§5d), directly.
 - A twice-failed feature → `/forge:fix` or `/forge:debug-hard`, never a third identical
   attempt.
 

@@ -1,16 +1,17 @@
 ---
 name: build
-description: Build the whole feature backlog hands-off - one wave-plan approval, then waves of parallel feature builds, verified work merged in dependency order, finished by an automatic deep-review of the integrated result with confirmed critical/high findings auto-fixed. Use after /forge:kickoff or /forge:adopt when many features should be built without per-feature supervision.
+description: Build the whole feature backlog hands-off - plan, build in waves where parallel, integrate verified work locally, finish with an automatic deep-review (confirmed critical/high findings auto-fixed), then deliver as one PR (split only where reviewability needs it) for a human merge. Asks only where a decision is open. Use after /forge:kickoff or /forge:adopt when many features should be built without per-feature supervision.
 argument-hint: "[F#-list / range / feature descriptions - empty = all unchecked features]"
 disable-model-invocation: true
 ---
 
-# /forge:build — approve the plan once, then the whole backlog builds
+# /forge:build — the whole backlog, from plan to a delivered PR
 
 Build "$ARGUMENTS" (empty → every unchecked feature in PROGRESS.md, or in the issue phase every
-open issue labelled `forge`, tier from its body) with exactly ONE
-approval gate. After it: no questions, no per-feature check-ins. Failures are collected and
-reported at the end. The user can always interrupt.
+open issue labelled `forge`, tier from its body). You own the outcome: plan, build, verify,
+deliver. The user is asked only where a decision is open (§2); after that no questions, no
+per-feature check-ins. Failures are collected and reported at the end. The user can always
+interrupt. Vocabulary and the PR-boundary rule: `$FORGE_HOME/docs/LIFECYCLE.md`.
 
 The sections below are phases with a goal and a done-state. You run them and decide in each
 whether to work yourself or delegate. Fresh context is spent only where it buys something:
@@ -18,7 +19,7 @@ an independent check, real parallelism, or keeping your own context clear.
 
 ## 0. Anchor
 
-- `cd` into the target product (ambiguous → ask; that is before the gate, so it's allowed).
+- `cd` into the target product (ambiguous → ask; that is before the run, so it's allowed).
 - `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`. Fire workflows by
   absolute path `$FORGE_HOME/workflows/<name>.js` — Claude Code: the Workflow tool with that
   file as `scriptPath`; any other host: `node "$FORGE_HOME/bin/forge-run.mjs" <name>
@@ -27,8 +28,10 @@ an independent check, real parallelism, or keeping your own context clear.
 - Baseline or stop: clean tree, suite green — or the pre-existing red **recorded in
   PROGRESS.md**. That red is then the baseline every later check compares against, and it
   travels to verifiers as `known_failures`.
-- Record HEAD as the run's baseline SHA. With a remote, `gh auth status` must pass before PR
-  modes are offered.
+- Record HEAD as the run's baseline SHA. With a remote, `gh auth status` must pass; delivery
+  needs it. Create the **integration branch** `forge/<slug>` from the baseline and work on it:
+  features land there, never on `main`. No remote → there is no protected branch: integrate
+  into the current branch (`integration_mode: local`).
 - Write `.forge/run.json` (gitignored): `{run_id, command, baseline_sha, integration_mode,
   known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
@@ -40,7 +43,7 @@ an independent check, real parallelism, or keeping your own context clear.
 your context — has no waves: you build the features yourself, one after another, each on
 its own branch from the last merged state. No worktrees, no parallel merges, no per-feature
 checks: the T1 check moves into the finish review, with the T1 paths as its priority. A
-small run needs no top model: say at the gate that a Sonnet session is enough, and that you
+small run needs no top model: say at the start that a Sonnet session is enough, and that you
 raise it only if a feature fails twice. Everything below is for larger runs.
 
 You partition the backlog by **file footprint**. Hand it to `forge-blueprint` only when
@@ -62,31 +65,34 @@ Output per entry: features, tier + justification, footprint, why it is parallel-
 done-criteria. Plus the done-criteria that **cannot be proven in this environment** and the
 honest substitute — those are reported open at the end, never ticked.
 
-## 2. The gate (the only one)
+## 2. Start — a gate only when a decision is open
 
-One message, one approval:
+The backlog is already in the spec, which the user approved at kickoff, and the wave plan is
+technical. So a plan nobody has to decide on is not shown for approval. Ask, in ONE message,
+only for what is genuinely open, each with your default:
 
-- **What the user gets**, first: the backlog's outcome in one line, then feature → done means
-  in product language. This is the part being approved.
-- **How it gets built**, in a separate block below: the tier per feature (the user's override
-  point) and the execution order. Show a **wave table only when two or more features run in
-  parallel**; otherwise "built in order: A → B → C".
-- **Integration mode.** `auto-integrate` (default): verified feature → branch → PR with
-  evidence → squash-merge → next wave builds on updated main. `review-PRs`: PRs stay open —
-  only valid when nothing later depends on an unmerged one. `local`: no remote — offer
-  `gh repo create --private --source .` once; declined → `git merge --no-ff` per feature.
-  **Recommend `local` for a solo product with no CI**: same branches, same gates, no PR
-  round-trips. It is the run's speed lever.
+- a one-way door in the backlog (data migration that cannot be undone, a vendor or licence
+  choice, a public API contract);
+- done-criteria too vague to build against, or in conflict with each other or the spec;
+- a missing Decision policy (below) in a product whose spec the user has not seen;
+- no remote and the user may want one: offer `gh repo create --private --source .` once.
+
+Otherwise state the plan in one message and start: the outcome in one line, feature → done
+means in product language, the execution order (a wave table **only when two or more
+features run in parallel**), run size and rough cost. Tier per feature is shown for override,
+not for approval.
+
 - **Run size**: small (built in order by you, one review at the end, a Sonnet session is
   enough) or large (waves; in parallel worktrees where 3+ entries are parallel-safe: the
   `feature-pipeline` workflow).
-- Rough cost, and that the finish (§5) is included by default — opt out here only for
-  mini-backlogs.
+- **Integration** is local: features land on the integration branch and delivery (§5d)
+  opens the PR(s). Without a remote, integrating straight into the current branch is the
+  run's speed lever: same gates, no PR round-trip.
 
-The approval also grants the spec's **Decision policy**: reversible calls are decided and
+The spec's **Decision policy** is in force for the run: reversible calls are decided and
 logged as ADRs mid-run; only one-way doors stop the run, and those batch. **If `docs/SPEC.md`
-has no Decision policy section**, synthesize it from `$FORGE_HOME/templates/SPEC.md`, show it
-verbatim in this message, and write it into the spec on approval.
+has no Decision policy section**, synthesize it from `$FORGE_HOME/templates/SPEC.md`, state
+it verbatim in the start message, and write it into the spec; an objection stops the run.
 **Never run the hands-off phase without a Decision policy in force.**
 
 ## 3. Build — you orchestrate, fresh context only where it pays
@@ -144,8 +150,8 @@ user's explicit go.
 
 ### The merge gate — per wave, once
 
-1. **Confirm HEAD is the integration branch.** A merge onto a feature branch silently forks
-   the line.
+1. **Confirm HEAD is the integration branch** (`forge/<slug>`, or the current branch in
+   `local` mode). A merge onto a feature branch silently forks the line.
 2. **Kill orphaned test processes** the wave's agents left behind.
 3. **Run the full suite and the e2e suite now**, on the integrated result. This is the only
    place e2e runs. Compare its time and the new test count with the test budget in the
@@ -153,15 +159,13 @@ user's explicit go.
 4. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
    real regression, stop the run and report. Clears → log it as flaky (name + passed on retry)
    and continue.
-5. Merge in dependency order. **Every PR targets the integration branch, never another
-   feature's branch**: a chained feature is rebased onto the integration branch before its PR
-   opens. A PR whose base is merged and deleted first lands in a dead ref and still reads
-   MERGED. An unavoidable stacked base is a stop-and-report. PR modes: open the wave's PRs in
-   ONE batch (`bash "$FORGE_HOME/scripts/forge-pr.sh" open-all <manifest>`), then merge each;
-   wait only on **required** checks (`gh pr checks <n> --watch --required`), watched
-   **concurrently, not one at a time**.
-6. Tick PROGRESS.md per merged feature with its evidence (issue phase: the PR body carries the
-   evidence and `Closes #<issue>`); update `.forge/run.json`.
+5. Merge each verified feature branch into the integration branch in dependency order
+   (`git merge --no-ff`), no PR: a feature is not a reviewable unit by itself (§5d decides
+   that), and CI runs once on the delivery PR, not once per feature. A conflict is yours to
+   resolve; re-run the targeted tests after it.
+6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
+   evidence for the delivery PR body, which carries `Closes #<issue>`); update
+   `.forge/run.json`.
 
 Per FAILED feature: record branch + issues, continue the wave. A failure blocks only its
 dependents. After the last wave, ONE retry round for failures that read fixable; whatever
@@ -174,10 +178,10 @@ first feature that renders real UI merges (confirmed gaps feed the next briefs),
 **polish pass** after the last feature, spending ONE T3 feature on the confirmed gaps. No Art
 direction block → note it and skip.
 
-## 5. Finish (automatic — covered by the gate approval)
+## 5. Finish (automatic, no approval)
 
-Only on a completed run; a halted run reports the stop instead. `review-PRs` mode has no
-integrated main — skip the review and recommend `/forge:deep-review` after merging.
+Only on a completed run; a halted run reports the stop instead. The review runs on the
+integration branch before any PR exists, so findings are fixed before a reviewer sees them.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
    their paths, every named sensitive surface, and every path that saves, loads or deletes
@@ -203,6 +207,26 @@ integrated main — skip the review and recommend `/forge:deep-review` after mer
 **`forge-etcher`, fail-soft.** It rewrites the README from the SHIPPED reality, per
 `$FORGE_HOME/docs/FINISH.md`. **Verify every command it documents by running it.**
 
+## 5d. Deliver
+
+Decide the PR boundaries by the rule in `$FORGE_HOME/docs/LIFECYCLE.md` § PR boundaries:
+one PR unless a split serves the reviewer. No remote or `local` mode → nothing to open; the
+work is already on the branch.
+
+1. Push the integration branch. For a split, cut one branch per reviewable concern from the
+   integration branch (parts with a build dependency stay together). Several PRs open in one
+   batch: `bash "$FORGE_HOME/scripts/forge-pr.sh" open-all <manifest>`; one PR:
+   `forge-pr.sh open`. Each targets the repo's main branch, never another feature's branch.
+2. PR text from the repo's `.github/pull_request_template.md` if it has one, else from its
+   `AGENTS.md`, else: what the user gets, evidence (the pasted merge-gate and review results),
+   deviations, risks. Per-feature `pr_body` data from the pipeline is raw material for it,
+   not a second description. Say why the boundary is where it is when it is not one PR.
+3. Wait for the required checks (`gh pr checks <n> --watch --required`, several PRs
+   **concurrently, not one at a time**) and fix red ones within the usual two rounds. A
+   fix on a PR branch is a new commit, never a force-push.
+4. Never merge the delivery. Merging into a protected branch is the user's call; the report
+   links the PR(s). The run still closes with the final verdict.
+
 ## 6. Report
 
 1–2 lines per feature during the run. **Every message to the user names a feature by what it
@@ -211,22 +235,25 @@ does for the user** ("import contacts from CSV"); an ID may follow in brackets. 
 
 The final report is compact:
 
-- Table: feature → branch → PR → verdict → merged. Suite state on integrated main (pasted).
+- Table: feature → verdict → delivered in PR. One line on the PR boundary. Suite state on the
+  integrated branch (pasted), CI state of the PR(s).
 - Flaky tests that cleared on a re-run. Security tier escalations, with the surface named.
 - **Where the time went**: per-wave build / check / integrate wall-clock.
-- **Actual spend vs. the gate estimate.**
+- **Actual spend vs. the estimate stated at the start.**
 - **Autonomous decisions to review**: the ADRs, each with its one-line rationale and path.
 - **Criteria reported open, not ticked**, with the substitute that ran.
-- What needs the user: open PRs, skipped dependents, twice-failed features, medium/low triage.
-- Closing verdict: **ready for `/forge:ship`** — or not, with reasons. Never soften it.
+- What needs the user: the PR(s) to merge, skipped dependents, twice-failed features,
+  medium/low triage.
+- Closing verdict: **ready for `/forge:ship`** once the PR(s) are merged — or not, with
+  reasons. Never soften it.
 - **Next →** the line matching the verdict.
 
 ## Stop conditions (report, never push through)
 
 Unrecorded red baseline · more than half a wave fails verification · NEW suite failures on
-integrated main that reproduce on a targeted re-run · a workflow-level error · an
-unmergeable PR that later waves depend on.
+integrated branch that reproduce on a targeted re-run · a workflow-level error · a feature
+branch that conflicts beyond a safe resolution and that later waves depend on.
 
-`/forge:build` never force-pushes, never merges a feature that failed verification, and never
-weakens a test to get green. On any stop, `.forge/run.json` holds the state for
-`/forge:resume`.
+`/forge:build` never force-pushes, never merges a feature that failed verification, and
+never weakens a test to get green. It never merges into a protected branch. On any stop,
+`.forge/run.json` holds the state for `/forge:resume`.

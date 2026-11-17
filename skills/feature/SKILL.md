@@ -6,15 +6,19 @@ argument-hint: "[feature description or F# from the spec]"
 
 # /forge:feature — One feature through the loop
 
-Build "$ARGUMENTS" tests-first. One feature per invocation; a
-whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent items in the
-`feature-pipeline` workflow — point the user there when they list several.
+Build "$ARGUMENTS" tests-first. This is also the **focused task** lane: a task in plain words
+goes context → plan → build → verify → PR with no backlog, no issue and no spec row needed.
+You own the outcome, and nothing waits for a human until the PR is open. One feature per
+invocation; a whole backlog belongs in `/forge:build`, and a raw batch of
+(3+) independent items in the `feature-pipeline` workflow — point the user there when they
+list several.
 
 ## 1. Anchor
 
 - Establish the target product (ambiguous → ask, then `cd`).
 - Find the feature in `docs/SPEC.md` / `PROGRESS.md` and use its done-criteria. Ad-hoc →
-  write 2–5 checkable ones now and get a nod.
+  write 2–5 checkable ones now, state them, and go on. A criterion you had to guess at the
+  product level (not a technical one) is the one thing worth a question.
 - **Read its risk tier** (`T?` on the feature's row). Untagged → classify it:
   `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`, then
   `$FORGE_HOME/docs/RISK-TIERS.md`; ties up. `/forge:feature F3 as tier 1` overrides for this
@@ -25,9 +29,11 @@ whole backlog belongs in `/forge:build`, and a raw batch of (3+) independent ite
 
 - **Small or clear** (the done-criteria say what to build): no separate plan. Whoever builds
   reads the code and plans inline.
-- **T1, a new subsystem or a data-model change**: delegate the plan to `forge-blueprint`,
-  record it as `docs/features/F<#>.md` from `$FORGE_HOME/templates/FEATURE.md`, and **block on
-  approval**.
+- **T1, a new subsystem or a data-model change**: delegate the plan to `forge-blueprint` (or
+  write it yourself on the session model), record it as `docs/features/F<#>.md` from
+  `$FORGE_HOME/templates/FEATURE.md` and **build on it**. It stops for the user only if it
+  contains a one-way door or changes what the user gets (`docs/LIFECYCLE.md` § Approval
+  boundaries); a reversible design call is decided and logged.
 - **Integrates an external HTTP API?** Have `forge-prospector` confirm endpoint, auth header,
   body shape and the success/error signal against the live vendor docs, and record that
   contract. Reviewers have no network: the recorded contract is all they can check the
@@ -60,21 +66,27 @@ authn/authz, a tenant-scoped query, an external-input parser, token/secret handl
 or shell, output another program interprets. A named surface adds the T1 pass.
 Raises depth only, never lowers it.
 
-Fix CONFIRMED critical/high now; judge medium/low with the user if the fix isn't obvious.
+Fix CONFIRMED critical/high now. Medium/low: fix the cheap ones, list the rest in the PR
+body; the user is not asked to triage.
 
-## 5. Integrate — one PR per feature
+## 5. Deliver — one PR for this task
+
+One feature or task is one PR by definition here; whether a larger change should split is
+`docs/LIFECYCLE.md` § PR boundaries. Text and conventions come from the product's own
+standards (`AGENTS.md` § Standards).
 
 - `git push -u origin feature/<...>`, then `gh pr create --head feature/<...> --base main
   --body-file <scratchpad>` — body = summary, done-criteria checklist, step-4 evidence.
-  `--head` keeps the session checkout on main.
-- Leave the PR open: the merge call is the user's. On their word it squash-merges
-  (`gh pr merge <n> --squash --delete-branch`).
+  `--head` keeps the session checkout on main. Wait for the required checks and fix red ones.
+- Leave the PR open: the merge into a protected branch is the user's call. On their word it
+  squash-merges (`gh pr merge <n> --squash --delete-branch`).
 - **No remote:** offer `gh repo create --private --source .` once; declined → `git merge
   --no-ff`. Never an unreviewed fast-forward onto main.
 
 ## 6. Close
 
-- Tick `PROGRESS.md` **only** with pasted evidence, and note the PR. What the environment
+- Tick `PROGRESS.md` **only** with pasted evidence, and note the PR. A focused task with no
+  tracker row has nothing to tick: the PR body is the record. What the environment
   could not prove is reported **open**, never ticked.
 - Update `docs/SPEC.md` only if what the user gets changed.
 - Report: what shipped, evidence, PR link, deviations.

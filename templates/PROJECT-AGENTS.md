@@ -8,6 +8,9 @@
 done-criteria). State: `PROGRESS.md` (feature list + session log) until the first release,
 then GitHub issues labelled `forge` + PRs. Decisions: `docs/adr/`.
 
+Team standards: <link or path to the team playbook, or "none">. Branching, commits, PR text,
+review and CI follow this file and that playbook; the forge harness defers to them.
+
 ## Session start
 
 1. Read `PROGRESS.md` — especially "Next session should". After the first release:

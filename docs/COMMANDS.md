@@ -27,7 +27,7 @@ agents run, on which model and effort, and how results combine — so it is repr
 | New product idea | `/forge:kickoff <idea>` |
 | Existing repo to bring in | `/forge:adopt <path>` |
 | Next version of a product | `/forge:next <ideas>` |
-| One feature | `/forge:feature F3` |
+| One feature or a focused task (no backlog or issue needed) | `/forge:feature F3` · `/forge:feature <task in words>` |
 | Whole backlog, hands-off | `/forge:build` |
 | A bug · a bug that survived two attempts | `/forge:fix` · `/forge:debug-hard` |
 | Review manual work before shipping | `/forge:deep-review` |
@@ -44,8 +44,9 @@ agents run, on which model and effort, and how results combine — so it is repr
    when you type them — their consequences are yours. The agent may start the others itself.
 2. **Cost.** Workflows launch agent fleets, so they sit at gates and at real breadth, never at
    a 20-line change. Unsure → one rung lower on the ladder in `ORCHESTRATION.md`.
-3. **You stay product owner.** Playbooks pause where taste or scope is decided. Building,
-   testing and collecting evidence run without you.
+3. **You stay product owner.** Playbooks pause where taste or scope is decided, and before a
+   merge into a protected branch or a deploy (`LIFECYCLE.md` § Approval boundaries). Building,
+   testing, reviewing and opening PRs run without you.
 
 Start your agent inside your product (`claude`, `codex` or `opencode`). Command syntax per
 host: `HOSTS.md`. Workflows need the product as their `dir` arg; they do not follow your `cd`.

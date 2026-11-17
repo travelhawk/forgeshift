@@ -34,14 +34,22 @@ note it for an ADR/feature instead of fixing the world now. Commit:
 `forge-quench` on the diff — security-relevant or data-touching fixes always; trivial
 one-liners with an obvious regression test may skip (say so when you do).
 
-## 5. Release the fix (when it needs to go out now)
+## 5. Deliver
+
+Work on `fix/<slug>` from the start, never on main. Push and open one PR (the symptom, root
+cause, the test that guards it, evidence). Boundaries, text and the human merge: the
+harness's `docs/LIFECYCLE.md` and the product's own standards. Wait for the required checks.
+`FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`
+resolves `$FORGE_HOME/docs/LIFECYCLE.md`.
+
+## 6. Release the fix (when it needs to go out now)
 
 Patch releases use `/forge:ship` with the ABBREVIATED manual checklist: walk only the broken
 journey (not all of them), confirm migrations/env unchanged, rollback command known.
 The automated release-gate runs in full — that part never abbreviates. Not urgent →
 it rides the next regular release; note it in CHANGELOG under Unreleased.
 
-## 6. Close
+## 7. Close
 
 PROGRESS.md session log: symptom → root cause → the test that now guards it. If the
 same class of bug happened before, say so — twice is a pattern worth an ADR or a

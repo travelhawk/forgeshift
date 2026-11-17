@@ -631,7 +631,7 @@ suite('review improvements', () => {
   test('feature-pipeline reports actual spend against the gate estimate', () => {
     assert.match(fp(), /budget\.spent\(\)/, 'spend read from the Workflow budget API')
     assert.match(fp(), /spend,/, 'spend returned to the orchestrator')
-    assert.match(build(), /Actual spend vs\. the gate estimate/i, '/forge:build report compares real spend to the estimate')
+    assert.match(build(), /Actual spend vs\. the estimate/i, '/forge:build report compares real spend to the estimate')
   })
 })
 
@@ -867,5 +867,82 @@ suite('two-phase state: PROGRESS.md retires to issues', () => {
     for (const s of ['build', 'next', 'adopt']) {
       assert.match(read('skills', s, 'SKILL.md'), /issue phase/i, `${s} handles the issue phase`)
     }
+  })
+})
+
+// --- outcome-oriented workflow (2026-11) — autonomy, PR boundaries, approval boundaries ---
+suite('outcome-oriented workflow', () => {
+  const build = () => read('skills', 'build', 'SKILL.md')
+  const life = () => read('docs', 'LIFECYCLE.md')
+
+  test('feature, work package, wave and PR are separate concepts; one feature is not one PR', () => {
+    assert.match(life(), /\*\*Feature\*\*/)
+    assert.match(life(), /\*\*Work package\*\*/)
+    assert.match(life(), /\*\*Wave\*\*/)
+    assert.match(life(), /\*\*PR\*\*/)
+    assert.match(life(), /Never one PR per feature by default/i, 'the PR boundary rule is stated once, in LIFECYCLE')
+    assert.match(life(), /reviewab/i, 'PR boundaries follow reviewability')
+  })
+
+  test('/forge:build integrates locally and delivers by PR boundary — no per-feature PRs, no auto-merge', () => {
+    assert.match(build(), /## 5d\. Deliver/, 'delivery is its own phase after the finish')
+    assert.match(build(), /LIFECYCLE\.md/, 'build points at the one PR-boundary rule')
+    assert.doesNotMatch(build(), /auto-integrate/, 'the per-feature PR + squash-merge mode is gone')
+    assert.doesNotMatch(build(), /review-PRs/, 'the per-feature open-PR mode is gone')
+    assert.doesNotMatch(build(), /gh pr merge|forge-pr\.sh" merge/, 'build never merges into a protected branch')
+    assert.match(build(), /never merges into a protected branch/i, 'merge stays a human call')
+  })
+
+  test('/forge:build asks only when a decision is open — a spec\'d backlog starts without a gate', () => {
+    assert.doesNotMatch(build(), /The gate \(the only one\)/)
+    assert.match(build(), /## 2\. Start — a gate only when a decision is open/)
+    assert.match(build(), /Otherwise state the plan in one message and start/i)
+    assert.match(read('skills', 'next', 'SKILL.md'), /gate only when a decision is open/i)
+  })
+
+  test('issues are for work that outlives the run; a focused task needs no backlog', () => {
+    assert.match(read('AGENTS.md'), /\*\*Issues are for work that outlives the run\.\*\*/)
+    assert.doesNotMatch(read('skills', 'next', 'SKILL.md'), /one issue per feature instead/)
+    assert.match(read('skills', 'next', 'SKILL.md'), /only the ideas moved to a later version become issues/i)
+    const f = read('skills', 'feature', 'SKILL.md')
+    assert.match(f, /focused task/i, '/forge:feature is the focused-task lane')
+    assert.match(f, /no backlog, no issue/i)
+  })
+
+  test('routine technical steps do not wait for a human', () => {
+    const f = read('skills', 'feature', 'SKILL.md')
+    assert.doesNotMatch(f, /block on\s+approval/i, 'a T1 plan is recorded, not approved')
+    assert.doesNotMatch(f, /get a nod/i, 'ad-hoc criteria are stated, not confirmed')
+    assert.doesNotMatch(f, /judge medium\/low with the user/i, 'medium/low triage is the agent\'s')
+    assert.doesNotMatch(read('skills', 'resume', 'SKILL.md'), /needs the user's\s+go-ahead/i, 'resuming does not re-ask')
+  })
+
+  test('/forge:fix ends in a branch and a delivered PR, like every other lane', () => {
+    const fx = read('skills', 'fix', 'SKILL.md')
+    assert.match(fx, /## \d\. Deliver/)
+    assert.match(fx, /fix\/<slug>/)
+    assert.match(fx, /LIFECYCLE\.md/)
+  })
+
+  test('human approvals sit only at product, irreversible, protected-merge and production boundaries', () => {
+    assert.match(life(), /## Approval boundaries/)
+    for (const re of [/product or business requirement/i, /irreversible or destructive/i, /protected branch/i, /production deploy/i, /stakeholder/i])
+      assert.match(life(), re)
+    assert.match(life(), /No approval for phase transitions/i)
+  })
+
+  test('existing engineering standards stay authoritative — referenced, not copied', () => {
+    const a = read('AGENTS.md')
+    assert.match(a, /^## Standards$/m)
+    assert.match(a, /product's own `AGENTS\.md`/)
+    assert.match(a, /team playbook/i)
+    assert.match(read('templates', 'PROJECT-AGENTS.md'), /Team standards:/, 'the product names its standard once')
+    assert.match(build(), /pull_request_template\.md/, 'delivery uses the repo\'s own PR template first')
+  })
+
+  test('the pipeline hands branches to delivery; README no longer promises a PR per feature', () => {
+    assert.doesNotMatch(read('skills', 'feature-pipeline', 'SKILL.md'), /open a PR per passed feature/)
+    assert.doesNotMatch(read('README.md'), /a PR each, auto-merged/)
+    assert.doesNotMatch(read('README.md'), /parallel waves, a PR each/)
   })
 })
