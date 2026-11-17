@@ -66,7 +66,7 @@ The tag is plain text in the feature row, and the file wins over chat:
 - `docs/SPEC.md`: the **Risk** column, `T? (<signal>)`.
 
 `forge-blueprint` seeds the tags at kickoff/adopt/next. Override in three places: edit the
-marker on disk (durable), adjust the wave-plan table before approving `/forge:build` (per batch),
+marker on disk (durable), adjust the tier shown in the start message of `/forge:build` (per batch),
 or run `/forge:feature F3 as tier 1` (per run).
 
 T3's smoke test is the right-sized test, never a skipped one. T2 and T3 are not

@@ -20,7 +20,7 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 - Establish the target product (ambiguous → ask). It must have `docs/SPEC.md` and
   `PROGRESS.md` or, in the issue phase, issues labelled `forge`. Without them, stop and redirect: a new product is `/forge:kickoff`, existing
   code without a spec is `/forge:adopt`.
-- Then `/forge:build`'s **Anchor**: clean tree, green or recorded-red baseline, baseline SHA,
+- Then `/forge:build`'s **Anchor** (including the integration branch `forge/<slug>`): clean tree, green or recorded-red baseline, baseline SHA,
   remote and `gh auth` status.
 
 ## 1. Intake (clarify — don't just accept)
@@ -38,7 +38,7 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
 ## 2. Decompose & tier (`forge-blueprint`)
 
 `forge-blueprint` turns the clarified ideas into features and a wave plan. It returns
-markdown; nothing lands on disk before the gate.
+markdown; nothing lands on disk before §4.
 
 - **Right-size**: a feature is a whole capability a user notices, not a step. It builds and
   tests on its own, with 2–5 done-criteria. Prefer fewer, larger features; too much for one

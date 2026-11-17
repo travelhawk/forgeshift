@@ -32,7 +32,7 @@ list several.
 - **T1, a new subsystem or a data-model change**: delegate the plan to `forge-blueprint` (or
   write it yourself on the session model), record it as `docs/features/F<#>.md` from
   `$FORGE_HOME/templates/FEATURE.md` and **build on it**. It stops for the user only if it
-  contains a one-way door or changes what the user gets (`docs/LIFECYCLE.md` § Approval
+  contains a one-way door or changes what the user gets (`$FORGE_HOME/docs/LIFECYCLE.md` § Approval
   boundaries); a reversible design call is decided and logged.
 - **Integrates an external HTTP API?** Have `forge-prospector` confirm endpoint, auth header,
   body shape and the success/error signal against the live vendor docs, and record that
@@ -72,8 +72,8 @@ body; the user is not asked to triage.
 ## 5. Deliver — one PR for this task
 
 One feature or task is one PR by definition here; whether a larger change should split is
-`docs/LIFECYCLE.md` § PR boundaries. Text and conventions come from the product's own
-standards (`AGENTS.md` § Standards).
+`$FORGE_HOME/docs/LIFECYCLE.md` § PR boundaries. Text and conventions come from the product's own
+standards (`$FORGE_HOME/AGENTS.md` § Standards).
 
 - `git push -u origin feature/<...>`, then `gh pr create --head feature/<...> --base main
   --body-file <scratchpad>` — body = summary, done-criteria checklist, step-4 evidence.

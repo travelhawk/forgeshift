@@ -55,8 +55,9 @@ otherwise), a part is independently releasable or has to roll out first (a schem
 migration), a part touches files that need another person's approval and the rest does not,
 or a part is high-risk and deserves its own review. Split by reviewable concern, not by
 feature. Group parts with a build dependency in one PR; a stacked PR is a last resort.
-Delivery PRs target the integration branch of the repo (usually `main`), never another
-feature's branch.
+Delivery PRs target the repo's default branch, never another feature's branch. The
+`/forge:feature` lane is the one exception to "features never open PRs": a focused task is
+one change, so it is one PR.
 
 PR text, branch names, commit style and review expectations come from the product's own
 `AGENTS.md`, `.github/pull_request_template.md` and the team playbook it names — see
@@ -72,6 +73,7 @@ commits and PRs, run checks, review and fix its own work, and prepare deploy art
 | A material change to a product or business requirement | A scope cut, a new user-visible promise, a changed done-criterion |
 | An irreversible or destructive action | Dropping data, rewriting history, deleting a repo or a branch with unmerged work |
 | A merge into a protected branch | Every delivery PR; with no remote there is no protection |
+| Scope and stack of a new product | `/forge:kickoff` asks once, before scaffolding |
 | A production deploy | `/forge:ship` stays manual |
 | A decision reserved for a customer or stakeholder | A licence choice, a legal text, a vendor |
 

@@ -23,11 +23,13 @@ approval boundaries: `docs/LIFECYCLE.md`. A feature is not a PR; delivery decide
 
 Engineering standards are not forge's. Authority, highest first: the user's explicit
 instruction · the product's own `AGENTS.md`, `CONTRIBUTING.md` and `.github/` templates, and
-the team playbook they name (branching, commits, PR text, review, CI, docs, security) ·
-forge defaults. Read them at anchor and follow them; forge copies none of their content. Where
-they forbid a forge file (a playbook without SPEC/ADR/PROGRESS files, plans kept out of the
-repo), keep that content in the session or an ignored `.work/` folder and state the outcome
-in the PR body. Name any forge rule set aside.
+the team playbook they name · forge defaults. This covers **conventions**: branch names,
+commit style, PR text, review routing, CI, docs layout. Forge's hard rules and the approval
+boundaries in `docs/LIFECYCLE.md` are not defaults; only the user's explicit word sets them
+aside. Read the product's standards at anchor and follow them; forge copies none of their
+content. Where they forbid a forge file (a playbook without SPEC/ADR/PROGRESS files, plans
+kept out of the repo), keep that content in the session or in the ignored `.forge/` folder
+and state the outcome in the PR body. Name any forge rule set aside.
 
 Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
 on it, identically in every lane. Full scheme: `docs/RISK-TIERS.md`

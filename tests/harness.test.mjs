@@ -945,4 +945,24 @@ suite('outcome-oriented workflow', () => {
     assert.doesNotMatch(read('README.md'), /a PR each, auto-merged/)
     assert.doesNotMatch(read('README.md'), /parallel waves, a PR each/)
   })
+
+  test('merge gate merges first, then runs the suite on the merged result; no remote is the only direct-to-branch case', () => {
+    const b = build()
+    const gate = b.slice(b.indexOf('### The merge gate'))
+    assert.ok(gate.indexOf('git merge --no-ff') < gate.indexOf('Run the full suite'), 'merge precedes the suite run')
+    assert.match(b, /integration_mode: branch/)
+    assert.match(b, /Only with no\s+remote is there no protected branch/)
+  })
+
+  test('resume maps legacy modes to delivery, reads the integration branch, and is user-typed only', () => {
+    const r = read('skills', 'resume', 'SKILL.md')
+    assert.match(r, /`auto-integrate` or\s+`review-PRs`: treat them as `branch`/)
+    assert.match(r, /integration_branch/)
+    assert.match(r, /^disable-model-invocation: true$/m)
+  })
+
+  test('no stale approval wording for removed gates anywhere in docs or skills', () => {
+    for (const f of ['docs/RISK-TIERS.md', 'skills/next/SKILL.md', 'skills/build/SKILL.md', 'README.md'])
+      assert.doesNotMatch(read(...f.split('/')), /before approving `\/forge:build`|before the gate\./)
+  })
 })

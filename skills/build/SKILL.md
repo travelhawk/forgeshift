@@ -29,9 +29,12 @@ an independent check, real parallelism, or keeping your own context clear.
   PROGRESS.md**. That red is then the baseline every later check compares against, and it
   travels to verifiers as `known_failures`.
 - Record HEAD as the run's baseline SHA. With a remote, `gh auth status` must pass; delivery
-  needs it. Create the **integration branch** `forge/<slug>` from the baseline and work on it:
-  features land there, never on `main`. No remote → there is no protected branch: integrate
-  into the current branch (`integration_mode: local`).
+  needs it. Read the product's `AGENTS.md`, `CONTRIBUTING.md` and `.github/`: their branch and
+  commit conventions win over the defaults named here. Create the **integration branch**
+  `forge/<slug>` from the baseline and work on it: features land there, never on `main`
+  (`integration_mode: branch`, `integration_branch` recorded in run.json). Only with no
+  remote is there no protected branch: integrate into the current branch
+  (`integration_mode: local`).
 - Write `.forge/run.json` (gitignored): `{run_id, command, baseline_sha, integration_mode,
   known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
@@ -74,7 +77,8 @@ only for what is genuinely open, each with your default:
 - a one-way door in the backlog (data migration that cannot be undone, a vendor or licence
   choice, a public API contract);
 - done-criteria too vague to build against, or in conflict with each other or the spec;
-- a missing Decision policy (below) in a product whose spec the user has not seen;
+- a backlog or spec the user has not reviewed (adopt-seeded, reverse-engineered), or a
+  missing Decision policy (below) in such a product;
 - no remote and the user may want one: offer `gh repo create --private --source .` once.
 
 Otherwise state the plan in one message and start: the outcome in one line, feature → done
@@ -86,7 +90,7 @@ not for approval.
   enough) or large (waves; in parallel worktrees where 3+ entries are parallel-safe: the
   `feature-pipeline` workflow).
 - **Integration** is local: features land on the integration branch and delivery (§5d)
-  opens the PR(s). Without a remote, integrating straight into the current branch is the
+  opens the PR(s). With no remote, integrating straight into the current branch is the
   run's speed lever: same gates, no PR round-trip.
 
 The spec's **Decision policy** is in force for the run: reversible calls are decided and
@@ -150,19 +154,21 @@ user's explicit go.
 
 ### The merge gate — per wave, once
 
-1. **Confirm HEAD is the integration branch** (`forge/<slug>`, or the current branch in
-   `local` mode). A merge onto a feature branch silently forks the line.
+1. **Confirm HEAD is the integration branch** (`forge/<slug>`, or the current branch with
+   no remote). A merge onto a feature branch silently forks the line.
 2. **Kill orphaned test processes** the wave's agents left behind.
-3. **Run the full suite and the e2e suite now**, on the integrated result. This is the only
-   place e2e runs. Compare its time and the new test count with the test budget in the
-   project `AGENTS.md`; over budget goes to the report as a finding to prune, not a stop.
-4. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
-   real regression, stop the run and report. Clears → log it as flaky (name + passed on retry)
-   and continue.
-5. Merge each verified feature branch into the integration branch in dependency order
+3. Merge each verified feature branch into the integration branch in dependency order
    (`git merge --no-ff`), no PR: a feature is not a reviewable unit by itself (§5d decides
    that), and CI runs once on the delivery PR, not once per feature. A conflict is yours to
-   resolve; re-run the targeted tests after it.
+   resolve.
+4. **Run the full suite and the e2e suite now**, on the merged result, after every wave
+   including the last. This is the only place e2e runs. Compare its time and the new test
+   count with the test budget in the project `AGENTS.md`; over budget goes to the report as
+   a finding to prune, not a stop.
+5. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
+   real regression: find the feature merge that caused it, revert that merge on the
+   integration branch, stop the run and report. Clears → log it as flaky (name + passed on
+   retry) and continue.
 6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
    evidence for the delivery PR body, which carries `Closes #<issue>`); update
    `.forge/run.json`.
@@ -210,8 +216,8 @@ integration branch before any PR exists, so findings are fixed before a reviewer
 ## 5d. Deliver
 
 Decide the PR boundaries by the rule in `$FORGE_HOME/docs/LIFECYCLE.md` § PR boundaries:
-one PR unless a split serves the reviewer. No remote or `local` mode → nothing to open; the
-work is already on the branch.
+one PR unless a split serves the reviewer. No remote → nothing to open; the work is already
+on the current branch.
 
 1. Push the integration branch. For a split, cut one branch per reviewable concern from the
    integration branch (parts with a build dependency stay together). Several PRs open in one

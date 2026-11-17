@@ -18,7 +18,7 @@ before touching code. Intermittent or already survived two fix attempts → this
 
 ## 2. Regression test first
 
-Write the test that encodes the correct behavior and FAILS on the current code. This is
+Start `fix/<slug>` now (the product's branch conventions win); never commit on main. Write the test that encodes the correct behavior and FAILS on the current code. This is
 non-negotiable — it pins the bug and proves the fix. Put it where the suite will run it
 forever.
 
@@ -36,8 +36,8 @@ one-liners with an obvious regression test may skip (say so when you do).
 
 ## 5. Deliver
 
-Work on `fix/<slug>` from the start, never on main. Push and open one PR (the symptom, root
-cause, the test that guards it, evidence). Boundaries, text and the human merge: the
+Push and open one PR (the symptom, root cause, the test that guards it, evidence). No remote:
+merge `--no-ff` locally. Boundaries, text and the human merge: the
 harness's `docs/LIFECYCLE.md` and the product's own standards. Wait for the required checks.
 `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"`
 resolves `$FORGE_HOME/docs/LIFECYCLE.md`.

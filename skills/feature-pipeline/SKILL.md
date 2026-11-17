@@ -26,5 +26,5 @@ entry. Usually `/forge:build` drives it; run it directly only for a raw independ
    isolation**: merge them, then run the full suite on the merged result.
 
 **Next →** integrate the passed branches and let `/forge:build` deliver them (PR boundaries:
-`docs/LIFECYCLE.md`; a passed feature is not automatically its own PR), then
+`$FORGE_HOME/docs/LIFECYCLE.md`; a passed feature is not automatically its own PR), then
 `/forge:deep-review` the integrated whole.
