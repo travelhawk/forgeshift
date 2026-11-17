@@ -192,7 +192,7 @@ integrated main — skip the review and recommend `/forge:deep-review` after mer
    overwrite of stored data (corrupt load then save, two tabs) and a destructive action that
    runs twice (double-click delete) are fixed here, whatever severity the review gave them,
    CONFIRMED or `unverified`. Never downgrade one to the report's medium/low list.
-3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed but IS
+3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed (except data safety, step 2) but IS
    ship-blocking. Medium/low go to the report.
 4. Skim `rejectedBlockers`. If a dismissal looks wrong, re-open it. List them in the report.
 5. **Visual walkthrough** (UI products, fail-soft): delegate to `forge-proof` per

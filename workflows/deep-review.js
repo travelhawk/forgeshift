@@ -164,17 +164,17 @@ if (answered.every(r => r.refused)) {
   return { error: `Refusing to review ${TARGET || 'the session working directory'}: ${answered[0].refused}. Pass the product directory explicitly: args {dir: "<absolute path>", scope: "..."}.` }
 }
 // Barrier is deliberate: dedup across dimensions before paying for verification.
-const seen = new Set()
-const raw = []
+const seen = new Map()
 for (const r of answered.filter(x => !x.refused)) {
   for (const f of r.findings || []) {
     const key = `${f.file}:${f.line ?? 'file'}:${f.summary.slice(0, 60).toLowerCase()}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    // Data-safety floor: a flagged finding is a ship-blocker whatever severity the reviewer gave it.
-    raw.push(f.data_safety && (f.severity === 'medium' || f.severity === 'low') ? { ...f, severity: 'high', severity_raised_from: f.severity } : f)
+    const kept = seen.get(key)
+    if (!kept) seen.set(key, { ...f })
+    else if (f.data_safety) kept.data_safety = true // a later lens flagged the same finding: keep the flag
   }
 }
+// Data-safety floor: a flagged finding is a ship-blocker whatever severity the reviewer gave it.
+const raw = [...seen.values()].map(f => (f.data_safety && (f.severity === 'medium' || f.severity === 'low') ? { ...f, severity: 'high', severity_raised_from: f.severity } : f))
 if (!raw.length) return { target: TARGET, confirmed: [], message: 'No findings survived the review pass.' }
 
 // Root-cause clustering (2026-09-11). The exact key above only catches verbatim repeats;
@@ -303,7 +303,7 @@ const unverified = done.filter(f => f.verdict === 'UNVERIFIED').sort(bySeverity)
 const rejectedBlockers = done
   .filter(f => f.verdict === 'REFUTED' && (f.severity === 'critical' || f.severity === 'high'))
   .sort(bySeverity)
-  .map(f => ({ file: f.file, line: f.line, severity: f.severity, summary: f.summary, failure_scenario: f.failure_scenario, refutation: (f.refutations || [])[0] || '' }))
+  .map(f => ({ file: f.file, line: f.line, severity: f.severity, summary: f.summary, failure_scenario: f.failure_scenario, ...(f.data_safety ? { data_safety: true } : {}), ...(f.severity_raised_from ? { severity_raised_from: f.severity_raised_from } : {}), refutation: (f.refutations || [])[0] || '' }))
 log(`${confirmed.length}/${findings.length} findings confirmed after adversarial verification` +
   (unverified.length ? `; ${unverified.length} unverified (verifier agents failed — treat as open, do not discard)` : '') +
   (rejectedBlockers.length ? `; ${rejectedBlockers.length} crit/high refuted — spot-check the dismissals` : ''))

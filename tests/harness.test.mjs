@@ -769,6 +769,11 @@ suite('2026-09-11 eval fixes', () => {
     assert.match(src, /f\.data_safety && \(f\.severity === 'medium' \|\| f\.severity === 'low'\) \? \{ \.\.\.f, severity: 'high'/, 'flagged medium/low is raised to high')
     const build = read('skills', 'build', 'SKILL.md')
     assert.match(build, /Data safety is always high, always fixed/, 'build finish auto-fixes data-safety findings at any severity')
+    assert.match(build, /CONFIRMED or `unverified`\. Never downgrade one/, 'unverified data-safety findings are fixed too, never downgraded')
+    assert.match(build, /every path that saves, loads or deletes\s+user\s+data/, 'the priority steer names data paths')
+    assert.match(build, /except data safety, step 2/, 'step 3 exempts data safety from the unverified no-auto-fix rule')
+    assert.match(src, /NEVER medium or low/, 'the severity rubric forbids a low rating')
+    assert.match(src, /never skip the data-safety sweep/, 'a risk steer cannot switch the sweep off')
   })
 
   // A failed T1 feature dropped its security verdict + evidence from failed[].
