@@ -34,9 +34,13 @@ an independent check, real parallelism, or keeping your own context clear.
   `forge/<slug>` from the baseline and work on it: features land there, never on `main`
   (`integration_mode: branch`, `integration_branch` recorded in run.json). Only with no
   remote is there no protected branch: integrate into the current branch
-  (`integration_mode: local`).
-- Write `.forge/run.json` (gitignored): `{run_id, command, baseline_sha, integration_mode,
-  known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
+  (`integration_mode: local`). A resumed run checks out the recorded integration branch and
+  creates none.
+- `.forge/` must be ignored: run `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .forge/`. It
+  changes nothing when `.forge/` is already ignored; otherwise (an adopted repo) it adds it to
+  the local `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
+- Write `.forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
+  integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
   authoritative; the file only speeds up `/forge:resume`.
 
@@ -167,7 +171,9 @@ user's explicit go.
    a finding to prune, not a stop.
 5. NEW failures versus the baseline: **re-run only those failing tests once**. Reproduces →
    real regression: find the feature merge that caused it, revert that merge on the
-   integration branch, stop the run and report. Clears → log it as flaky (name + passed on
+   integration branch, mark the feature `failed` in run.json and PROGRESS.md with the revert
+   SHA, stop the run and report. Bringing it back needs `git revert <revert-sha>` first; a
+   plain re-merge of the branch silently keeps the old code out. Clears → log it as flaky (name + passed on
    retry) and continue.
 6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
    evidence for the delivery PR body, which carries `Closes #<issue>`); update

@@ -72,7 +72,7 @@ writing the spec, the whole build and the finish. The build does **not** ask aga
   delivery PR body carries the evidence. Issues are for work that outlives the run, so
   only the ideas moved to a later version become issues (`gh issue create --label forge`,
   body = done-criteria + tier line, same shape `retire-progress.mjs` writes).
-- Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode, the wave plan
+- Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode and branch, the wave plan
   with every feature `pending`) so `/forge:resume` can recover a stopped run.
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.
 
