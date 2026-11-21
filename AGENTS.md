@@ -28,8 +28,10 @@ commit style, PR text, review routing, CI, docs layout. Forge's hard rules and t
 boundaries in `docs/LIFECYCLE.md` are not defaults; only the user's explicit word sets them
 aside. Read the product's standards at anchor and follow them; forge copies none of their
 content. Where they forbid a forge file (a playbook without SPEC/ADR/PROGRESS files, plans
-kept out of the repo), keep that content in the session or in the ignored `.agents/forge/` folder
-and state the outcome in the PR body. Name any forge rule set aside.
+kept out of the repo), keep that content in the session or in `.agents/forge/` and state the
+outcome in the PR body. Before writing there, make sure it is ignored:
+`node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local` (products older than 0.13 ignore only
+`.forge/`). Name any forge rule set aside.
 
 Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
 on it, identically in every lane. Full scheme: `docs/RISK-TIERS.md`

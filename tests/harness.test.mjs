@@ -698,7 +698,10 @@ suite('lane consistency + speed', () => {
   test('the session does the work; subagents only where fresh context pays', () => {
     const life = read('docs', 'LIFECYCLE.md')
     assert.match(life, /## Who does the work/, 'the principle is stated once')
-    assert.match(life, /needs 2–3 subagents from kickoff to ship/, 'the small-product budget is named')
+    assert.match(life, /needs 2–4 subagents from kickoff to ship/, 'the small-product budget is named')
+    assert.match(read('skills', 'feature-pipeline', 'SKILL.md'), /with `review_priority` as its `priority`/, 'direct pipeline use hands named surfaces to the review')
+    assert.match(build(), /evidence, surfaces}]}]/, 'named surfaces are saved in run state')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /every feature's `surfaces` from run.json as its priority/, 'a resumed finish keeps them')
     assert.match(read('skills', 'kickoff', 'SKILL.md'), /Draft the spec CONTENT yourself/, 'kickoff writes the spec in-session')
     assert.match(read('skills', 'next', 'SKILL.md'), /You turn the clarified ideas into features/, 'next decomposes in-session')
     assert.match(build(), /\*\*Yourself, fail-soft\*\*/, 'README in-session')

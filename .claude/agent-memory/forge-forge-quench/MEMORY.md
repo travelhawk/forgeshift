@@ -1,0 +1,1 @@
+- [Harness defect patterns (quench)](defect-patterns-harness.md) — shared-namespace ignore, moved checks losing state/lanes, self-defeating preconditions; sim probe trick

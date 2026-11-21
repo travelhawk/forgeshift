@@ -69,8 +69,8 @@ all open with green checks is **delivered**: report that, not "nothing to resume
 - Remaining features to build/merge → hand back to `/forge:build` for exactly those,
   reusing the recorded `baseline_sha`, `integration_mode` and `integration_branch` (no
   re-planning, no second gate, no new integration branch).
-- Only the finish left → run the `deep-review` finish (`/forge:build` §5), then deliver
-  (§5d), directly.
+- Only the finish left → run the `deep-review` finish (`/forge:build` §5), with the T1 paths
+  and every feature's `surfaces` from run.json as its priority, then deliver (§5d), directly.
 - A twice-failed feature → `/forge:fix` or `/forge:debug-hard`, never a third identical
   attempt.
 

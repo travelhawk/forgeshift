@@ -41,7 +41,9 @@ an independent check, real parallelism, or keeping your own context clear.
   `.agents/` is already ignored; otherwise (an adopted repo) it adds it to the local
   `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
 - Write `.agents/forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
-  integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
+  integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence, surfaces}]}], next}`.
+  `surfaces` holds the sensitive surfaces the builder named: the finish review's priority is
+  built from it, so it must survive a resume or a long run. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
   authoritative; the file only speeds up `/forge:resume`.
 
@@ -180,7 +182,7 @@ user's explicit go.
    retry) and continue.
 6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
    evidence for the delivery PR body, which carries `Closes #<issue>`); update
-   `.agents/forge/run.json`.
+   `.agents/forge/run.json`, with each feature's named `surfaces`.
 
 Per FAILED feature: record branch + issues, continue the wave. A failure blocks only its
 dependents. After the last wave, ONE retry round for failures that read fixable; whatever
@@ -199,8 +201,8 @@ Only on a completed run; a halted run reports the stop instead. The review runs 
 integration branch before any PR exists, so findings are fixed before a reviewer sees them.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
-   their paths, every named sensitive surface, and every path that saves, loads or deletes
-   user data>"}`. A small run adds `depth: "quick"`
+   their paths, every named sensitive surface (read from the `surfaces` in run.json, not from
+   memory), and every path that saves, loads or deletes user data>"}`. A small run adds `depth: "quick"`
    (one reviewer, one refuter: on a seeded-bug benchmark it found as much as the full review
    at a third of the tokens); a large run takes the full review. It is the first independent read of every T2/T3 feature,
    so never pass `mode: "integration"` here. A review that returns no

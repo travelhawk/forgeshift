@@ -66,7 +66,7 @@ The tag is plain text in the feature row, and the file wins over chat:
 - `PROGRESS.md`: `- [ ] F3 — Admin user list — **T3** (read-only, same-tenant) — <done-criteria>`
 - `docs/SPEC.md`: the **Risk** column, `T? (<signal>)`.
 
-`forge-blueprint` seeds the tags at kickoff/adopt/next. Override in three places: edit the
+The session seeds the tags at kickoff/adopt/next. Override in three places: edit the
 marker on disk (durable), adjust the tier shown in the start message of `/forge:build` (per batch),
 or run `/forge:feature F3 as tier 1` (per run).
 

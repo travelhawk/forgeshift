@@ -54,13 +54,13 @@ fresh read of the code, so it is spent only where a fresh context buys something
 
 | Reason | Where | Small product | Large product |
 |---|---|---|---|
-| **Independent check** — the builder never judges its own work | finish review; T1 security pass; harden audit | quick review (2) + audit if exposed (1) | full review (~9) + one pass per T1 feature + audit (1) |
+| **Independent check** — the builder never judges its own work | finish review; T1 security pass; harden audit and its one fix review | quick review (2) + audit if exposed (1, +1 if it found fixes) | full review (~9) + one pass per T1 feature + audit (1, +1 if it found fixes) |
 | **Real parallelism** | builders of independent features | none: built in order | one per parallel feature |
 | **Context protection** | anything that would flood the session | the session's call | the session's call |
 
 Everything else is inline, and the session decides when to delegate; no skill forces a
 specialist on it. A small product (about 6 features or fewer, code that fits the session's
-context) thus needs 2–3 subagents from kickoff to ship. The same autonomy holds for
+context) thus needs 2–4 subagents from kickoff to ship. The same autonomy holds for
 questions: the user is asked only at the approval boundaries below.
 
 ## PR boundaries
