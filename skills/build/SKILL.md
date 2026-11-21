@@ -36,9 +36,10 @@ an independent check, real parallelism, or keeping your own context clear.
   remote is there no protected branch: integrate into the current branch
   (`integration_mode: local`). A resumed run checks out the recorded integration branch and
   creates none.
-- `.agents/` must be ignored (run state lives in `.agents/forge/`): run
-  `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .agents/`. It changes nothing when
-  `.agents/` is already ignored; otherwise (an adopted repo) it adds it to the local
+- `.agents/forge/` (the run state) must be ignored, and only it: the rest of `.agents/`,
+  such as project skills, stays versioned. Run
+  `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .agents/forge/`. It changes nothing
+  when it is already ignored; otherwise (an adopted repo) it adds it to the local
   `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
 - Write `.agents/forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
   integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence, surfaces}]}], next}`.
