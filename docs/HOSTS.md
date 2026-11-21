@@ -40,6 +40,10 @@ node scripts/install.mjs --uninstall        # removes exactly what the manifest 
 | Claude Code | `claude plugin install forge@forge` | same, `--scope project` |
 
 Everything forge writes is prefixed `forge-`, so it never shadows your own skills or agents.
+
+Forge products ignore the whole `.agents/` folder: it holds forge's run state in
+`.agents/forge/`. So project skills in `<dir>/.agents/skills/` stay local too. To share them
+with a team, add `!.agents/skills/` to the product's `.gitignore` after the `.agents/` line.
 Re-running the installer replaces the harness copy and removes files a previous version
 wrote and this one does not. The manifest tracks each host separately: installing or
 removing one host never touches another's files. The harness copy is shared, so only the
