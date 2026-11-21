@@ -42,7 +42,7 @@ Sweep in this order and stop when each candidate has a locator:
 
 1. **The user's observation** — highest signal, but ask for the artifact, not the opinion.
 2. **This session's tool results** — failing commands, agent reports, per-agent `duration_ms`.
-3. **`.forge/run.json` stage marks and `PROGRESS.md` session logs** — repeated manual steps,
+3. **`.agents/forge/run.json` stage marks and `PROGRESS.md` session logs** — repeated manual steps,
    escalations, reverted work.
 4. **Harness `git log` since the last retro** — mid-build hot-fixes mark where the design was
    wrong; a revert is the strongest evidence there is.

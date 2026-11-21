@@ -393,10 +393,12 @@ suite('cost optimizations', () => {
 
   test('a stalled run is resumable: /forge:build writes run-state, /forge:resume reconciles it', () => {
     assert.ok(skills.includes('resume'), '/resume skill exists')
-    assert.match(read('skills', 'build', 'SKILL.md'), /\.forge\/run\.json/, '/forge writes .forge/run.json at boundaries')
-    assert.match(read('skills', 'next', 'SKILL.md'), /\.forge\/run\.json/, '/next writes it too')
+    assert.match(read('skills', 'build', 'SKILL.md'), /\.agents\/forge\/run\.json/, '/forge writes .agents/forge/run.json at boundaries')
+    assert.match(read('skills', 'next', 'SKILL.md'), /\.agents\/forge\/run\.json/, '/next writes it too')
     assert.match(read('skills', 'resume', 'SKILL.md'), /reconcile/i, '/resume reconciles run-state against git ground truth')
-    assert.match(read('.gitignore'), /^\.forge\/$/m, 'run-state is local-only (gitignored)')
+    assert.match(read('.gitignore'), /^\.agents\/$/m, 'run-state is local-only (gitignored)')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /Add `\.agents\/`\s+to the project `\.gitignore`/, 'products ignore the whole .agents/ folder')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /`\.forge\/run\.json`: read that instead/, 'resume still finds a run from an older forge')
   })
 })
 
@@ -1103,16 +1105,16 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
     try {
       const exclude = join(r.dir, '.git', 'info', 'exclude')
       writeFileSync(exclude, '# local\n*.log') // no trailing newline
-      assert.equal(ignoreLocal(r.dir), 'added', 'default path is .forge/')
-      assert.equal(ignoreLocal(r.dir, '.forge/'), 'already', 'second run changes nothing')
-      assert.equal(readFileSync(exclude, 'utf8'), '# local\n*.log\n.forge/\n', 'one entry, on its own line')
+      assert.equal(ignoreLocal(r.dir), 'added', 'default path is .agents/')
+      assert.equal(ignoreLocal(r.dir, '.agents/'), 'already', 'second run changes nothing')
+      assert.equal(readFileSync(exclude, 'utf8'), '# local\n*.log\n.agents/\n', 'one entry, on its own line')
       assert.equal(r.g('status', '--porcelain'), '', 'no tracked file touched')
-      mkdirSync(join(r.dir, '.forge')); writeFileSync(join(r.dir, '.forge', 'run.json'), '{}')
-      assert.equal(r.g('status', '--porcelain'), '', '.forge/ content is ignored')
+      mkdirSync(join(r.dir, '.agents', 'forge'), { recursive: true }); writeFileSync(join(r.dir, '.agents', 'forge', 'run.json'), '{}')
+      assert.equal(r.g('status', '--porcelain'), '', '.agents/ content is ignored')
     } finally { r.done() }
     const r2 = repo()
     try {
-      writeFileSync(join(r2.dir, '.gitignore'), '.forge/\n')
+      writeFileSync(join(r2.dir, '.gitignore'), '.agents/\n')
       r2.g('add', '.gitignore'); r2.g('commit', '-q', '-m', 'ignore')
       const exclude = join(r2.dir, '.git', 'info', 'exclude')
       const before = existsSync(exclude) ? readFileSync(exclude, 'utf8') : null
@@ -1127,8 +1129,8 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
       const cli = (...a) => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', ...a], { cwd: r.dir, encoding: 'utf8' })
       assert.match(cli('.agent/forge/'), /^IGNORED=added$/m)
       assert.match(cli('.agent/forge/'), /^IGNORED=already$/m, 'idempotent for a custom path')
-      assert.match(cli(), /^IGNORED=added$/m, 'the default .forge/ is separate')
-      assert.match(readFileSync(join(r.dir, '.git', 'info', 'exclude'), 'utf8'), /^\.agent\/forge\/\n\.forge\/\n$/m)
+      assert.match(cli(), /^IGNORED=added$/m, 'the default .agents/ is separate')
+      assert.match(readFileSync(join(r.dir, '.git', 'info', 'exclude'), 'utf8'), /^\.agent\/forge\/\n\.agents\/\n$/m)
       mkdirSync(join(r.dir, '.agent', 'forge'), { recursive: true }); writeFileSync(join(r.dir, '.agent', 'forge', 'run.json'), '{}')
       writeFileSync(join(r.dir, '.agent', 'keep.md'), 'x')
       assert.equal(r.g('status', '--porcelain', '-uall'), '?? .agent/keep.md', 'only the named folder is ignored')
@@ -1143,8 +1145,8 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
 
   test('build and resume call the script instead of doing the git work themselves', () => {
     const b = read('skills', 'build', 'SKILL.md'), r = read('skills', 'resume', 'SKILL.md')
-    assert.match(b, /forge-git\.mjs" ignore-local \.forge\//, 'build ignores .forge/ via the script')
-    assert.doesNotMatch(b, /add\s+`\.forge\/` to `\.git\/info\/exclude`/, 'no hand-edited exclude')
+    assert.match(b, /forge-git\.mjs" ignore-local \.agents\//, 'build ignores .agents/ via the script')
+    assert.doesNotMatch(b, /add\s+`\.agents\/` to `\.git\/info\/exclude`/, 'no hand-edited exclude')
     assert.match(r, /forge-git\.mjs" merge-state/, 'resume reads merge state via the script')
     assert.match(r, /revert of a revert/i, 'a restored feature reads as integrated')
   })

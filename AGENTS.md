@@ -28,7 +28,7 @@ commit style, PR text, review routing, CI, docs layout. Forge's hard rules and t
 boundaries in `docs/LIFECYCLE.md` are not defaults; only the user's explicit word sets them
 aside. Read the product's standards at anchor and follow them; forge copies none of their
 content. Where they forbid a forge file (a playbook without SPEC/ADR/PROGRESS files, plans
-kept out of the repo), keep that content in the session or in the ignored `.forge/` folder
+kept out of the repo), keep that content in the session or in the ignored `.agents/forge/` folder
 and state the outcome in the PR body. Name any forge rule set aside.
 
 Every feature carries a **risk tier** (T1/T2/T3) set at spec time; validation depth branches
@@ -166,7 +166,7 @@ permission check on CRLF and can corrupt args. No Workflow tool on your host? Sa
 `design-panel` fall back to an input file in the product root; write it before invoking,
 delete it after.
 
-**Run state.** `/forge:build` and `/forge:next` write `.forge/run.json` (gitignored) at each
+**Run state.** `/forge:build` and `/forge:next` write `.agents/forge/run.json` (gitignored) at each
 wave boundary; `/forge:resume` reads it. It accelerates recovery — git and `PROGRESS.md` (or the issues) stay
 authoritative, so staleness costs a reconcile, never a break.
 

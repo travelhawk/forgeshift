@@ -90,8 +90,9 @@ are approved.**
 ## 4. Scaffold (order matters)
 
 1. Run the playbook's scaffold commands non-interactively for the target dir.
-2. `git init` + initial commit of the clean scaffold, if the scaffolder didn't. Add `.forge/`
-   to the project `.gitignore` — local run state must never land in the product's history.
+2. `git init` + initial commit of the clean scaffold, if the scaffolder didn't. Add `.agents/`
+   to the project `.gitignore` — local agent state, forge's run state in `.agents/forge/`
+   included, must never land in the product's history.
 3. Write the held artifacts: `docs/SPEC.md` (approved draft), `AGENTS.md` from
    `$FORGE_HOME/templates/PROJECT-AGENTS.md` (real stack, commands, conventions) plus a
    one-line `CLAUDE.md` holding `@AGENTS.md` (Claude Code reads only that name),

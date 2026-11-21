@@ -27,8 +27,8 @@ Bugs go to `/forge:fix`; one that survives two attempts goes to `/forge:debug-ha
 | | Is | Lives in |
 |---|---|---|
 | **Feature** | A capability the user notices. Sets the done-criteria and the risk tier. | `docs/SPEC.md`, the tracker row |
-| **Work package** | A technically coherent unit of implementation: one builder, one branch. A feature is one or more; a package can serve several small features. | `.forge/run.json`, the branch |
-| **Wave** | An execution grouping: packages that can run in parallel. Absent when nothing is parallel. | `.forge/run.json` |
+| **Work package** | A technically coherent unit of implementation: one builder, one branch. A feature is one or more; a package can serve several small features. | `.agents/forge/run.json`, the branch |
+| **Wave** | An execution grouping: packages that can run in parallel. Absent when nothing is parallel. | `.agents/forge/run.json` |
 | **PR** | A meaningful change a reviewer can judge on its own. | GitHub |
 
 None implies another. Features and waves never open PRs; they land on an integration branch

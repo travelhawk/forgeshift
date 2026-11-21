@@ -69,11 +69,11 @@ writing the spec, the whole build and the finish. The build does **not** ask aga
 - Append the features to `docs/SPEC.md` and add matching F#-rows to `PROGRESS.md`, each with
   its tier marker and justification, unchecked. Point "Next session should" at this version.
   Issue phase: no `PROGRESS.md`, and **no issues for the slice being built now** — they would
-  be temporary steps; the slice lives in the spec rows and `.forge/run.json`, and the
+  be temporary steps; the slice lives in the spec rows and `.agents/forge/run.json`, and the
   delivery PR body carries the evidence. Issues are for work that outlives the run, so
   only the ideas moved to a later version become issues (`gh issue create --label forge`,
   body = done-criteria + tier line, same shape `retire-progress.mjs` writes).
-- Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode and branch, the wave plan
+- Write `.agents/forge/run.json` (`command: "/next"`, baseline SHA, integration mode and branch, the wave plan
   with every feature `pending`) so `/forge:resume` can recover a stopped run.
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.
 

@@ -36,10 +36,11 @@ an independent check, real parallelism, or keeping your own context clear.
   remote is there no protected branch: integrate into the current branch
   (`integration_mode: local`). A resumed run checks out the recorded integration branch and
   creates none.
-- `.forge/` must be ignored: run `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .forge/`. It
-  changes nothing when `.forge/` is already ignored; otherwise (an adopted repo) it adds it to
-  the local `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
-- Write `.forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
+- `.agents/` must be ignored (run state lives in `.agents/forge/`): run
+  `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .agents/`. It changes nothing when
+  `.agents/` is already ignored; otherwise (an adopted repo) it adds it to the local
+  `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
+- Write `.agents/forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
   integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
   authoritative; the file only speeds up `/forge:resume`.
@@ -106,7 +107,7 @@ it verbatim in the start message, and write it into the spec; an objection stops
 ## 3. Build — you orchestrate, fresh context only where it pays
 
 **Timestamp every stage boundary** with `date +%s` — wave start, builds done, checks done,
-merges done — into `.forge/run.json`. §6 reports wall-clock from those marks.
+merges done — into `.agents/forge/run.json`. §6 reports wall-clock from those marks.
 
 You are the orchestrator, and a capable builder yourself. Per wave, decide who builds:
 
@@ -179,7 +180,7 @@ user's explicit go.
    retry) and continue.
 6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
    evidence for the delivery PR body, which carries `Closes #<issue>`); update
-   `.forge/run.json`.
+   `.agents/forge/run.json`.
 
 Per FAILED feature: record branch + issues, continue the wave. A failure blocks only its
 dependents. After the last wave, ONE retry round for failures that read fixable; whatever
@@ -271,4 +272,4 @@ branch that conflicts beyond a safe resolution and that later waves depend on.
 
 `/forge:build` never force-pushes, never merges a feature that failed verification, and
 never weakens a test to get green. It never merges into a protected branch. On any stop,
-`.forge/run.json` holds the state for `/forge:resume`.
+`.agents/forge/run.json` holds the state for `/forge:resume`.
