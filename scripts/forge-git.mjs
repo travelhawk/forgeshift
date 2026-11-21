@@ -16,7 +16,8 @@
 //     <baseline_sha>..HEAD are read.
 //   node scripts/forge-git.mjs ignore-local [<path>]
 //     -> IGNORED=already|added
-//     Makes git ignore <path> (default `.forge/`, the run-state folder). Already ignored
+//     Makes git ignore <path> (default `.agents/forge/`, forge's run state; the rest of
+//     `.agents/`, e.g. project skills, stays versioned). Already ignored
 //     (e.g. by .gitignore) -> no change. Otherwise appends <path> to the repo's local
 //     `.git/info/exclude`, which never touches the product's tracked files. Safe to run
 //     any number of times.
@@ -84,8 +85,8 @@ export function mergeState(cwd, branch, baseline) {
   return { state, merges: merges.map(m => m.sha) }
 }
 
-// Make git ignore <path> (default `.forge/`) without touching tracked files.
-export function ignoreLocal(cwd, path = '.forge/') {
+// Make git ignore <path> (default `.agents/forge/`) without touching tracked files.
+export function ignoreLocal(cwd, path = '.agents/forge/') {
   if (!path || /[\r\n]/.test(path) || path.startsWith('#') || path.startsWith('!')) {
     throw new Error(`forge-git: not a plain path to ignore: ${JSON.stringify(path)}`)
   }

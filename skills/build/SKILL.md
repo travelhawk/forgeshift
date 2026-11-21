@@ -36,11 +36,15 @@ an independent check, real parallelism, or keeping your own context clear.
   remote is there no protected branch: integrate into the current branch
   (`integration_mode: local`). A resumed run checks out the recorded integration branch and
   creates none.
-- `.forge/` must be ignored: run `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .forge/`. It
-  changes nothing when `.forge/` is already ignored; otherwise (an adopted repo) it adds it to
-  the local `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
-- Write `.forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
-  integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence}]}], next}`. Update
+- `.agents/forge/` (the run state) must be ignored, and only it: the rest of `.agents/`,
+  such as project skills, stays versioned. Run
+  `node "$FORGE_HOME/scripts/forge-git.mjs" ignore-local .agents/forge/`. It changes nothing
+  when it is already ignored; otherwise (an adopted repo) it adds it to the local
+  `.git/info/exclude` and leaves the product's files alone. Safe to re-run.
+- Write `.agents/forge/run.json`: `{run_id, command, baseline_sha, integration_mode,
+  integration_branch, known_red, waves:[{n, features:[{id, tier, branch, status, pr, evidence, surfaces}]}], next}`.
+  `surfaces` holds the sensitive surfaces the builder named: the finish review's priority is
+  built from it, so it must survive a resume or a long run. Update
   it at every wave boundary, with `next` naming the exact resume action. Git stays
   authoritative; the file only speeds up `/forge:resume`.
 
@@ -106,7 +110,7 @@ it verbatim in the start message, and write it into the spec; an objection stops
 ## 3. Build — you orchestrate, fresh context only where it pays
 
 **Timestamp every stage boundary** with `date +%s` — wave start, builds done, checks done,
-merges done — into `.forge/run.json`. §6 reports wall-clock from those marks.
+merges done — into `.agents/forge/run.json`. §6 reports wall-clock from those marks.
 
 You are the orchestrator, and a capable builder yourself. Per wave, decide who builds:
 
@@ -129,11 +133,13 @@ is the reference):
   and names any sensitive surface in it (authn/authz, a tenant boundary, external input,
   secrets, raw SQL or shell, output another program interprets).
   Raises depth only, never lowers it.
-- **The independent check.** T1, and any feature with a named surface, gets ONE fresh-context
-  security pass (`forge-warden`) on its diff; for T1 it also proves the done-criteria on their
-  failure paths. In a small run this pass is skipped: the finish review covers it, with the
-  T1 paths and named surfaces as its priority. The builder never checks its own work:
-  everything else is checked by the merge gate's full suite and the finish review.
+- **The independent check.** In a large run each T1 feature gets ONE fresh-context security
+  pass (`forge-warden`) on its diff, which also proves the done-criteria on their failure
+  paths. A named surface on a T2/T3 feature does not get its own pass: it goes into the
+  finish review's priority, which reads every line anyway. In a small run the T1 pass is
+  skipped too: the finish review covers it, with the T1 paths as its priority.
+  The builder never checks its own work: everything else is checked by the merge gate's full
+  suite and the finish review.
 
 How to run it:
 
@@ -177,7 +183,7 @@ user's explicit go.
    retry) and continue.
 6. Tick PROGRESS.md per integrated feature with its evidence (issue phase: collect the
    evidence for the delivery PR body, which carries `Closes #<issue>`); update
-   `.forge/run.json`.
+   `.agents/forge/run.json`, with each feature's named `surfaces`.
 
 Per FAILED feature: record branch + issues, continue the wave. A failure blocks only its
 dependents. After the last wave, ONE retry round for failures that read fixable; whatever
@@ -196,8 +202,8 @@ Only on a completed run; a halted run reports the stop instead. The review runs 
 integration branch before any PR exists, so findings are fixed before a reviewer sees them.
 
 1. Fire `deep-review`: `{dir, scope: "git diff <baseline>..HEAD", priority: "<T1 features +
-   their paths, every named sensitive surface, and every path that saves, loads or deletes
-   user data>"}`. A small run adds `depth: "quick"`
+   their paths, every named sensitive surface (read from the `surfaces` in run.json, not from
+   memory), and every path that saves, loads or deletes user data>"}`. A small run adds `depth: "quick"`
    (one reviewer, one refuter: on a seeded-bug benchmark it found as much as the full review
    at a third of the tokens); a large run takes the full review. It is the first independent read of every T2/T3 feature,
    so never pass `mode: "integration"` here. A review that returns no
@@ -211,13 +217,14 @@ integration branch before any PR exists, so findings are fixed before a reviewer
 3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed (except data safety, step 2) but IS
    ship-blocking. Medium/low go to the report.
 4. Skim `rejectedBlockers`. If a dismissal looks wrong, re-open it. List them in the report.
-5. **Visual walkthrough** (UI products, fail-soft): delegate to `forge-proof` per
-   `$FORGE_HOME/docs/FINISH.md`.
+5. **Visual walkthrough** (UI products, fail-soft): yourself, per
+   `$FORGE_HOME/docs/FINISH.md` (`forge-proof` only to keep your context clear).
 
 ## 5c. Documentation pass
 
-**`forge-etcher`, fail-soft.** It rewrites the README from the SHIPPED reality, per
-`$FORGE_HOME/docs/FINISH.md`. **Verify every command it documents by running it.**
+**Yourself, fail-soft** (`forge-etcher` only for a large docs set). Rewrite the README from
+the SHIPPED reality, per `$FORGE_HOME/docs/FINISH.md`.
+**Verify every command it documents by running it.**
 
 ## 5d. Deliver
 
@@ -268,4 +275,4 @@ branch that conflicts beyond a safe resolution and that later waves depend on.
 
 `/forge:build` never force-pushes, never merges a feature that failed verification, and
 never weakens a test to get green. It never merges into a protected branch. On any stop,
-`.forge/run.json` holds the state for `/forge:resume`.
+`.agents/forge/run.json` holds the state for `/forge:resume`.

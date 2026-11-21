@@ -393,10 +393,13 @@ suite('cost optimizations', () => {
 
   test('a stalled run is resumable: /forge:build writes run-state, /forge:resume reconciles it', () => {
     assert.ok(skills.includes('resume'), '/resume skill exists')
-    assert.match(read('skills', 'build', 'SKILL.md'), /\.forge\/run\.json/, '/forge writes .forge/run.json at boundaries')
-    assert.match(read('skills', 'next', 'SKILL.md'), /\.forge\/run\.json/, '/next writes it too')
+    assert.match(read('skills', 'build', 'SKILL.md'), /\.agents\/forge\/run\.json/, '/forge writes .agents/forge/run.json at boundaries')
+    assert.match(read('skills', 'next', 'SKILL.md'), /\.agents\/forge\/run\.json/, '/next writes it too')
     assert.match(read('skills', 'resume', 'SKILL.md'), /reconcile/i, '/resume reconciles run-state against git ground truth')
-    assert.match(read('.gitignore'), /^\.forge\/$/m, 'run-state is local-only (gitignored)')
+    assert.match(read('.gitignore'), /^\.agents\/forge\/$/m, 'run-state is local-only (gitignored)')
+    assert.doesNotMatch(read('.gitignore'), /^\.agents\/$/m, 'the rest of .agents/ (project skills) stays versioned')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /Add\s+`\.agents\/forge\/` to the project `\.gitignore`/, 'products ignore only .agents/forge/')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /`\.forge\/run\.json`: read that instead/, 'resume still finds a run from an older forge')
   })
 })
 
@@ -586,11 +589,13 @@ suite('review improvements', () => {
 
   // #2 The seeded tier is checked against the BUILT diff by the verifier itself; a T2/T3
   // that touched a security surface gets a security pass (raises depth, never lowers it).
-  test('the builder names sensitive surfaces; a named surface adds a security pass', () => {
+  test('the builder names sensitive surfaces; they go to the finish review, not to a per-feature pass', () => {
     assert.match(fp(), /required: \[[^\]]*'sensitive_surfaces'/, 'every build report must name the surfaces')
     assert.match(fp(), /read your own diff \(git diff --merge-base HEAD/, 'the builder reads its own diff')
     assert.match(fp(), /Name it even when you handled it well/, 'naming is framed as cheap, so it is not under-reported')
-    assert.match(fp(), /if \(f\.tier !== 'T1' && !surfaces\.length\) return row\('pass', \[\]\)/, 'no surface -> no security pass')
+    assert.match(fp(), /if \(f\.tier !== 'T1'\) return row\('pass', \[\]\)/, 'only T1 spends a per-feature security pass')
+    assert.match(fp(), /review_priority: escalated\.map/, 'named surfaces are handed to the finish review')
+    assert.match(build(), /goes into the\s+finish review's priority/, '/forge:build routes them there')
     assert.match(build(), /tier escalation/i, '/forge:build report surfaces escalations')
   })
 
@@ -687,6 +692,27 @@ suite('lane consistency + speed', () => {
     assert.match(proj, /\*\*CI in two levels\.\*\* Feature branches/, 'feature-branch CI is tighter than main')
     assert.match(read('skills', 'kickoff', 'SKILL.md'), /Avoid fixed ports where the stack allows it/, 'kickoff scaffolds free ports where it can')
     assert.match(read('agents', 'forge-blueprint.md'), /A feature is a whole capability, not a step/, 'features are coarse')
+  })
+
+  // Autonomy: the session does every phase itself; a subagent only buys an independent check,
+  // real parallelism or context protection. A small product needs 2-3 from kickoff to ship.
+  test('the session does the work; subagents only where fresh context pays', () => {
+    const life = read('docs', 'LIFECYCLE.md')
+    assert.match(life, /## Who does the work/, 'the principle is stated once')
+    assert.match(life, /needs 2–4 subagents from kickoff to ship/, 'the small-product budget is named')
+    assert.match(read('skills', 'feature-pipeline', 'SKILL.md'), /with `review_priority` as its `priority`/, 'direct pipeline use hands named surfaces to the review')
+    assert.match(build(), /evidence, surfaces}]}]/, 'named surfaces are saved in run state')
+    assert.match(read('skills', 'resume', 'SKILL.md'), /every feature's `surfaces` from run.json as its priority/, 'a resumed finish keeps them')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /Draft the spec CONTENT yourself/, 'kickoff writes the spec in-session')
+    assert.match(read('skills', 'next', 'SKILL.md'), /You turn the clarified ideas into features/, 'next decomposes in-session')
+    assert.match(build(), /\*\*Yourself, fail-soft\*\*/, 'README in-session')
+    assert.match(read('docs', 'FINISH.md'), /Do it yourself\. Hand it to `forge-proof` only/, 'walkthrough in-session')
+    assert.match(read('skills', 'harden', 'SKILL.md'), /ONE\s+`forge-quench` pass reviews the combined security diff/, 'one review for all fixes')
+    const ship = read('skills', 'ship', 'SKILL.md')
+    assert.match(ship, /runs the same six\s+gates \*\*yourself\*\*/, 'small products gate inline')
+    assert.match(ship, /a gate\s+you did not run counts as failed/, 'the inline gate stays fail-closed')
+    assert.match(ship, /the release commit is metadata only: `git diff --name-only HEAD~1 HEAD`/, 'the unreviewed release commit is proven metadata-only by a command')
+    assert.match(ship, /CHANGELOG entry for this version, written by you/)
   })
 
   // Phases, not a fixed pipeline: the session model decides when fresh context pays.
@@ -1084,16 +1110,17 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
     try {
       const exclude = join(r.dir, '.git', 'info', 'exclude')
       writeFileSync(exclude, '# local\n*.log') // no trailing newline
-      assert.equal(ignoreLocal(r.dir), 'added', 'default path is .forge/')
-      assert.equal(ignoreLocal(r.dir, '.forge/'), 'already', 'second run changes nothing')
-      assert.equal(readFileSync(exclude, 'utf8'), '# local\n*.log\n.forge/\n', 'one entry, on its own line')
+      assert.equal(ignoreLocal(r.dir), 'added', 'default path is .agents/forge/')
+      assert.equal(ignoreLocal(r.dir, '.agents/forge/'), 'already', 'second run changes nothing')
+      assert.equal(readFileSync(exclude, 'utf8'), '# local\n*.log\n.agents/forge/\n', 'one entry, on its own line')
       assert.equal(r.g('status', '--porcelain'), '', 'no tracked file touched')
-      mkdirSync(join(r.dir, '.forge')); writeFileSync(join(r.dir, '.forge', 'run.json'), '{}')
-      assert.equal(r.g('status', '--porcelain'), '', '.forge/ content is ignored')
+      mkdirSync(join(r.dir, '.agents', 'forge'), { recursive: true }); writeFileSync(join(r.dir, '.agents', 'forge', 'run.json'), '{}')
+      mkdirSync(join(r.dir, '.agents', 'skills', 'team'), { recursive: true }); writeFileSync(join(r.dir, '.agents', 'skills', 'team', 'SKILL.md'), 'x')
+      assert.equal(r.g('status', '--porcelain', '-uall'), '?? .agents/skills/team/SKILL.md', 'run state ignored, project skills stay versionable')
     } finally { r.done() }
     const r2 = repo()
     try {
-      writeFileSync(join(r2.dir, '.gitignore'), '.forge/\n')
+      writeFileSync(join(r2.dir, '.gitignore'), '.agents/forge/\n')
       r2.g('add', '.gitignore'); r2.g('commit', '-q', '-m', 'ignore')
       const exclude = join(r2.dir, '.git', 'info', 'exclude')
       const before = existsSync(exclude) ? readFileSync(exclude, 'utf8') : null
@@ -1108,8 +1135,8 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
       const cli = (...a) => execFileSync(process.execPath, [p('scripts', 'forge-git.mjs'), 'ignore-local', ...a], { cwd: r.dir, encoding: 'utf8' })
       assert.match(cli('.agent/forge/'), /^IGNORED=added$/m)
       assert.match(cli('.agent/forge/'), /^IGNORED=already$/m, 'idempotent for a custom path')
-      assert.match(cli(), /^IGNORED=added$/m, 'the default .forge/ is separate')
-      assert.match(readFileSync(join(r.dir, '.git', 'info', 'exclude'), 'utf8'), /^\.agent\/forge\/\n\.forge\/\n$/m)
+      assert.match(cli(), /^IGNORED=added$/m, 'the default .agents/forge/ is separate')
+      assert.match(readFileSync(join(r.dir, '.git', 'info', 'exclude'), 'utf8'), /^\.agent\/forge\/\n\.agents\/forge\/\n$/m)
       mkdirSync(join(r.dir, '.agent', 'forge'), { recursive: true }); writeFileSync(join(r.dir, '.agent', 'forge', 'run.json'), '{}')
       writeFileSync(join(r.dir, '.agent', 'keep.md'), 'x')
       assert.equal(r.g('status', '--porcelain', '-uall'), '?? .agent/keep.md', 'only the named folder is ignored')
@@ -1124,8 +1151,8 @@ suite('forge-git.mjs: merge state and .forge ignore', () => {
 
   test('build and resume call the script instead of doing the git work themselves', () => {
     const b = read('skills', 'build', 'SKILL.md'), r = read('skills', 'resume', 'SKILL.md')
-    assert.match(b, /forge-git\.mjs" ignore-local \.forge\//, 'build ignores .forge/ via the script')
-    assert.doesNotMatch(b, /add\s+`\.forge\/` to `\.git\/info\/exclude`/, 'no hand-edited exclude')
+    assert.match(b, /forge-git\.mjs" ignore-local \.agents\/forge\//, 'build ignores .agents/forge/ via the script')
+    assert.doesNotMatch(b, /add\s+`\.agents\/(forge\/)?` to `\.git\/info\/exclude`/, 'no hand-edited exclude')
     assert.match(r, /forge-git\.mjs" merge-state/, 'resume reads merge state via the script')
     assert.match(r, /revert of a revert/i, 'a restored feature reads as integrated')
   })

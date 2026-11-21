@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Resume a stalled /forge:build or /forge:next run - read .forge/run.json, reconcile it against git and open PRs, and state the exact next action (which wave, which merge, which fix). Use after a run died mid-way (rate limit, crash, closed session) or when unsure where a batch left off.
+description: Resume a stalled /forge:build or /forge:next run - read .agents/forge/run.json, reconcile it against git and open PRs, and state the exact next action (which wave, which merge, which fix). Use after a run died mid-way (rate limit, crash, closed session) or when unsure where a batch left off.
 argument-hint: "[optional: product path or run note]"
 disable-model-invocation: true
 ---
@@ -8,7 +8,7 @@ disable-model-invocation: true
 # /forge:resume — where did the run stop, and what's next
 
 Recover a `/forge:build` / `/forge:next` run that stopped mid-way — without re-planning or
-branch archaeology. **Git is ground truth; `.forge/run.json` is the map that makes reading
+branch archaeology. **Git is ground truth; `.agents/forge/run.json` is the map that makes reading
 it fast.** A missing or stale map never blocks recovery — step 2 rebuilds the truth from
 git.
 
@@ -18,7 +18,8 @@ git.
 - Harness assets and scripts ship with the plugin, not the product: resolve their home once
   with `FORGE_HOME="${FORGE_HOME:-${CLAUDE_PLUGIN_ROOT:-$(forge-home 2>/dev/null || ls -d ~/.claude/plugins/cache/forge/forge/*/ | sort -V | tail -1)}}"` and read them as
   `$FORGE_HOME/<path>`.
-- Read `.forge/run.json` if present — the run-state `/forge:build`/`/forge:next` write at
+- Read `.agents/forge/run.json` if present (a run from an older forge left it in
+  `.forge/run.json`: read that instead) — the run-state `/forge:build`/`/forge:next` write at
   each boundary: `baseline_sha`, `integration_mode`, the wave plan, and each feature's
   last-known status. Absent/stale is fine; it only saves work, it is not trusted.
 
@@ -68,8 +69,8 @@ all open with green checks is **delivered**: report that, not "nothing to resume
 - Remaining features to build/merge → hand back to `/forge:build` for exactly those,
   reusing the recorded `baseline_sha`, `integration_mode` and `integration_branch` (no
   re-planning, no second gate, no new integration branch).
-- Only the finish left → run the `deep-review` finish (`/forge:build` §5), then deliver
-  (§5d), directly.
+- Only the finish left → run the `deep-review` finish (`/forge:build` §5), with the T1 paths
+  and every feature's `surfaces` from run.json as its priority, then deliver (§5d), directly.
 - A twice-failed feature → `/forge:fix` or `/forge:debug-hard`, never a third identical
   attempt.
 

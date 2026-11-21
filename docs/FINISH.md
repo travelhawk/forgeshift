@@ -7,8 +7,9 @@ conditions: a failure is a note in the run report, never a block on `/forge:ship
 
 ## Visual walkthrough (UI products only)
 
-Delegate to `forge-proof`. Brief: the product path, the dev-server command from the product
-`AGENTS.md`, the core journey and shipped features from `docs/SPEC.md`.
+Do it yourself. Hand it to `forge-proof` only when driving the app would flood your context;
+then brief: the product path, the dev-server command from the product `AGENTS.md`, the core
+journey and shipped features from `docs/SPEC.md`.
 
 Done means:
 - one Playwright video (`.webm`) per main user flow in `docs/walkthroughs/videos/` — one flow
@@ -21,11 +22,12 @@ Done means:
 
 No runnable web UI (CLI, API, library) → report "no UI to capture" and stop.
 
-## Documentation pass (`forge-etcher`)
+## Documentation pass
 
 Nothing else in the build loop owns the README, so a scaffold ships with its generator's
-boilerplate unless this pass replaces it. Delegate to `forge-etcher`. Brief: the product path,
-`docs/SPEC.md`, `PROGRESS.md`, the manifest scripts.
+boilerplate unless this pass replaces it. Write it yourself: you know what was built. Hand it
+to `forge-etcher` only for a large docs set; then brief: the product path, `docs/SPEC.md`,
+`PROGRESS.md`, the manifest scripts.
 
 Done means:
 - `README.md` describes the shipped product: what it does, how to start, the real scripts,

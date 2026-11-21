@@ -130,26 +130,26 @@ suite('orchestration shape (agent budgets)', () => {
     assert.equal(t3builds.length, 2, 'T3 builds on Sonnet')
   })
 
-  test('feature-pipeline: a builder-flagged sensitive surface adds a security pass, fail-closed', async () => {
+  test('feature-pipeline: a builder-flagged surface goes to review_priority; only T1 spends a security pass', async () => {
     const built = n => ({ branch: `feature/wf-${n}-sim`, summary: 's', tests_passing: true, evidence: 'e', deviations: [], pr_title: 't', pr_body: 'b' })
     const flagged = n => ({ ...built(n), sensitive_surfaces: ['raw SQL in src/x.js'] })
-    // Feature 3 (T2) and feature 5 (T3) flag a surface: 2 T1 passes + 2 escalations.
+    // Feature 3 (T2) and feature 5 (T3) flag a surface: still only the 2 T1 passes.
     const hit = await run('feature-pipeline', 'feature-pipeline',
       featurePipelineResponder({ 'build:3': flagged(3), 'build:5': flagged(5) }))
-    assert.equal(hit.calls.filter(c => c.label.startsWith('security:')).length, 4)
-    assert.equal(hit.result.passed.filter(p => p.escalated).length, 2, 'both escalations are reported')
-    assert.deepEqual(hit.result.passed.find(p => p.feature === 'export').security_surfaces, ['raw SQL in src/x.js'])
-    // The security pass fails: the feature fails, even though its builder's tests passed.
+    assert.equal(hit.calls.filter(c => c.label.startsWith('security:')).length, 2, 'no per-feature pass for T2/T3')
+    assert.equal(hit.result.passed.filter(p => p.escalated).length, 2, 'both flags are reported')
+    assert.deepEqual(hit.result.review_priority, [
+      { feature: 'export', surfaces: ['raw SQL in src/x.js'] }, { feature: 'landing', surfaces: ['raw SQL in src/x.js'] },
+    ], 'the finish review gets them as its priority')
+    // A failed T1 security pass still blocks its feature.
     const blocked = await run('feature-pipeline', 'feature-pipeline', featurePipelineResponder({
-      'build:3': flagged(3), 'security:3': { verdict: 'fail', issues: ['injection'], evidence: 'e' },
+      'security:1': { verdict: 'fail', issues: ['injection'], evidence: 'e' },
     }))
     assert.equal(blocked.result.passed.length, 5)
-    assert.equal(blocked.result.failed[0].feature, 'export', 'a failed security pass blocks the feature')
     assert.deepEqual(blocked.result.failed[0].issues, ['injection'])
-    // Red tests: the feature fails at once, no security pass is spent on it.
+    // Red tests: the feature fails at once.
     const red = await run('feature-pipeline', 'feature-pipeline',
       featurePipelineResponder({ 'build:3': { ...flagged(3), tests_passing: false, deviations: ['parser broken'] } }))
-    assert.equal(red.calls.filter(c => c.label.startsWith('security:')).length, 2, 'T1 only')
     assert.ok(red.result.failed[0].issues.includes('parser broken'))
   })
 

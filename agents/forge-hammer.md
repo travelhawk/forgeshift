@@ -70,5 +70,5 @@ an unprovable criterion reported as open is worth more than a green one that isn
 Then read your own diff (`git diff --merge-base HEAD <your branch>`) and name every
 security-sensitive surface in it: authn/authz, a tenant or user data boundary, raw SQL or
 shell, secrets or tokens, an external-input parser, output another program interprets. Name
-it even when you handled it well: naming only buys a fresh security pass, the one review your
-feature gets before the finish.
+it even when you handled it well: naming only buys a second look — a fresh security pass in
+`/forge:feature`, the finish review's priority in `/forge:build`.

@@ -1,10 +1,10 @@
 export const meta = {
   name: 'feature-pipeline',
-  description: 'Build independent features in parallel: one agent per feature in its own worktree; T1 and sensitive diffs get a fresh security pass',
+  description: 'Build independent features in parallel: one agent per feature in its own worktree; T1 features get a fresh security pass',
   whenToUse: 'A batch of INDEPENDENT features in a git repo with at least one commit; dependent features belong in one entry. Args: {dir: "<product path>", forge_home, features: [...], context, known_failures}. dir pins the target repo (without it the session working directory is the target). An entry is a string (tier T2 by default; "[T1] add password reset" sets it) or {feature, tier, done_criteria}. The tier sets build depth and whether a security pass follows (docs/RISK-TIERS.md). known_failures names the tests already red at baseline. If args may not arrive intact, write the same object to feature-pipeline.input.json in the target repo root; it is read as a fallback.',
   phases: [
     { title: 'Build', detail: 'one agent per feature: plans inline, tests first, commits to its own branch' },
-    { title: 'Verify', detail: 'T1, or a diff its builder flags as sensitive: one fresh-context security pass. The rest is checked at the merge gate and the finish review' },
+    { title: 'Verify', detail: 'T1: one fresh-context security pass. Sensitive surfaces a T2/T3 builder names are returned for the finish review; the rest is checked at the merge gate and the finish review' },
   ],
 }
 
@@ -173,20 +173,18 @@ const TEST_DEPTH = {
   T3: 'one smoke test: it builds/renders and the happy path works; budget: 1 new test case',
 }
 
-// The one fresh-context pass per feature: always for T1, and for a T2/T3 whose builder
-// named a sensitive surface. The tier came from the description; the diff is the truth.
-const securityCheck = (i, branch, f, surfaces) => agent(
-  `Fresh-context SECURITY verification` +
-  (surfaces
-    ? ` of a feature whose diff touches a security-sensitive surface its risk tier did not budget for: ${JSON.stringify(surfaces)}. `
-    : ` of a HIGH-RISK (T1) feature. `) +
+// The one fresh-context pass per feature, T1 only. A sensitive surface a T2/T3 builder
+// names goes to the finish review's priority instead: that review reads every line anyway,
+// so a per-feature pass would pay for a second fresh read of the same code.
+const securityCheck = (i, branch, f) => agent(
+  `Fresh-context SECURITY verification of a HIGH-RISK (T1) feature. ` +
   `You did not build it; the builder's report is a claim, not evidence. ${detachedWorktree(i, branch)} ` +
   `Read the diff (git diff --merge-base HEAD "${branch}" from the target repo) and the code it touches. Hunt ` +
   `for real, reachable vulnerabilities: broken or missing authz/authn, tenant/user-boundary escapes, data the ` +
   `caller must not see, injection, secrets in code, unsafe deserialization, path traversal / SSRF on external ` +
   `input, missing signature or idempotency checks on webhooks, session/token handling flaws. ` +
-  (surfaces ? '' : `Also prove the done-criteria on their failure and edge paths with quick checks of your own; a ` +
-    `criterion that does not hold is a fail. `) +
+  `Also prove the done-criteria on their failure and edge paths with quick checks of your own; a ` +
+  `criterion that does not hold is a fail. ` +
   `Verdict 'fail' with the concrete attack path or broken criterion; 'pass' only after an honest look that ` +
   `found none. If a test fails, re-run just that test once: a failure that clears is flaky — note it, do not ` +
   `fail on it.\n` + knownRedNote +
@@ -225,17 +223,17 @@ const results = await pipeline(
         `name each security-sensitive surface in it — authn/authz, a tenant or user data boundary, raw SQL or ` +
         `shell/eval, secret or token handling, a webhook or external-input parser, file paths or URLs from user ` +
         `input, crypto, output another program interprets. Name it even when you handled it well: naming only ` +
-        `buys a second look.`),
+        `puts it in the finish review's priority.`),
     { label: `build:${i + 1}`, phase: 'Build', schema: BUILD, ...buildOpts(f.tier) },
   ),
-  // 2. Verify — the builder's own tests gate every feature. T1, and a T2/T3 that named a
-  //    sensitive surface, add one fresh security pass, combined fail-closed.
+  // 2. Verify — the builder's own tests gate every feature. T1 adds one fresh security
+  //    pass, combined fail-closed. Named surfaces travel to the finish review.
   (b, f, i) => {
     if (!b) return null
     const surfaces = f.tier === 'T1' ? [] : (Array.isArray(b.sensitive_surfaces) ? b.sensitive_surfaces : [])
     const row = (verdict, issues, sec) => ({
       feature: f.feature, tier: f.tier, build: b, surfaces,
-      escalated: f.tier !== 'T1' && !!sec,
+      escalated: f.tier !== 'T1' && surfaces.length > 0,
       refused: (b.deviations || []).some(d => /^REFUSED:/.test(d)),
       check: {
         verdict, issues,
@@ -249,8 +247,8 @@ const results = await pipeline(
       return row('fail', [`builder reported no feature/wf-* branch (got "${b.branch || ''}"): the work was not committed`, ...(b.deviations || [])])
     }
     if (!b.tests_passing) return row('fail', ['the builder could not get its tests green', ...(b.deviations || [])])
-    if (f.tier !== 'T1' && !surfaces.length) return row('pass', [])
-    return securityCheck(i, b.branch, f, f.tier === 'T1' ? null : surfaces).then(sec => sec
+    if (f.tier !== 'T1') return row('pass', [])
+    return securityCheck(i, b.branch, f).then(sec => sec
       ? row(sec.verdict === 'pass' ? 'pass' : 'fail', sec.verdict === 'pass' ? [] : sec.issues, sec)
       // Fail-closed: a security pass that did not complete never passes on silence.
       : row('fail', ['security pass agent failed — treat as unverified, do not merge'], { verdict: 'missing', evidence: 'security pass agent failed' }))
@@ -273,7 +271,7 @@ if (done.every(r => r.refused)) {
 const passed = done.filter(r => r.check.verdict === 'pass')
 const escalated = done.filter(r => r.escalated)
 log(`${passed.length}/${features.length} features passed` +
-  (escalated.length ? `; ${escalated.length} got a security pass for a sensitive surface in the diff` : '') +
+  (escalated.length ? `; ${escalated.length} named a sensitive surface: put them in the finish review's priority` : '') +
   (lost.length ? `; ${lost.length} lost before verification` : ''))
 
 // Actual output-token spend, so the orchestrator reports real cost against its estimate.
@@ -290,5 +288,7 @@ return {
   // A failed feature keeps its evidence and write-up: whoever decides the next step needs
   // what was proven, not only what broke.
   failed: [...done.filter(r => r.check.verdict !== 'pass').map(r => ({ ...out(r), issues: r.check.issues })), ...lost],
-  note: 'Branches are unmerged. Each was tested by its builder; T1 and flagged diffs also got a fresh security pass. Merge them, then run the full suite on the merged result: no agent has tested the whole. /forge:build does the integration and the finish review. Delete feature-pipeline.input.json if it was used. After an interrupted run: git worktree prune, then check feature/wf-* branches for committed work before deleting any.',
+  // Hand these to the finish review as its priority: no agent has looked at them yet.
+  review_priority: escalated.map(r => ({ feature: r.feature, surfaces: r.surfaces })),
+  note: 'Branches are unmerged. Each was tested by its builder; T1 features also got a fresh security pass. Pass review_priority to the finish review. Merge them, then run the full suite on the merged result: no agent has tested the whole. /forge:build does the integration and the finish review. Delete feature-pipeline.input.json if it was used. After an interrupted run: git worktree prune, then check feature/wf-* branches for committed work before deleting any.',
 }

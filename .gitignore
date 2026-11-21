@@ -7,9 +7,13 @@ projects/
 .claude/settings.local.json
 .claude/agent-memory-local/
 
-# Ephemeral run-state written by /forge and /next, read by /resume. Local-only in every
-# repo (product AND harness): git branches + PROGRESS.md are the source of truth, this is
-# just the accelerator map. Products gitignore it too (kickoff wires that in).
+# Local agent state. forge's run state (.agents/forge/run.json, written by /forge:build and
+# /forge:next, read by /forge:resume) lives here. Local-only in every repo (product AND
+# harness): git branches + PROGRESS.md are the source of truth, this is just the
+# accelerator map. Products gitignore it too (kickoff wires that in). Only the forge
+# subfolder: the rest of .agents/ (project skills) is versioned. .forge/ is where older
+# runs left it.
+.agents/forge/
 .forge/
 
 # Project-specific agent memory stays private — the shared harness ships only

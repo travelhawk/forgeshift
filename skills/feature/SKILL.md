@@ -29,8 +29,8 @@ list several.
 
 - **Small or clear** (the done-criteria say what to build): no separate plan. Whoever builds
   reads the code and plans inline.
-- **T1, a new subsystem or a data-model change**: delegate the plan to `forge-blueprint` (or
-  write it yourself on the session model), record it as `docs/features/F<#>.md` from
+- **T1, a new subsystem or a data-model change**: write the plan yourself (`forge-blueprint`
+  only when the code to read would flood your context), record it as `docs/features/F<#>.md` from
   `$FORGE_HOME/templates/FEATURE.md` and **build on it**. It stops for the user only if it
   contains a one-way door or changes what the user gets (`$FORGE_HOME/docs/LIFECYCLE.md` § Approval
   boundaries); a reversible design call is decided and logged.

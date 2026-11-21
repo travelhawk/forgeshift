@@ -1,8 +1,9 @@
 # Release Kit — <product> <version>
 
 > Store/listing assets for this release. Lives in the product at
-> `docs/release-kit/<version>/`. Texts: `forge-etcher` from `docs/SPEC.md` +
-> CHANGELOG. Images: `forge-proof` from the running app — real data, no lorem.
+> `docs/release-kit/<version>/`. Texts from `docs/SPEC.md` + CHANGELOG. Images from
+> the running app — real data, no lorem. Written by the session; `forge-etcher` /
+> `forge-proof` only to keep its context clear.
 > Check off only what applies to the product's distribution channels.
 
 ## Texts — one set per shipped language (i18n list from the spec)

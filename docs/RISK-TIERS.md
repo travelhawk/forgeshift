@@ -31,16 +31,17 @@ T2's "side effects" means effects that outlive the tab or cross a boundary.
 | | T1 | T2 | T3 |
 |---|---|---|---|
 | Builder's tests | happy path + explicit failure and edge cases, ≤ 8 new cases | happy path + top failure path, ≤ 4 new cases | one smoke test |
-| Per-feature review | a fresh security pass that also proves the failure paths | none, unless the diff names a sensitive surface | none, unless the diff names a sensitive surface |
+| Independent security read | a fresh pass that also proves the failure paths (in a small `/forge:build` run: the finish review, T1 first) | only when the diff names a sensitive surface | only when the diff names a sensitive surface |
 | E2E | at most one spec, only for what no other layer reaches | rarely | none |
 
 Tier sets test *depth*, never who runs what: every builder's gate is typecheck + lint + the
 tests covering its diff (`AGENTS.md` hard rules 2–3). The tag came from the description; the
 diff is the truth. So in both lanes (`feature-pipeline` and the direct `/forge:feature` loop)
 the builder of a T2/T3 reads its own diff and names any sensitive surface in it, and a named
-surface adds the security pass. It only ever raises depth. Depth depends on tier and diff,
-never on which lane built it. The `/forge:build` finish review sweeps every tier, T1 paths
-first.
+surface gets an independent security read: in `/forge:build` as the finish review's priority
+(that review reads every line anyway), in `/forge:feature` as its own security pass. It only
+ever raises depth. Depth depends on tier and diff, never on which lane built it. The
+`/forge:build` finish review sweeps every tier, T1 paths first.
 
 A T1 change never skips verify, however small: a 5-line auth-cookie change is still T1.
 
@@ -65,7 +66,7 @@ The tag is plain text in the feature row, and the file wins over chat:
 - `PROGRESS.md`: `- [ ] F3 — Admin user list — **T3** (read-only, same-tenant) — <done-criteria>`
 - `docs/SPEC.md`: the **Risk** column, `T? (<signal>)`.
 
-`forge-blueprint` seeds the tags at kickoff/adopt/next. Override in three places: edit the
+The session seeds the tags at kickoff/adopt/next. Override in three places: edit the
 marker on disk (durable), adjust the tier shown in the start message of `/forge:build` (per batch),
 or run `/forge:feature F3 as tier 1` (per run).
 

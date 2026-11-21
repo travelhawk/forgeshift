@@ -35,10 +35,11 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
   - A large ask → propose which slice is *this* version and what moves to a later one.
   - "du entscheidest" / "you decide" → decide and record the decision.
 
-## 2. Decompose & tier (`forge-blueprint`)
+## 2. Decompose & tier
 
-`forge-blueprint` turns the clarified ideas into features and a wave plan. It returns
-markdown; nothing lands on disk before §4.
+You turn the clarified ideas into features and a wave plan, by the feature rules in
+`$FORGE_HOME/agents/forge-blueprint.md`; hand it to `forge-blueprint` only when the code to
+read would flood your context. Nothing lands on disk before §4.
 
 - **Right-size**: a feature is a whole capability a user notices, not a step. It builds and
   tests on its own, with 2–5 done-criteria. Prefer fewer, larger features; too much for one
@@ -68,11 +69,11 @@ writing the spec, the whole build and the finish. The build does **not** ask aga
 - Append the features to `docs/SPEC.md` and add matching F#-rows to `PROGRESS.md`, each with
   its tier marker and justification, unchecked. Point "Next session should" at this version.
   Issue phase: no `PROGRESS.md`, and **no issues for the slice being built now** — they would
-  be temporary steps; the slice lives in the spec rows and `.forge/run.json`, and the
+  be temporary steps; the slice lives in the spec rows and `.agents/forge/run.json`, and the
   delivery PR body carries the evidence. Issues are for work that outlives the run, so
   only the ideas moved to a later version become issues (`gh issue create --label forge`,
   body = done-criteria + tier line, same shape `retire-progress.mjs` writes).
-- Write `.forge/run.json` (`command: "/next"`, baseline SHA, integration mode and branch, the wave plan
+- Write `.agents/forge/run.json` (`command: "/next"`, baseline SHA, integration mode and branch, the wave plan
   with every feature `pending`) so `/forge:resume` can recover a stopped run.
 - Commit: `docs: plan V<n> — <theme> (<N> features)`.
 

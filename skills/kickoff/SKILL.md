@@ -7,8 +7,8 @@ disable-model-invocation: true
 
 # /forge:kickoff — Idea → Spec → Stack → Scaffold
 
-Take "$ARGUMENTS" from idea to a project ready for its first build. You interview and
-orchestrate; `forge-blueprint` does the heavy thinking.
+Take "$ARGUMENTS" from idea to a project ready for its first build. You interview, write the
+spec and scaffold yourself: you already hold the interview, and a hand-off would lose it.
 
 ## 0. Locate
 
@@ -42,8 +42,9 @@ matching this product type (that file only). No index or no match → skip silen
 
 ## 2. Spec draft
 
-`forge-blueprint` drafts the spec CONTENT from the interview, following
-`$FORGE_HOME/templates/SPEC.md`. It returns markdown; hold it — it lands on disk in step 4.
+Draft the spec CONTENT yourself from the interview, following `$FORGE_HOME/templates/SPEC.md`
+and the feature rules in `forge-blueprint` (`$FORGE_HOME/agents/forge-blueprint.md`). Hold
+the markdown — it lands on disk in step 4.
 
 **Present it without making the user open an editor:** publish the draft as an **artifact**
 (Artifact tool; unavailable → link a scratchpad `.md`). Link it beside a short in-chat summary
@@ -89,8 +90,10 @@ are approved.**
 ## 4. Scaffold (order matters)
 
 1. Run the playbook's scaffold commands non-interactively for the target dir.
-2. `git init` + initial commit of the clean scaffold, if the scaffolder didn't. Add `.forge/`
-   to the project `.gitignore` — local run state must never land in the product's history.
+2. `git init` + initial commit of the clean scaffold, if the scaffolder didn't. Add
+   `.agents/forge/` to the project `.gitignore` — forge's local run state must never land in
+   the product's history. Only that subfolder: project skills in `.agents/skills/` are
+   versioned.
 3. Write the held artifacts: `docs/SPEC.md` (approved draft), `AGENTS.md` from
    `$FORGE_HOME/templates/PROJECT-AGENTS.md` (real stack, commands, conventions) plus a
    one-line `CLAUDE.md` holding `@AGENTS.md` (Claude Code reads only that name),
