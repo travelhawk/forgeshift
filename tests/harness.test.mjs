@@ -707,6 +707,7 @@ suite('lane consistency + speed', () => {
     const ship = read('skills', 'ship', 'SKILL.md')
     assert.match(ship, /runs the same six\s+gates \*\*yourself\*\*/, 'small products gate inline')
     assert.match(ship, /a gate\s+you did not run counts as failed/, 'the inline gate stays fail-closed')
+    assert.match(ship, /the release commit is metadata only: `git diff --name-only HEAD~1 HEAD`/, 'the unreviewed release commit is proven metadata-only by a command')
     assert.match(ship, /CHANGELOG entry for this version, written by you/)
   })
 

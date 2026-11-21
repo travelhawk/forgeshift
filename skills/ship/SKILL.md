@@ -40,8 +40,14 @@ the shell `cd`; their agents run against `dir`.
 **A small product** (`$FORGE_HOME/docs/LIFECYCLE.md` § Who does the work) runs the same six
 gates **yourself** instead, in the workflow's order, with the gate tasks in
 `release-gate.js` as the checklist. Paste each gate's command and decisive output; a gate
-you did not run counts as failed. The security gate passes only when the finish review or
-`/forge:harden` already read every commit since the last tag; otherwise fire the workflow.
+you did not run counts as failed. The security gate passes inline only when both hold,
+otherwise fire the workflow:
+
+- the finish review or `/forge:harden` already read every commit from the last tag up to
+  the release commit (the release commit itself comes after any review);
+- the release commit is metadata only: `git diff --name-only HEAD~1 HEAD` lists nothing but
+  the CHANGELOG and the manifests, and `git diff HEAD~1 HEAD` on the manifests changes only
+  version fields. Paste both outputs. A command proves this, so no one self-certifies it.
 
 **NO-SHIP verdict blocks the release. Fix the blockers and re-run; never override.**
 If a gate was `skipped` because the project lacks the tooling (no linter configured),
