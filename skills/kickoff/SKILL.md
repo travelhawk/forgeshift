@@ -7,8 +7,8 @@ disable-model-invocation: true
 
 # /forge:kickoff — Idea → Spec → Stack → Scaffold
 
-Take "$ARGUMENTS" from idea to a project ready for its first build. You interview and
-orchestrate; `forge-blueprint` does the heavy thinking.
+Take "$ARGUMENTS" from idea to a project ready for its first build. You interview, write the
+spec and scaffold yourself: you already hold the interview, and a hand-off would lose it.
 
 ## 0. Locate
 
@@ -42,8 +42,9 @@ matching this product type (that file only). No index or no match → skip silen
 
 ## 2. Spec draft
 
-`forge-blueprint` drafts the spec CONTENT from the interview, following
-`$FORGE_HOME/templates/SPEC.md`. It returns markdown; hold it — it lands on disk in step 4.
+Draft the spec CONTENT yourself from the interview, following `$FORGE_HOME/templates/SPEC.md`
+and the feature rules in `forge-blueprint` (`$FORGE_HOME/agents/forge-blueprint.md`). Hold
+the markdown — it lands on disk in step 4.
 
 **Present it without making the user open an editor:** publish the draft as an **artifact**
 (Artifact tool; unavailable → link a scratchpad `.md`). Link it beside a short in-chat summary

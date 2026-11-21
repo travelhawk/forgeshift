@@ -129,11 +129,13 @@ is the reference):
   and names any sensitive surface in it (authn/authz, a tenant boundary, external input,
   secrets, raw SQL or shell, output another program interprets).
   Raises depth only, never lowers it.
-- **The independent check.** T1, and any feature with a named surface, gets ONE fresh-context
-  security pass (`forge-warden`) on its diff; for T1 it also proves the done-criteria on their
-  failure paths. In a small run this pass is skipped: the finish review covers it, with the
-  T1 paths and named surfaces as its priority. The builder never checks its own work:
-  everything else is checked by the merge gate's full suite and the finish review.
+- **The independent check.** In a large run each T1 feature gets ONE fresh-context security
+  pass (`forge-warden`) on its diff, which also proves the done-criteria on their failure
+  paths. A named surface on a T2/T3 feature does not get its own pass: it goes into the
+  finish review's priority, which reads every line anyway. In a small run the T1 pass is
+  skipped too: the finish review covers it, with the T1 paths as its priority.
+  The builder never checks its own work: everything else is checked by the merge gate's full
+  suite and the finish review.
 
 How to run it:
 
@@ -211,13 +213,14 @@ integration branch before any PR exists, so findings are fixed before a reviewer
 3. **Fail closed on `unverified`**: an unverified critical/high is not auto-fixed (except data safety, step 2) but IS
    ship-blocking. Medium/low go to the report.
 4. Skim `rejectedBlockers`. If a dismissal looks wrong, re-open it. List them in the report.
-5. **Visual walkthrough** (UI products, fail-soft): delegate to `forge-proof` per
-   `$FORGE_HOME/docs/FINISH.md`.
+5. **Visual walkthrough** (UI products, fail-soft): yourself, per
+   `$FORGE_HOME/docs/FINISH.md` (`forge-proof` only to keep your context clear).
 
 ## 5c. Documentation pass
 
-**`forge-etcher`, fail-soft.** It rewrites the README from the SHIPPED reality, per
-`$FORGE_HOME/docs/FINISH.md`. **Verify every command it documents by running it.**
+**Yourself, fail-soft** (`forge-etcher` only for a large docs set). Rewrite the README from
+the SHIPPED reality, per `$FORGE_HOME/docs/FINISH.md`.
+**Verify every command it documents by running it.**
 
 ## 5d. Deliver
 

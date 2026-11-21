@@ -46,6 +46,23 @@ inside the run. Only **delivery** opens PRs.
 
 A run moves through the phases without asking. Phase 2 → 3 is not a checkpoint.
 
+## Who does the work
+
+The session agent runs every phase and does the work itself: the spec, the plan, the
+build, the walkthrough, the README, the CHANGELOG, the release checks. A subagent costs a
+fresh read of the code, so it is spent only where a fresh context buys something:
+
+| Reason | Where | Small product | Large product |
+|---|---|---|---|
+| **Independent check** — the builder never judges its own work | finish review; T1 security pass; harden audit | quick review (2) + audit if exposed (1) | full review (~9) + one pass per T1 feature + audit (1) |
+| **Real parallelism** | builders of independent features | none: built in order | one per parallel feature |
+| **Context protection** | anything that would flood the session | the session's call | the session's call |
+
+Everything else is inline, and the session decides when to delegate; no skill forces a
+specialist on it. A small product (about 6 features or fewer, code that fits the session's
+context) thus needs 2–3 subagents from kickoff to ship. The same autonomy holds for
+questions: the user is asked only at the approval boundaries below.
+
 ## PR boundaries
 
 One run, one delivery branch, **one PR by default**. Never one PR per feature by default.

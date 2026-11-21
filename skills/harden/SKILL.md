@@ -14,7 +14,8 @@ Delegate to `forge-warden` with the scope, what the app does, and where the sens
 surfaces are (auth, payments, uploads, admin). It returns confirmed findings with attack
 paths and a "needs a second look" list.
 
-In parallel, run a robustness sweep yourself or via a second agent:
+The audit is the one agent here: a fresh read is the point of it. In parallel, run the
+robustness sweep yourself:
 
 - Boundary validation: every external input (HTTP, CLI args, file uploads, webhooks)
   validated at entry — and ONLY there; no paranoia layers inside.
@@ -37,8 +38,9 @@ PROGRESS.md.
 ## 3. Fix
 
 Fix approved findings through the normal quality loop — regression test that encodes
-the attack (the test attacks, the fix defends), then the fix, then `forge-quench` on
-the security-relevant diffs. Security fixes get review without exception.
+the attack (the test attacks, the fix defends), then the fix. When all fixes are in, ONE
+`forge-quench` pass reviews the combined security diff, not one reviewer per fix. Security
+fixes get review without exception.
 
 ## 4. Close
 

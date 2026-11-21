@@ -35,10 +35,11 @@ and read `$FORGE_HOME/skills/build/SKILL.md` now: its sections are referenced be
   - A large ask → propose which slice is *this* version and what moves to a later one.
   - "du entscheidest" / "you decide" → decide and record the decision.
 
-## 2. Decompose & tier (`forge-blueprint`)
+## 2. Decompose & tier
 
-`forge-blueprint` turns the clarified ideas into features and a wave plan. It returns
-markdown; nothing lands on disk before §4.
+You turn the clarified ideas into features and a wave plan, by the feature rules in
+`$FORGE_HOME/agents/forge-blueprint.md`; hand it to `forge-blueprint` only when the code to
+read would flood your context. Nothing lands on disk before §4.
 
 - **Right-size**: a feature is a whole capability a user notices, not a step. It builds and
   tests on its own, with 2–5 done-criteria. Prefer fewer, larger features; too much for one

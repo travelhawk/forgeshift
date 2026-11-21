@@ -586,11 +586,13 @@ suite('review improvements', () => {
 
   // #2 The seeded tier is checked against the BUILT diff by the verifier itself; a T2/T3
   // that touched a security surface gets a security pass (raises depth, never lowers it).
-  test('the builder names sensitive surfaces; a named surface adds a security pass', () => {
+  test('the builder names sensitive surfaces; they go to the finish review, not to a per-feature pass', () => {
     assert.match(fp(), /required: \[[^\]]*'sensitive_surfaces'/, 'every build report must name the surfaces')
     assert.match(fp(), /read your own diff \(git diff --merge-base HEAD/, 'the builder reads its own diff')
     assert.match(fp(), /Name it even when you handled it well/, 'naming is framed as cheap, so it is not under-reported')
-    assert.match(fp(), /if \(f\.tier !== 'T1' && !surfaces\.length\) return row\('pass', \[\]\)/, 'no surface -> no security pass')
+    assert.match(fp(), /if \(f\.tier !== 'T1'\) return row\('pass', \[\]\)/, 'only T1 spends a per-feature security pass')
+    assert.match(fp(), /review_priority: escalated\.map/, 'named surfaces are handed to the finish review')
+    assert.match(build(), /goes into the\s+finish review's priority/, '/forge:build routes them there')
     assert.match(build(), /tier escalation/i, '/forge:build report surfaces escalations')
   })
 
@@ -687,6 +689,23 @@ suite('lane consistency + speed', () => {
     assert.match(proj, /\*\*CI in two levels\.\*\* Feature branches/, 'feature-branch CI is tighter than main')
     assert.match(read('skills', 'kickoff', 'SKILL.md'), /Avoid fixed ports where the stack allows it/, 'kickoff scaffolds free ports where it can')
     assert.match(read('agents', 'forge-blueprint.md'), /A feature is a whole capability, not a step/, 'features are coarse')
+  })
+
+  // Autonomy: the session does every phase itself; a subagent only buys an independent check,
+  // real parallelism or context protection. A small product needs 2-3 from kickoff to ship.
+  test('the session does the work; subagents only where fresh context pays', () => {
+    const life = read('docs', 'LIFECYCLE.md')
+    assert.match(life, /## Who does the work/, 'the principle is stated once')
+    assert.match(life, /needs 2–3 subagents from kickoff to ship/, 'the small-product budget is named')
+    assert.match(read('skills', 'kickoff', 'SKILL.md'), /Draft the spec CONTENT yourself/, 'kickoff writes the spec in-session')
+    assert.match(read('skills', 'next', 'SKILL.md'), /You turn the clarified ideas into features/, 'next decomposes in-session')
+    assert.match(build(), /\*\*Yourself, fail-soft\*\*/, 'README in-session')
+    assert.match(read('docs', 'FINISH.md'), /Do it yourself\. Hand it to `forge-proof` only/, 'walkthrough in-session')
+    assert.match(read('skills', 'harden', 'SKILL.md'), /ONE\s+`forge-quench` pass reviews the combined security diff/, 'one review for all fixes')
+    const ship = read('skills', 'ship', 'SKILL.md')
+    assert.match(ship, /runs the same six\s+gates \*\*yourself\*\*/, 'small products gate inline')
+    assert.match(ship, /a gate\s+you did not run counts as failed/, 'the inline gate stays fail-closed')
+    assert.match(ship, /CHANGELOG entry for this version, written by you/)
   })
 
   // Phases, not a fixed pipeline: the session model decides when fresh context pays.

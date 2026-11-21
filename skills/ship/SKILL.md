@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Release gate and deploy - prepares the release commit (CHANGELOG, version bump), runs the automated release-gate workflow, walks the manual checklist, then tags and deploys per the project playbook.
+description: Release gate and deploy - prepares the release commit (CHANGELOG, version bump), runs the release gate (the workflow, or the same checks inline for a small product), walks the manual checklist, then tags and deploys per the project playbook.
 argument-hint: "[version or release note, e.g. v0.2.0 first public beta]"
 disable-model-invocation: true
 ---
@@ -22,9 +22,8 @@ the product. Resolve their home once and reuse it this session:
 
 ## 1. Prepare the release commit (before any gate — the gate checks these)
 
-1. CHANGELOG entry for this version: user-visible effects, not implementation notes
-   (`forge-etcher` if it's more than a few lines). No CHANGELOG file yet (first
-   release)? Create it now.
+1. CHANGELOG entry for this version, written by you: user-visible effects, not
+   implementation notes. No CHANGELOG file yet (first release)? Create it now.
 2. Bump the version consistently across all manifests.
 3. Commit: `release: <version>`.
 
@@ -37,6 +36,12 @@ Claude Code: the Workflow tool with that file as `scriptPath`; any other host: `
 tests → build → runtime smoke sequentially, each returning evidence, and fails closed
 (a gate that doesn't report blocks). The `dir` arg is required — workflows do NOT follow
 the shell `cd`; their agents run against `dir`.
+
+**A small product** (`$FORGE_HOME/docs/LIFECYCLE.md` § Who does the work) runs the same six
+gates **yourself** instead, in the workflow's order, with the gate tasks in
+`release-gate.js` as the checklist. Paste each gate's command and decisive output; a gate
+you did not run counts as failed. The security gate passes only when the finish review or
+`/forge:harden` already read every commit since the last tag; otherwise fire the workflow.
 
 **NO-SHIP verdict blocks the release. Fix the blockers and re-run; never override.**
 If a gate was `skipped` because the project lacks the tooling (no linter configured),
@@ -59,15 +64,15 @@ so). Copy the filled checklist to `docs/releases/<version>.md`.
 
 Store/listing assets into `docs/release-kit/<version>/` per
 `$FORGE_HOME/templates/RELEASE-KIT.md`. Libraries/CLIs/APIs: skip, say so. Unchanged
-since last release → copy forward, refresh "What's new" + changed screens only. Run both
-in parallel:
+since last release → copy forward, refresh "What's new" + changed screens only. Do both
+yourself; hand one to `forge-etcher` or `forge-proof` only to keep your context clear:
 
-- **Texts** — `forge-etcher` from `docs/SPEC.md` + CHANGELOG: name, subtitle/short
-  description, long description, keywords, what's-new — within store char limits,
-  one set per shipped language. Web: OG title/description + landing copy.
-- **Images** — `forge-proof` from the RUNNING app (reuse the walkthrough machinery
-  from `/forge:build` §5b where present): screenshots at store sizes, feature graphic /
-  OG image. Real data on screen, never lorem.
+- **Texts** — from `docs/SPEC.md` + CHANGELOG: name, subtitle/short description, long
+  description, keywords, what's-new — within store char limits, one set per shipped
+  language. Web: OG title/description + landing copy.
+- **Images** — from the RUNNING app (reuse the walkthrough machinery from `/forge:build`
+  §5b where present): screenshots at store sizes, feature graphic / OG image. Real data on
+  screen, never lorem.
 
 **Store-distributed products (mobile/desktop stores): an incomplete kit blocks the
 release** — the submission literally requires it. Web products: kit is default-on,
